@@ -30,6 +30,7 @@ A CSR successor table over link ids (`0 .. 2 × road_count`), built from the `Ne
 - `succ_start: Vec<u32>` has length `link_count + 1`, and `succ: Vec<Succ>`, where `Succ { to: LinkId, penalty: f32 }`.
 - **Turns:** add `Network::turns(&self, node) -> Vec<(LinkId, LinkId, TurnKind)>`. It is uncached and uses M3's candidate and turn-kind logic (tangents, bans, U-turn rule) without building Béziers or conflicts. Junctions stay lazy, and routing never builds them.
 - **Successors:** for every active link `a`, the successors are the turns at `link_to(a)` with `from == a`, in `to` order.
+  - Build by iterating nodes once: call `turns(node)` a single time per node, count first, then fill the CSR.
   - The penalty is `LEFT_TURN_PENALTY` for `Left`, `UTURN_PENALTY` for `UTurn`, and 0 otherwise.
 - **Predecessors:** `pred_start`/`pred` form the reverse CSR, where `Pred { from: a, penalty }` is stored under `b`. Backward relaxation from `b` to `a` costs `free_time(b) + penalty`, where `b` is the link being popped.
 - **Build:** `RouteGraph::build(network: &Network) -> RouteGraph` records `network.version()` in `built_version`, and costs O(links).
@@ -59,6 +60,7 @@ A CSR successor table over link ids (`0 .. 2 × road_count`), built from the `Ne
   3. Each next landmark is the link maximising the minimum forward distance from the landmarks chosen so far, over reachable links. Ties go to the lowest id.
      - The forward Dijkstra from each chosen landmark is exactly `from_l[L]`, so reuse it. That makes 1 + 8 + 8 Dijkstras in total.
   4. Stop at `LANDMARK_COUNT`, or earlier if no reachable link remains.
+  5. If the seed reaches fewer than half of the active links (for example a one-way sink, or a fragment of a region), reseed from the lowest unreached active link and use the largest reachable set. Try at most 4 seeds.
 - `Landmarks::count()` is exposed. The bench and the region test assert `count() == LANDMARK_COUNT` when the graph has at least that many links.
 - The build time is printed by `route_bench`. Expect 2–5 s in wasm on the real map.
 - **Tables** for each landmark `L`:
@@ -79,7 +81,7 @@ A CSR successor table over link ids (`0 .. 2 × road_count`), built from the `Ne
 
 ```rust
 pub struct Router { g: Vec<f64>, parent: Vec<u32>, stamp: Vec<u32>, epoch: u32, heap: BinaryHeap<HeapItem> }
-pub struct RouteStats { pub queries: u64, pub expanded: u64, pub nanos: u64 }
+pub struct RouteStats { pub queries: u64, pub expanded: u64 }
 ```
 
 - **`route_into(&mut self, ctx: RouteContext, from: LinkId, to: LinkId, out: &mut Vec<LinkId>) -> bool`:**

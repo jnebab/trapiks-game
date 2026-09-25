@@ -261,7 +261,7 @@ Budgets are counts, never time, so they stay deterministic.
 3. New spawns get at most 4 route computations per step.
 4. Spawns that don't fit wait in the queue.
 
-Invariant: the bounded route work per step, (4 + 4) × the average A* time, stays within 4 ms, inside the 12 ms native city-step target. A* must average ≤ 0.5 ms per trip, and the M7 bench asserts both numbers. If the M7 bench misses that, M7 adds ALT: 8 landmarks chosen by farthest-point order from node 0, with ties broken by id. The landmark bounds are computed on free-flow costs, so they stay admissible because EMA costs never drop below free-flow.
+Invariant: the bounded route work per step, (4 + 4) × the average A* time, stays within 4 ms, inside the 12 ms native city-step target. A* must average ≤ 0.5 ms per trip, and the M7 bench asserts both numbers. M7a uses ALT from the start: 8 landmarks chosen by farthest-point order, seeded from the lowest active link id, with ties broken by id. The landmark bounds are computed on free-flow costs, so they stay admissible because EMA costs never drop below free-flow.
 
 #### Demand
 

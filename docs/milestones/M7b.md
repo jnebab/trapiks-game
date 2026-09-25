@@ -82,7 +82,9 @@ pub struct SimConfig { pub seed: u64, pub mode: SimMode, pub vehicles_per_hour: 
 ## Stats (`src/stats.rs`)
 
 - **Per vehicle:** `free_flow: Vec<f64>`, set at spawn to `Σ free_time(link)` over the route.
-  - After a reroute: `elapsed + (span_end − s) / free_speed(current link) + Σ free_time` over the new route's remaining links.
+  - After a reroute: `elapsed + current-place term + Σ free_time` over the new route's remaining links.
+  - On a link, the current-place term is `(span_end − s) / free_speed(current link)`.
+  - In a movement, it is `(length − s) / free_speed(route[cursor+1])`.
 - **`StatsWindow`:** `start_tick`, `created`, `arrivals`, `travel_sum`, `delay_sum`, `accrued_delay`, `spawned`, `unserved`, `stranded`, with `reset(tick)`.
   - An **arrival** is a despawn at the end of the last link. It adds `travel = (tick − spawn_tick) × DT` and `delay = max(0, travel − free_flow)`.
   - `accrued_delay` grows every step by `Σ DT × max(0, 1 − v/v0)` over live vehicles.
@@ -103,7 +105,7 @@ pub struct SimConfig { pub seed: u64, pub mode: SimMode, pub vehicles_per_hour: 
 5. **Rebuild the occupancy.**
 6. **Spawn from the link queues.** New vehicles go into `pending`.
    - A pending vehicle is always the lowest `s` on its lane, so no existing vehicle needs it as a leader.
-   - `index_of` returns a pending sentinel for it, and `leader()` then uses `last_on` over the sorted range of its key.
+   - `index_of` returns `None` for it. `leader()` then uses the last entry of `range(key)` (which excludes pending), never `last_on`.
 7. Zone bookkeeping, decisions, acceleration, integration and transitions (M5 and M6).
 8. Stats accrual, EMA accumulation and refresh, and compaction, then `tick += 1`.
 
@@ -127,7 +129,7 @@ Update `FOUR_WAY_HASH_5000`, because the hash inputs changed.
    - `unserved` equals the number fed.
 5. **`region_mode`:** on `grid_city(20×20 @ 150)` with a region of radius 600 at the centre:
    - Only active links carry vehicles.
-   - Sampling 100,000 origins from `demand_tables()` gives source links at least 3× their length share.
+   - Sampling 100,000 origins from `demand_tables()` gives source links at least 3× the share they would have under `drive_len × demand_weight` without `BOUNDARY_WEIGHT`. The expected ratio is about 4×, because the skyway takes much of the mass.
    - Vehicles that reach a sink despawn as arrivals.
 6. **`stats_low_demand`:** `corridor()` at 60 vph with `set_trip_band_for_test((100.0, 2_000.0))`, for 6,000 ticks.
    - `mean_delay_s < 10`.
@@ -150,6 +152,7 @@ Update `FOUR_WAY_HASH_5000`, because the hash inputs changed.
 - **Runs to report:**
   1. City: `120x120@150` synthetic, `--vph 100000 --warmup 9000 --ticks 3000`. The targets are about 20k active vehicles, a median step ≤ 12 ms native, and route work ≤ 4 ms per step. Watch mean speed and `stranded`, so gridlock is visible instead of hiding behind a low step time.
   2. Region: the same map, `--region 9000,9000,2000 --vph 36000 --warmup 3000 --ticks 3000`. The targets are about 3k active vehicles and a median step ≤ 2 ms native.
+- On `grid_city`, trips that start on the skyway's second half, or end on its first half, are structurally unserved: the second half has no successor and the first half no predecessor. Expect about 5 % unserved in city mode and more in regions crossing the skyway. Do not read that as gridlock.
 - When a target is missed, report the numbers and the top cost from a quick profile (`perf` if available, otherwise timing splits added to the example). Don't change the spec's algorithms without the orchestrator.
 
 ## Acceptance
