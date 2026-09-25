@@ -50,7 +50,8 @@ Look at the reference screenshots in `/tmp/claude-0/-home-user-trapiks-game/74a6
   - Add `QuadraticBezier { p0, p1, p2 }` with `point(t)` to `geom/bezier.rs`.
   - Sample each fillet into 6 segments (7 points).
 - **Polygon:** the ring is the concatenation of the 7-point fillets, in order: 28 points for a 4-way. The straight road-end segments close it implicitly.
-- **Output:** `JunctionShapes { node: Vec<u32>, layer: Vec<i8>, ring_start: Vec<u32>, x: Vec<f32>, y: Vec<f32> }`, where `layer` is the maximum layer of the incident roads, in node id order.
+- **Output:** `JunctionShapes { node: Vec<u32>, layer: Vec<i8>, min_layer: Vec<i8>, ring_start: Vec<u32>, x: Vec<f32>, y: Vec<f32> }`, in node id order. `layer` is the maximum layer of the incident roads, and `min_layer` the minimum. M9c casts junction shadows only when `min_layer ≥ 1`.
+- **Network helper:** `Network` gains `pub fn departing_link(road, node) -> LinkId`. It is geometric, with no lane filter, so one-way inbound roads are included too. Markers use `link_span(link).1` for `length − setback`.
 
 ### `approach_markers.rs`
 
@@ -86,7 +87,7 @@ Look at the reference screenshots in `/tmp/claude-0/-home-user-trapiks-game/74a6
 
 Add these getters, computed once at load:
 - `roadSetbacks() -> Vec<f32>`
-- `junctionShapes() -> JunctionShapeGeometry`, with columns `node`, `layer`, `ringStart`, `x`, `y`
+- `junctionShapes() -> JunctionShapeGeometry`, with columns `node`, `layer`, `minLayer`, `ringStart`, `x`, `y`
 - `approachMarkers() -> ApproachMarkerGeometry`, with columns `link`, `kind`, `x1`, `y1`, `x2`, `y2`
 
 The worker adds them to `ready` (transferred), and the protocol and guards grow to match.

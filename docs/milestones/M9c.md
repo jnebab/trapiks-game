@@ -12,9 +12,9 @@ Look at the reference screenshots in `/tmp/claude-0/-home-user-trapiks-game/74a6
 
 - **Containers:** `layers.ts` adds a `shadow` container before `outline` for each layer from 1 to 5.
   - Its filters are `[new BlurFilter({ strength, quality: 3 }), new AlphaFilter({ alpha: 0.13 })]`, imported from `pixi.js`.
-  - `strength = clamp(1.5 × scale, 1, 10)` px, updated when the scale changes by more than 10 %.
+  - `strength = clamp(2.5 × scale, 1, 16)` px, updated when the scale changes by more than 10 %. Tune it from the first screenshot.
   - Filtering the whole container means overlapping shadows do not darken twice.
-- **Tile builder:** for elevated roads and elevated junction shapes (layer ≥ 1) in detail tiles, emit a `shadow` piece.
+- **Tile builder:** for elevated roads (layer ≥ 1), and for junction shapes whose `min_layer ≥ 1`, emit a `shadow` piece in detail tiles.
   - It holds the same strokes as the outline pass (width `W + 1.0`) and the junction polygons filled, all in black `#000000`.
   - The piece's `Graphics.position` is set to `(6 × layer, 8 × layer)` metres, rather than translating points.
 - **Scope:** city tiles emit no shadows, and the shadow containers are hidden while the city band is active.
@@ -25,7 +25,8 @@ Look at the reference screenshots in `/tmp/claude-0/-home-user-trapiks-game/74a6
 ### Rust (`crates/sim-core/src/render/signal_pills.rs`)
 
 - `pub fn signal_pills(network: &Network) -> SignalPills` covers every signal approach link, where `network.signal_state(link, 0).is_some()`, in link order.
-- `(c, d) = centre_pose(link, length − setback)`. The pill sits at `c + perp_right(d)·(W/2 + 1.2)` with `angle = atan2(d.y, d.x)`.
+- `(c, d) = centre_pose(link, link_span(link).1)`. The pill sits at `c + perp_right(d)·(W/2 + 1.2)` with `angle = atan2(d.y, d.x)`.
+- The pill usually lands inside the white junction polygon. That is intended.
 - `SignalPills { link: Vec<u32>, x: Vec<f32>, y: Vec<f32>, angle: Vec<f32> }`.
 - `pub fn signal_states(network: &Network, pills: &[u32], tick: u64, out: &mut Vec<u8>)` writes one code per pill: `0` green, `1` amber, `2` red.
 
@@ -38,6 +39,7 @@ Look at the reference screenshots in `/tmp/claude-0/-home-user-trapiks-game/74a6
 
 - After each wall tick, the worker calls `signalStates()` and compares the result with the previous array.
 - When it changed, it posts `{ type: 'signals', states: Uint8Array }` (transferred).
+- The protocol gains `SignalsMessage` with a guard and a `protocol.test.ts` case.
 - The first post happens right after `ready`.
 
 ### Main thread (`render/signal-pills.ts`)
@@ -59,23 +61,24 @@ The front is +x, matching heading 0.
 
 ## Bottom vignette
 
-`hud/styles.css`: `#app::after` is a fixed, full-screen, `pointer-events: none` overlay with `background: linear-gradient(to bottom, transparent 65%, rgba(0,0,0,0.07))`.
+`hud/styles.css`: `#app::after` is a fixed, full-screen, `pointer-events: none` overlay with `background: linear-gradient(to bottom, transparent 65%, rgba(0,0,0,0.07))` and `z-index: 0`. `.chip` gets `position: relative; z-index: 1`, so HUD chips are not darkened.
 
 ## Tests
 
 - **Rust:** `signal_pills` gives 4 pills on `four_way`. `signal_states` at ticks 0, 300, 330 and 350 matches M3's signal windows.
 - **vitest:** `signal-pills.test.ts` covers the state-to-tint mapping and visibility by scale, with the pure parts factored out.
 - **Playwright** (`e2e/depth.spec.ts`):
-  1. **Skyway ramp,** at `/?map=synthetic&vph=0&cx=2300&cy=2300&z=5`:
+  1. **Skyway over a crossing,** at `/?map=synthetic&vph=0&cx=2250&cy=2250&z=5`. This keeps the mixed-layer ramp node out of view:
      - Wait until the tiles are built.
      - `data-shadow-pieces > 0`.
      - Save the screenshot `depth-ramp.png`.
   2. **Signal junction,** at `/?map=synthetic&vph=0&cx=750&cy=750&z=12`:
      - `data-signal-pills` is at least 4.
-     - Press `5` (max) and wait 3 s: `data-signal-updates` is at least 2.
+     - Press `5` (max), then `expect.poll` until `data-signal-updates ≥ 2`, with `timeout: 10_000`.
      - Save the screenshot `depth-signals.png`.
   3. **Vehicles,** at `/?map=synthetic&vph=6000&cx=750&cy=900&z=10`:
-     - Wait 5 s.
+     - Press `5`, then `expect.poll` until `#debug[data-vehicles] ≥ 400`, with `timeout: 20_000`.
+     - Press Space, then `waitForTimeout(300)`.
      - Save the screenshot `depth-vehicles.png`.
   4. No console errors in any test.
 
