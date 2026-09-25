@@ -98,7 +98,7 @@ docs/
 
 ### 3.3 Map pipeline (offline)
 
-**1. Fetch.** `fetch-osm.sh` sends Overpass queries over the bbox of `ISO3166-2=PH-00`. The bbox is split into 4 quadrants, and each query uses `[timeout:900][maxsize:2000000000]` and `out body geom`. The queries fetch:
+**1. Fetch.** `fetch-osm.sh` sends Overpass queries over the bbox of `ISO3166-2=PH-00`. The bbox is split into 4 quadrants, and each query uses `[timeout:900][maxsize:1073741824]` and `out body geom`. The queries fetch:
 - **Roads:** ways with `highway=motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|road|service` and every `*_link`. Excluded:
   - `service=parking_aisle|driveway|drive-through|emergency_access`
   - `access=private|no`
@@ -129,7 +129,7 @@ The fallback is a user-uploaded `.osm.pbf` read with the `osmpbf` crate.
 - **Turn restrictions:** converted to banned (from road, via node, to road) triples. `only_*` expands into bans on every other turn.
 - **Areas:**
   - Outer rings of multipolygons are assembled from member ways. Inner rings are skipped until M15.
-  - Coastline ways are joined and closed into a sea polygon along the bbox, on the water side (to the left of the way direction).
+  - Coastline ways are joined and closed into a sea polygon along the bbox. OSM coastlines have land on the left of the way direction and water on the right. The y-down projection flips the sign of the 2D cross product, so compute the side in lon/lat, or negate it.
   - Rings are simplified with Douglas–Peucker at 1.5 m.
 
 **3. Output.** A versioned `MapData` (serde + postcard, gzip), written to `web/public/maps/metro-manila.bin.gz`. It includes a `map_hash`, the FNV-1a hash of the uncompressed bytes.
@@ -228,6 +228,7 @@ Lanes on a link are indexed from the right, starting at 0.
   4. There is space: the last vehicle on the target lane has `s ≥ length + s0`.
 - **Signal clusters:** a vehicle may enter a cluster only if there is space on the first link outside the cluster along its route.
 - **Stop control:** a stop-controlled approach must first reach `v < 0.5`.
+- **Yield control:** at a `Yield` node, approaches below the node's highest incoming class rank use a 4.0 s gap in rule 3 instead of 2.5 s. `Priority` nodes use 2.5 s for every approach.
 - **Timeout:** after 300 ticks of waiting, rule 3 is waived, but rules 1, 2 and 4 still apply.
 - A vehicle that has entered is committed.
 
@@ -253,10 +254,13 @@ Lanes on a link are indexed from the right, starting at 0.
 
 #### Reroute budget per step
 
+Budgets are counts, never time, so they stay deterministic.
 1. Vehicles whose valid route prefix ends at their next junction reroute immediately, with no limit.
-2. Vehicles flagged by an edit reroute next, at most 100 per step, in id order.
-3. New spawns get the rest of a budget of 64 route computations per step.
+2. Vehicles flagged by an edit reroute next, at most 8 per step, in id order.
+3. New spawns get at most 8 route computations per step.
 4. Spawns that don't fit wait in the queue.
+
+Invariant: route computations per step × the average A* time stays within 4 ms. A* must average ≤ 0.5 ms per trip. If the M7 bench misses that, M7 adds ALT: 8 landmarks chosen by farthest-point order from node 0, with ties broken by id. The landmark bounds are computed on free-flow costs, so they stay admissible because EMA costs never drop below free-flow.
 
 #### Demand
 
@@ -275,6 +279,7 @@ Lanes on a link are indexed from the right, starting at 0.
 
 **Trips:**
 - Straight-line trip length is 1–12 km in the city and 0.3–4 km in a region.
+- A destination is drawn at most 8 times to land inside that band. If every draw misses, the spawn is dropped as unserved.
 - Spawns follow a Poisson process at the mode's vehicles-per-hour rate.
 - A vehicle enters at `s = 0` of its origin link when the gap allows. Otherwise it waits in a per-link queue, and after 600 ticks in the queue it is dropped as unserved.
 
@@ -310,7 +315,7 @@ Lanes on a link are indexed from the right, starting at 0.
 | `SetJunctionControl { node, control }` | Sets the control to `Priority`, `Yield`, `AllWayStop` or `Signal` |
 | `SetSignalTiming { node, greens, offset }` | Sets green time per phase and the offset |
 | `SetTurnAllowed { node, from, to, allowed }` | Bans or allows a turn |
-| `BuildFlyover { node, through: [road, road] }` | Adds a node; the through pair reconnects there at layer + 1 near the junction |
+| `BuildFlyover { node, through: [road, road] }` | Splits each through road 80 m from the node, appending the new ids. The two inner pieces reconnect at a new node at layer + 1 and bypass the junction |
 | `BuildRoundabout { node, radius }` | Replaces the node with a ring of one-way links (M15) |
 | `AddRoad { from, to, control, lanes, layer }` | Adds a road; an endpoint can be a node or a point on a road, which splits that road (M15) |
 | `Undo` | Applies the stored inverse of the last edit |
@@ -327,15 +332,16 @@ Lanes on a link are indexed from the right, starting at 0.
 
 **Challenges** are named hotspots: EDSA–Ortigas, Magallanes, Balintawak, EDSA–Quezon Ave, C-5–Kalayaan, España–Lacson and Taft–Buendia. Each defines:
 - a centre (lat/lon) and a radius of 1.2–2.5 km
+- a seed, used by both the baseline and the evaluation
 - a budget
 - a demand rate
 - a target, such as −25 % mean region delay, with throughput not below 95 % of the baseline
 
 **Challenge flow:**
 1. Pick a challenge. The camera flies to it.
-2. **Baseline:** reset, then 6,000 ticks of warm-up and 6,000 ticks of measurement, at max speed.
+2. **Baseline:** reset, then 3,000 ticks of warm-up and 6,000 ticks of measurement, at max speed, behind a progress bar. At about 45 steps per wall tick, this takes about 20 s.
 3. The player edits. Edits apply live so the player sees their effect.
-4. **Evaluate:** reset, apply the full command log at tick 0, then run the same warm-up and measurement.
+4. **Evaluate:** reset with the same seed, apply the full command log at tick 0, then run the same warm-up and measurement.
 5. The result screen shows the improvement, the cost and 1–3 stars.
 
 **Saves:** `localStorage` keeps `map_hash`, the mode, the seed and the command log. Loading replays the log at tick 0, in every mode.
@@ -368,7 +374,7 @@ Lanes on a link are indexed from the right, starting at 0.
 |---|---|
 | Map | About 150k roads. At most 20 MB gzipped. Load and parse in at most 6 s |
 | Region sim | Wasm step ≤ 2 ms with 3k vehicles |
-| City sim | Native step ≤ 12 ms and wasm step ≤ 25 ms with 20k vehicles. A* averages ≤ 3 ms per trip |
+| City sim | Native step ≤ 12 ms and wasm step ≤ 25 ms with 20k vehicles. A* averages ≤ 0.5 ms per trip |
 | Edits | Deleting a primary road with 20k active vehicles never produces a native step over 50 ms |
 | Render (manual numbers, recorded in `docs/perf.md`) | 60 fps at street zoom; ≥ 30 fps at city zoom |
 
@@ -455,7 +461,8 @@ Lanes on a link are indexed from the right, starting at 0.
 **Tests:**
 - `cargo test` for everything
 - `vitest` for pure TS modules
-- Playwright smoke tests (Chromium at `/opt/pw-browsers`, `--use-angle=swiftshader`) from M4 on. They assert behaviour, not FPS.
+- Playwright smoke tests from M4 on, using `--use-angle=swiftshader`. They assert behaviour, not FPS.
+  - **Browser:** locally, Playwright's default resolution finds `/opt/pw-browsers` because `PLAYWRIGHT_BROWSERS_PATH` is set. In CI, run `pnpm --dir web exec playwright install --with-deps chromium`.
 
 **Versions:** pinned exactly. Fallbacks:
 - ESLint 9 if `eslint-plugin-sonarjs` rejects ESLint 10.
@@ -477,7 +484,8 @@ Each milestone ends with `scripts/check.sh` green, an approving review, a commit
 | M6 | Junction rules: entry rule, signals and amber, stop/yield, cluster spillback, timeout | Invariants on fixtures: no NaN, no overlap, no vehicle stuck for more than 300 s at low demand. Signal phase tests |
 | M7 | Demand, routing and stats: A*, EMA costs, reroute budget, spawn queues, region mode, city and region stats, bench example | Determinism holds on the real map. The bench meets §3.9, including the delete-a-primary-road check |
 | M8 | Vehicle pipeline: snapshots, double buffering, interpolation, speed control, stats messages, debug vehicle render | Playwright: vehicle count > 0 and the tick advances. The wasm `state_hash` after N ticks on the fixture equals the native constant |
-| M9 | Trafficity renderer: camera (pan, zoom, inertia, fly-to), LOD tiles, layered containers, roads, markings, arrows, shadows, areas, atlas particles, signal pills | Playwright screenshots at street zoom (EDSA–Ortigas and a tile boundary: no seam) and at city zoom, reviewed against the reference |
+| M9a | Renderer base: camera (pan, zoom, inertia, fly-to), LOD tiles, shared layered containers, road outlines and fills, areas | Playwright screenshot centred on a tile boundary shows no seam. City-zoom screenshot |
+| M9b | Renderer detail: markings, one-way arrows, yield lines, elevated shadows, atlas vehicle particles, signal pills | Playwright screenshots at street zoom (EDSA–Ortigas and a skyway ramp), reviewed against the reference |
 | M10 | Edit commands in sim-core: all §3.6 commands except roundabout and add-road, inverses, costs, budget, undo, id stability | Per-command apply → inverse round-trip tests (hash equality). Rejection tests |
 | M11 | Editing UI: picking grid, hover and selection, tool palette, inspector, tooltip chips, `networkDelta` → tile rebuild | Playwright: delete a road and vehicles reroute; add a lane and the tile updates; undo |
 | M12 | Challenges in sim-core: definitions, region metrics, baseline/evaluate phases, scoring | Scoring tests. Replaying a command log reproduces the same hash |

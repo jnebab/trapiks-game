@@ -23,8 +23,7 @@ The full design, fixed sim decisions and milestones are in `docs/plan.md`. Per-m
 - **Web:** TypeScript (strict), Vite, PixiJS 8. The sim runs inside a Web Worker.
 - **HUD:** plain DOM and CSS modules written in TypeScript. No UI framework, and no React.
 - **Backend:** none; the game is hosted as a static site.
-  - Later: FastAPI + SQLModel.
-  - Later: `trapiks-sim-py` (PyO3) to verify replays.
+- **Out of scope:** a server backend, leaderboards, and Python bindings. Don't build toward them.
 - **Shared types:** generated from Rust to TS with `ts-rs` into `web/src/generated/`. Never hand-write duplicates.
 
 ## Layout
@@ -72,7 +71,7 @@ Rules at the JS/wasm boundary:
 ## Sim conventions
 
 - **Data layout:** struct-of-arrays. Refer to entities by integer IDs (`u32` indices into `Vec`s), never by references.
-- **Stable IDs:** roads and nodes are never removed. Deletion sets a flag; additions append.
+- **Stable IDs:** roads and nodes are never removed. Deletion sets a flag, and additions append. Only undoing an appending command truncates the ids it appended.
 - **Driving models:** IDM for car-following. Mandatory lane changes plus MOBIL come in M14.
 - **Units:** SI internally (meters, seconds, m/s). Traffic drives on the right.
 - **Determinism (non-negotiable).** The same map, seed and commands must produce the same state hash on every platform, native and wasm.
