@@ -257,7 +257,7 @@ Lanes on a link are indexed from the right, starting at 0.
 
 Budgets are counts, never time, so they stay deterministic.
 1. Vehicles whose valid route prefix ends at their next junction reroute immediately, with no limit.
-2. Vehicles flagged by an edit reroute next, at most 4 per step, in id order.
+2. Vehicles flagged by an edit reroute next, at most 4 per step, in slot order.
 3. New spawns get at most 4 route computations per step.
 4. Spawns that don't fit wait in the queue.
 
