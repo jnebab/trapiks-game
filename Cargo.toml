@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.94"
+license = "MIT"
+
+[workspace.dependencies]
+wasm-bindgen = "=0.2.129"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "=0.6.5"
+ts-rs = "=12.0.1"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+cognitive_complexity = "deny"
+too_many_lines = "deny"
+too_many_arguments = "deny"
+dbg_macro = "deny"
+todo = "deny"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

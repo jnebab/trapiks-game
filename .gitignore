@@ -1,0 +1,10 @@
+target/
+crates/*/bindings/
+web/node_modules/
+web/dist/
+web/src/wasm/pkg/
+web/src/generated/
+data/osm/
+.env
+.env.*
+*.log
