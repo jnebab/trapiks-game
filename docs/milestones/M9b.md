@@ -75,7 +75,7 @@ Look at the reference screenshots in `/tmp/claude-0/-home-user-trapiks-game/74a6
 - **`junction_shapes`:** on `four_way(2, 200.0)`, 1 shape with 28 points.
   - Every point lies within `setback + FILLET_RADIUS_MAX + 2w` of the node.
   - The ring does not self-intersect, checked with a brute-force segment test that skips adjacent segments.
-  - The NE fillet's middle sample lies strictly inside the corner, closer to the node than the edge-line intersection point.
+  - The NE fillet's middle sample is farther from the node than the edge-line intersection (the sharp corner). The white area therefore covers the corner, which is the concave fillet. For `four_way(2, 200)`, the middle sample is (8.15, −8.15) from the node, against a corner at (6.4, −6.4).
 - **`approach_markers`:**
   - `four_way` gives 4 signal markers.
   - `t_junction` gives exactly 1 yield marker, on link 4.
