@@ -20,6 +20,6 @@ Code standards (non-negotiable):
 
 Before reporting done, run every check the milestone lists (for example `cargo test`, `cargo clippy -- -D warnings`, `cargo fmt --check`, `pnpm --dir web typecheck`, `pnpm --dir web lint`, `pnpm --dir web build`) and fix failures.
 
-Do not commit or push. Leave changes in the working tree.
+Do not commit, push, or stage anything: no `git add`, `git rm` or `git mv`. Delete and rename files with plain filesystem commands, and leave every change unstaged in the working tree.
 
 Your final message: a short list of files changed, the checks you ran with their results, and anything you could not do.
