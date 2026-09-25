@@ -120,19 +120,19 @@ The fallback is a user-uploaded `.osm.pbf` read with the `osmpbf` crate.
   |---|---|
   | Class | From the `highway` tag |
   | Lanes | `lanes_forward` and `lanes_backward`, from `lanes`, `lanes:forward` and `lanes:backward`; class defaults when untagged |
-  | One-way | `oneway=yes`; `oneway=-1` reverses the road; `junction=roundabout` and `motorway` imply one-way |
+  | One-way | `oneway=yes`; `oneway=-1` reverses the road; `junction=roundabout` and `highway=motorway` (not `motorway_link`) imply one-way |
   | Speed | `maxspeed`, or a class default |
   | Layer | `layer`; defaults to `bridge ⇒ 1` and `tunnel ⇒ -1` |
   | Name | Index into a names table |
 
-- **Junction control:** a junction is signalized, stop-controlled or yield-controlled when a matching control node lies on an incident road within 25 m.
+- **Junction control:** a junction is signalized, stop-controlled or yield-controlled when a matching control node lies on an incident road within 25 m. A stop node tagged `stop=all` gives `AllWayStop`.
 - **Turn restrictions:** converted to banned (from road, via node, to road) triples. `only_*` expands into bans on every other turn.
 - **Areas:**
   - Outer rings of multipolygons are assembled from member ways. Inner rings are skipped until M15.
   - Coastline ways are joined and closed into a sea polygon along the bbox. OSM coastlines have land on the left of the way direction and water on the right. The y-down projection flips the sign of the 2D cross product, so compute the side in lon/lat, or negate it.
   - Rings are simplified with Douglas–Peucker at 1.5 m.
 
-**3. Output.** A versioned `MapData` (serde + postcard, gzip), written to `web/public/maps/metro-manila.bin.gz`. It includes a `map_hash`, the FNV-1a hash of the uncompressed bytes.
+**3. Output.** A versioned `MapData` (serde + postcard, gzip), written to `web/public/maps/metro-manila.bin.gz`. The loader computes `map_hash`, the FNV-1a hash of the uncompressed bytes.
 - The file is committed, and regenerated rarely, so builds never need the network.
 - The ODbL attribution appears in the game and in `web/public/maps/LICENSE`.
 
@@ -227,7 +227,8 @@ Lanes on a link are indexed from the right, starting at 0.
   3. No higher-rank vehicle will reach a shared conflict point within 2.5 s.
   4. There is space: the last vehicle on the target lane has `s ≥ length + s0`.
 - **Signal clusters:** a vehicle may enter a cluster only if there is space on the first link outside the cluster along its route.
-- **Stop control:** a stop-controlled approach must first reach `v < 0.5`.
+- **Stop control:** at a `Stop` node, approaches below the node's highest incoming class rank must first reach `v < 0.5`, then use a 4.0 s gap in rule 3.
+- **All-way stop:** at an `AllWayStop` node, every approach must first reach `v < 0.5`, and rank is decided by arrival tick alone, with ties going to the lower vehicle id.
 - **Yield control:** at a `Yield` node, approaches below the node's highest incoming class rank use a 4.0 s gap in rule 3 instead of 2.5 s. `Priority` nodes use 2.5 s for every approach.
 - **Timeout:** after 300 ticks of waiting, rule 3 is waived, but rules 1, 2 and 4 still apply.
 - A vehicle that has entered is committed.
@@ -256,11 +257,11 @@ Lanes on a link are indexed from the right, starting at 0.
 
 Budgets are counts, never time, so they stay deterministic.
 1. Vehicles whose valid route prefix ends at their next junction reroute immediately, with no limit.
-2. Vehicles flagged by an edit reroute next, at most 8 per step, in id order.
-3. New spawns get at most 8 route computations per step.
+2. Vehicles flagged by an edit reroute next, at most 4 per step, in id order.
+3. New spawns get at most 4 route computations per step.
 4. Spawns that don't fit wait in the queue.
 
-Invariant: route computations per step × the average A* time stays within 4 ms. A* must average ≤ 0.5 ms per trip. If the M7 bench misses that, M7 adds ALT: 8 landmarks chosen by farthest-point order from node 0, with ties broken by id. The landmark bounds are computed on free-flow costs, so they stay admissible because EMA costs never drop below free-flow.
+Invariant: the bounded route work per step, (4 + 4) × the average A* time, stays within 4 ms, inside the 12 ms native city-step target. A* must average ≤ 0.5 ms per trip, and the M7 bench asserts both numbers. If the M7 bench misses that, M7 adds ALT: 8 landmarks chosen by farthest-point order from node 0, with ties broken by id. The landmark bounds are computed on free-flow costs, so they stay admissible because EMA costs never drop below free-flow.
 
 #### Demand
 
@@ -312,7 +313,7 @@ Invariant: route computations per step × the average A* time stays within 4 ms.
 | `SetLanes { road, forward, backward }` | Adds or removes lanes, makes a road one-way or two-way, or reverses it |
 | `SetSpeedLimit { road, kph }` | Changes the speed limit |
 | `SetLayer { road, layer }` | Changes elevation for render and crossing; connectivity is unchanged |
-| `SetJunctionControl { node, control }` | Sets the control to `Priority`, `Yield`, `AllWayStop` or `Signal` |
+| `SetJunctionControl { node, control }` | Sets the control to `Priority`, `Yield`, `Stop`, `AllWayStop` or `Signal` |
 | `SetSignalTiming { node, greens, offset }` | Sets green time per phase and the offset |
 | `SetTurnAllowed { node, from, to, allowed }` | Bans or allows a turn |
 | `BuildFlyover { node, through: [road, road] }` | Splits each through road 80 m from the node, appending the new ids. The two inner pieces reconnect at a new node at layer + 1 and bypass the junction |
