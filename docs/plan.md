@@ -230,7 +230,7 @@ Lanes on a link are indexed from the right, starting at 0.
 - **Stop control:** at a `Stop` node, approaches below the node's highest incoming class rank must first reach `v < 0.5`, then use a 4.0 s gap in rule 3.
 - **All-way stop:** at an `AllWayStop` node, every approach must first reach `v < 0.5`, and rank is decided by arrival tick alone, with ties going to the lower vehicle id.
 - **Yield control:** at a `Yield` node, approaches below the node's highest incoming class rank use a 4.0 s gap in rule 3 instead of 2.5 s. `Priority` nodes use 2.5 s for every approach.
-- **Timeout:** after 300 ticks of waiting, rule 3 is waived, but rules 1, 2 and 4 still apply.
+- **Timeout:** after 300 ticks of waiting on rule 3, its courtesy gap drops to 0; rules 1, 2 and 4 still apply. This replaces waiving rule 3 entirely, which was unsafe under the commit model; see M6.
 - A vehicle that has entered is committed.
 
 #### Signals
