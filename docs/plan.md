@@ -355,9 +355,8 @@ Invariant: the bounded route work per step, (4 + 4) × the average A* time, stay
 
 | Band | Tiling | Contents |
 |---|---|---|
-| city | 4096 m tiles | Primary-class roads and above, as single strokes, tinted by the traffic layer |
-| district | 512 m tiles | All roads with outlines |
-| street | 512 m tiles | Everything in district, plus markings, one-way arrows, yield lines, signal pills, node dots and (M15) buildings |
+| city | 4096 m tiles | Primary-class roads and above, with exaggerated widths, tinted by the traffic layer |
+| detail | 512 m tiles | All roads with outlines. Above the street scale threshold, the same tiles also show markings, one-way arrows, yield lines, signal pills, node dots and (M15) buildings, drawn in extra per-layer containers |
 
 **Tile ownership:** each road belongs to exactly one tile per band, the one containing the centre of its bbox. A tile's cull bounds are the union of its roads' bboxes, so roads are never drawn twice.
 
@@ -400,7 +399,8 @@ Invariant: the bounded route work per step, (4 + 4) × the average A* time, stay
   - a soft shadow, as in §3.8
   - drawn above lower layers
 - **Tunnels** (layer < 0): drawn at 40 % alpha under the ground layer.
-- **Joins and caps:** round joins; butt caps.
+- **Joins and caps:** round joins and round caps. Round caps fill junction corners and match the reference's rounded dead ends.
+- **Junction fillets:** M9b adds per-node junction polygons with concave fillets, as in the reference, drawn in a pass between `outline` and `fill`.
 - **Dual carriageways:** OSM maps these as two one-way roads, so they render without a yellow centre line. This is accepted.
 
 **Markings:**

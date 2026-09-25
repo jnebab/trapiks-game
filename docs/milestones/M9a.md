@@ -27,11 +27,12 @@ Follow `docs/plan.md` §3.8 and §4. The reference screenshots are at `/tmp/clau
   - Elevated edge (layer > 0) `#151515`, drawn as an outline of `width + 1.0` m.
   - Tunnels (layer < 0) at container alpha 0.4.
   - Round joins and round caps for both outline and fill. The round caps fill junction corners, and all outlines sit beneath all fills.
-- **City-band style:** fill only, white, with exaggerated widths by rank so major roads read at 0.02–0.35 px/m:
-  - rank ≥ 13: 60 m
-  - rank ≥ 11: 45 m
-  - otherwise: 35 m
-  - Each also gets a `#9B9B97` outline 20 % wider.
+- **City-band style:** no per-lane widths. A white fill plus a `#9B9B97` outline 20 % wider, with exaggerated widths by rank so major roads stay readable from 0.05 to 0.35 px/m:
+  - rank ≥ 13 (Motorway, MotorwayLink): 24 m
+  - rank ≥ 11 (Trunk, TrunkLink): 18 m
+  - otherwise: 14 m
+  - City pieces use `layers.road(road layer, pass)`, so the skyway still draws above.
+- **City band membership:** `include = class_ranks[classCode] >= class_ranks[class_names.indexOf('Primary')]`, which is rank 10. `PrimaryLink` (9) is therefore excluded.
 - **Class ranks:** the TS side needs them. `MapMeta` gains `class_ranks: Vec<u8>` (indexed by class code, from `RoadClass::rank`), so TS never hand-writes the table.
 
 ## Layer containers (`render/layers.ts`)
@@ -50,11 +51,12 @@ Follow `docs/plan.md` §3.8 and §4. The reference screenshots are at `/tmp/clau
 | File | Content |
 |---|---|
 | `tile-key.ts` | Pure: `tileKey(band, tx, ty): string` and `tileOf(size, x, y): [tx, ty]` |
-| `tile-index.ts` | Pure: `buildTileIndex(roads: RoadArrays, band: Band): TileIndex`. `Band` is `{ name: 'city' \| 'detail'; size: number; include(road): boolean }`. `TileIndex` is a `Map<string, TileEntry>`, where `TileEntry { roads: Uint32Array; bounds: Rect }`. Roads are grouped by the tile of their bbox centre, road ids are ascending, and `bounds` is the union of the road bboxes |
-| `visible.ts` | Pure: `visibleTiles(index, view: Rect, margin: number): string[]`. Iterates every entry and keeps those whose bounds intersect `view` expanded by `margin`, ordered by distance from the view centre |
-| `tile-builder.ts` | Builds one tile: `buildTile(entry, roads, style): TileGraphics`. `TileGraphics` holds `{ layer, pass, graphics }` pieces. Roads are grouped by `(layer, width)`. Each group becomes one `Graphics` per pass, with a `moveTo`/`lineTo` subpath for every road, then a single `stroke()` |
-| `tile-cache.ts` | `class TileCache`: an LRU with a capacity of 256 tiles per band. It uses a `Map` in insertion order: on access, delete then re-set; on eviction, `destroy()` the pieces' graphics and remove them from their containers. `show(keys)` makes those tiles visible and hides the rest. `pending(keys)` returns the keys not yet built |
-| `tile-manager.ts` | `class TileManager`: owns both bands' indexes and caches. Each frame, `update(camera, viewW, viewH)` does the following. It picks the band by scale and computes the visible keys with a 256 m margin. It builds at most `BUILDS_PER_FRAME = 2` pending tiles, nearest first, adding each piece to `layers.road(layer, pass)`. It shows the visible tiles of the active band and hides every tile of the other band |
+| `road-bounds.ts` | Pure: `roadBounds(roads): Float32Array`. One `[minX, minY, maxX, maxY]` per road, computed once and shared by both indexes |
+| `tile-index.ts` | Pure: `buildTileIndex(roads, bounds, band: Band): TileIndex`. `Band` is `{ name: 'city' \| 'detail'; size: number; include(road): boolean }`. `TileIndex` is a `Map<string, TileEntry>`, where `TileEntry { roads: Uint32Array; bounds: Rect; cx: number; cy: number }`. Roads are grouped by the tile of their bbox centre (`tileOf` uses `Math.floor`, since coordinates can be negative). Road ids are ascending, `bounds` is the union of the road bboxes, and `cx, cy = (tx + 0.5, ty + 0.5) × size` |
+| `visible.ts` | Pure: `visibleTiles(index, view: Rect, margin: number): string[]`. Iterates every entry and keeps those whose bounds intersect `view` expanded by `margin`, ordered by the distance of `(cx, cy)` from the view centre, with ties broken by key |
+| `tile-builder.ts` | Builds one tile: `buildTile(entry, roads, style): TileGraphics`. `TileGraphics` holds `{ layer, pass, graphics }` pieces, with one `Graphics` per `(layer, pass)` in the tile. Inside it, roads are grouped by width: each width group adds a `moveTo`/`lineTo` subpath for every road, then one `stroke()` per width. Pixi merges these into one draw per `Graphics` |
+| `tile-cache.ts` | `class TileCache`: an LRU with a capacity of 256 tiles per band, using a `Map` in insertion order. `show(keys)` moves every shown key to the most-recent position, makes those tiles visible and hides the rest. Eviction runs only on insert and skips keys in the current visible set, so the cache grows past capacity when every cached tile is visible. Evicting calls `destroy()` on the pieces' graphics. `pending(keys)` returns the keys not yet built |
+| `tile-manager.ts` | `class TileManager`: owns both bands' indexes and caches. Each frame, `update(camera, viewW, viewH)` does the following. It picks the active band by scale and computes its visible keys with a 256 m margin. It builds at most `BUILDS_PER_FRAME = 2` pending tiles, nearest first, adding each piece to `layers.road(layer, pass)`. It shows the active band's visible tiles. It hides the inactive band only once the active band has no pending visible keys; until then, the inactive band's cached tiles stay shown. It exposes `visibleCount` (keys returned this frame for the active band) and `builtCount` (those already cached) |
 
 - **Rect:** `{ minX, minY, maxX, maxY }`, in `render/rect.ts`, with `intersects` and `expand`.
 
@@ -75,18 +77,25 @@ This is pure math, with vitest coverage.
   - Uses ease-in-out cubic on `t / duration`.
   - Interpolates the world centre linearly and the scale in log space.
   - At `t ≥ duration`, it returns the exact target.
-- `render/camera-input.ts` uses these: inertia after a drag release, cancelled by a new pointer-down or wheel.
+- **`releaseVelocity` precisely:** keep the samples with `t ≥ last.t − 100`. With fewer than 2 samples, or `Δt = 0`, return `{0, 0}`. Otherwise the velocity is the displacement between the first and last kept samples, divided by `Δt`.
+- **`wireCameraInput(canvas, state, world, ticker)`** owns a `motion` state: `inertia`, `fly` or `none`.
+  - The ticker advances it.
+  - Pointer-down and wheel cancel both kinds of motion.
+  - A fly cancels inertia.
+- **Double-click** flies to the clicked point at `scale × 2`, clamped, in 400 ms. This is the fly-to consumer in M9a.
 
 ## Main-thread wiring
 
-- **`render/map-view.ts`:** `createMapView(app, ready: ReadyMessage): MapView`.
+- **`render/map-view.ts`:** `createMapView(scene: DebugApp, ready: ReadyMessage): MapView`.
+  - Owns the `CameraState`.
   - Builds `layers`, draws the areas and creates the `TileManager`.
   - Registers a ticker callback that runs `tileManager.update` with the current camera.
-  - Exposes `flyTo(x, y, scale)`.
+  - M8's `vehicle-layer.ts` adds its `ParticleContainer` to `layers.vehicles`.
 - `app/debug-scene.ts` uses `createMapView` instead of the M4 debug drawing.
 - Delete `render/debug-roads.ts` and `render/debug-areas.ts`.
-- The Rust side adds `class_ranks` to `MapMeta` in `sim-core/src/render.rs`, with a test that it matches `RoadClass::rank` for every code.
-- **`hud/debug-overlay.ts`:** add `tiles {built}/{visible}` and a `data-band` attribute (`city` or `detail`).
+- The Rust side adds `class_ranks` to `MapMeta` (in `crates/sim-core/src/meta.rs`, or wherever `MapMeta` lives), with a test that it matches `RoadClass::rank` for every code. Add `class_ranks` to the `isMapMeta` guard too.
+- **Tunnels:** with separate outline and fill containers at alpha 0.4, a tunnel's outline shows through its fill. This is acceptable for M9a.
+- **`hud/debug-overlay.ts`:** add `tiles {built}/{visible}` and the attributes `data-tiles-built`, `data-tiles-visible` and `data-band` (`city` or `detail`).
 - **Test hooks:** `?cx=<x>&cy=<y>&z=<scale>` sets the initial camera (world centre and px/m) instead of fitting the bounds. Clamp the values to the map bounds and the scale limits.
 
 ## Tests
@@ -100,11 +109,14 @@ This is pure math, with vitest coverage.
   - `camera-motion.test.ts`: inertia decays to a stop; fly-to hits both endpoints exactly; the scale midpoint is the geometric mean.
   - `rect.test.ts`.
 - **Playwright** (`e2e/renderer.spec.ts`), on the synthetic map:
-  1. `/?map=synthetic&cx=1024&cy=450&z=6`. The camera is centred where the horizontal residential road at y = 450, the block from x = 900 to 1050, crosses the x = 1024 tile boundary. That road's bbox centre (975) is in tile 1.
-     - Wait until `data-band` is `detail` and tiles have finished building (the overlay built count equals the visible count).
-     - Sample canvas pixels at the road centre line, 3 px left and 3 px right of the boundary's screen x. Both must be white (every channel ≥ 245). Read pixels with `page.screenshot` and decode the PNG with `pngjs`, pinned as a dev dependency.
+  1. `/?map=synthetic&vph=0&cx=1024&cy=450&z=16`. The camera is centred where the horizontal residential road at y = 450 (the block from x = 900 to 1050) crosses the x = 1024 tile boundary. That road's bbox centre (975) is in tile 1. The junction at (1050, 450) joins roads owned by tile 2.
+     - Wait until `data-band` is `detail`, and `data-tiles-built === data-tiles-visible` with both above 0.
+     - Sample these pixels, each of which must be white (every channel ≥ 245):
+       - on the road centre line, 3 px left and 3 px right of the boundary's screen x
+       - at world (1046.625, 450), screen `(W/2 + 22.625 × 16, H/2)`. This is where tile 2's outline ring would show over tile 1's fill if outlines were not globally under fills.
+     - Read pixels with `page.screenshot`, and decode the PNG with `pngjs`, pinned as a dev dependency.
      - Save the screenshot `renderer-boundary.png`.
-  2. `/?map=synthetic&z=0.1`: `data-band` is `city`, and the screenshot `renderer-city.png` is saved.
+  2. `/?map=synthetic&vph=0&z=0.1`: `data-band` is `city`, and the screenshot `renderer-city.png` is saved.
   3. No console errors.
 
 ## Acceptance
