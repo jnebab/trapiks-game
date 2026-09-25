@@ -12,7 +12,6 @@ export default defineConfig(
     languageOptions: {
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: decodeURIComponent(new URL('.', import.meta.url).pathname),
       },
     },
     plugins: { sonarjs },

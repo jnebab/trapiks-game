@@ -11,6 +11,7 @@ pnpm --dir web typecheck
 pnpm --dir web lint
 pnpm --dir web format
 pnpm --dir web test
+node --test scripts/check-no-comments.test.mjs
 pnpm --dir web check:comments
 
 echo "ALL CHECKS PASSED"

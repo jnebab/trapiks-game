@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const webRoot = join(repoRoot, 'web');
@@ -39,23 +39,22 @@ function lineOf(text, offset) {
   return line;
 }
 
-function isCommentKind(kind) {
-  return (
-    kind === ts.SyntaxKind.SingleLineCommentTrivia || kind === ts.SyntaxKind.MultiLineCommentTrivia
-  );
+function addCommentRanges(offsets, ranges) {
+  for (const range of ranges ?? []) {
+    offsets.add(range.pos);
+  }
 }
 
-function tsCommentOffsets(text) {
-  const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, ts.LanguageVariant.Standard, text);
-  const offsets = [];
-  let kind = scanner.scan();
-  while (kind !== ts.SyntaxKind.EndOfFileToken) {
-    if (isCommentKind(kind)) {
-      offsets.push(scanner.getTokenStart());
-    }
-    kind = scanner.scan();
-  }
-  return offsets;
+export function tsCommentOffsets(text) {
+  const source = ts.createSourceFile('file.ts', text, ts.ScriptTarget.Latest, true);
+  const offsets = new Set();
+  const visit = (node) => {
+    addCommentRanges(offsets, ts.getLeadingCommentRanges(text, node.getFullStart()));
+    addCommentRanges(offsets, ts.getTrailingCommentRanges(text, node.getEnd()));
+    node.getChildren(source).forEach(visit);
+  };
+  visit(source);
+  return [...offsets].sort((x, y) => x - y);
 }
 
 function skipQuoted(text, start, quote) {
@@ -66,15 +65,18 @@ function skipQuoted(text, start, quote) {
   return i + 1;
 }
 
-function skipRawString(text, start) {
-  let i = start + 1;
+function countHashes(text, start) {
   let hashes = 0;
-  while (text[i] === '#') {
+  while (text[start + hashes] === '#') {
     hashes += 1;
-    i += 1;
   }
+  return hashes;
+}
+
+function skipRawString(text, start) {
+  const hashes = countHashes(text, start + 1);
   const terminator = '"' + '#'.repeat(hashes);
-  const end = text.indexOf(terminator, i + 1);
+  const end = text.indexOf(terminator, start + hashes + 2);
   return end === -1 ? text.length : end + terminator.length;
 }
 
@@ -93,8 +95,8 @@ function isRawStringStart(text, i) {
   if (text[prefix] !== 'r') {
     return -1;
   }
-  const next = text[prefix + 1];
-  return next === '"' || next === '#' ? prefix : -1;
+  const hashes = countHashes(text, prefix + 1);
+  return text[prefix + 1 + hashes] === '"' ? prefix : -1;
 }
 
 function isIdentChar(char) {
@@ -124,11 +126,16 @@ function commentEnd(text, i) {
   return end === -1 ? text.length : end + 2;
 }
 
-function isSafetyComment(text, i) {
-  return text.startsWith('// SAFETY:', i);
+function nextNonBlankLine(text, from) {
+  const lines = text.slice(from).split('\n').slice(1);
+  return lines.find((line) => line.trim() !== '') ?? '';
 }
 
-function rustCommentOffsets(text) {
+function isSafetyComment(text, i) {
+  return text.startsWith('// SAFETY:', i) && nextNonBlankLine(text, i).includes('unsafe');
+}
+
+export function rustCommentOffsets(text) {
   const offsets = [];
   let i = 0;
   while (i < text.length) {
@@ -157,11 +164,20 @@ function report(files, findOffsets) {
   });
 }
 
-const tsFiles = [...walk(join(webRoot, 'src'), '.ts', excludedTsDirs), ...rootConfigFiles()];
-const rustFiles = walk(join(repoRoot, 'crates'), '.rs');
-const findings = [...report(tsFiles, tsCommentOffsets), ...report(rustFiles, rustCommentOffsets)];
-
-for (const finding of findings) {
-  console.log(finding);
+function main() {
+  const tsFiles = [
+    ...walk(join(webRoot, 'src'), '.ts', excludedTsDirs),
+    ...rootConfigFiles(),
+    ...walk(join(repoRoot, 'scripts'), '.mjs'),
+  ];
+  const rustFiles = walk(join(repoRoot, 'crates'), '.rs');
+  const findings = [...report(tsFiles, tsCommentOffsets), ...report(rustFiles, rustCommentOffsets)];
+  for (const finding of findings) {
+    console.log(finding);
+  }
+  process.exit(findings.length > 0 ? 1 : 0);
 }
-process.exit(findings.length > 0 ? 1 : 0);
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
