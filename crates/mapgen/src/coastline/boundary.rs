@@ -35,12 +35,13 @@ impl LonLatBox {
 
     pub fn position(&self, edge: Edge, (lon, lat): Point) -> f64 {
         let (w, h) = (self.width(), self.height());
-        match edge {
+        let raw = match edge {
             Edge::Top => lon - self.min_lon,
             Edge::Right => w + (self.max_lat - lat),
             Edge::Bottom => w + h + (self.max_lon - lon),
-            Edge::Left => 2.0 * w + h + (lat - self.min_lat),
-        }
+            Edge::Left => self.perimeter() - (self.max_lat - lat),
+        };
+        raw.rem_euclid(self.perimeter())
     }
 
     pub fn corners(&self) -> [(f64, Point); 4] {
@@ -74,5 +75,24 @@ impl LonLatBox {
         ]
         .into_iter()
         .find_map(|(on, edge)| on.then_some(edge))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Edge, LonLatBox};
+
+    const BOX: LonLatBox = LonLatBox {
+        min_lon: 120.95,
+        min_lat: 14.55,
+        max_lon: 121.05,
+        max_lat: 14.65,
+    };
+
+    #[test]
+    fn top_left_corner_is_zero_on_both_edges() {
+        let corner = (BOX.min_lon, BOX.max_lat);
+        assert_eq!(BOX.position(Edge::Top, corner), 0.0);
+        assert_eq!(BOX.position(Edge::Left, corner), 0.0);
     }
 }

@@ -1,0 +1,191 @@
+mod junction;
+mod link;
+mod node;
+mod region;
+mod road;
+mod setback;
+mod signal;
+mod spatial;
+
+use std::collections::BTreeSet;
+
+use crate::consts::LANE_WIDTH;
+use crate::geom::Vec2;
+use crate::map::{MapData, TurnBan};
+
+pub use junction::{Conflict, Junction, Movement, TurnKind, build_junction};
+pub use link::{Direction, LinkId, direction_of, link_id, reverse, road_of};
+use link::{arriving, departing};
+pub use node::NodeStore;
+pub use region::{Region, RegionMask};
+pub use road::RoadStore;
+pub use setback::setback;
+pub use signal::{SignalCluster, SignalState, Signals};
+pub use spatial::SpatialGrid;
+
+pub struct Network {
+    pub roads: RoadStore,
+    pub nodes: NodeStore,
+    pub spatial: SpatialGrid,
+    bans: BTreeSet<TurnBan>,
+    signals: Signals,
+    region: Option<RegionMask>,
+    junctions: Vec<Option<Junction>>,
+    version: u64,
+}
+
+impl Network {
+    pub fn from_map(map: &MapData) -> Network {
+        let roads = RoadStore::from_map(map);
+        let nodes = NodeStore::from_map(map);
+        let spatial = SpatialGrid::build(&roads, &nodes);
+        let signals = Signals::build(&roads, &nodes, &spatial, |road| roads.is_live(road));
+        Network {
+            junctions: vec![None; nodes.count()],
+            bans: map.turn_bans.iter().copied().collect(),
+            roads,
+            nodes,
+            spatial,
+            signals,
+            region: None,
+            version: 0,
+        }
+    }
+
+    pub fn set_region(&mut self, region: Option<Region>) {
+        self.region = region.map(|r| RegionMask::build(self, r));
+        self.signals = Signals::build(&self.roads, &self.nodes, &self.spatial, |road| {
+            self.is_road_active(road)
+        });
+        self.junctions.iter_mut().for_each(|slot| *slot = None);
+        self.version += 1;
+    }
+
+    pub fn is_road_active(&self, road: u32) -> bool {
+        let in_region = self
+            .region
+            .as_ref()
+            .is_none_or(|mask| mask.active_road[road as usize]);
+        self.roads.is_live(road) && in_region
+    }
+
+    pub fn is_link_active(&self, link: LinkId) -> bool {
+        self.is_road_active(road_of(link)) && self.link_lanes(link) > 0
+    }
+
+    pub fn link_lanes(&self, link: LinkId) -> u8 {
+        link::lanes(&self.roads, link)
+    }
+
+    pub fn link_from(&self, link: LinkId) -> u32 {
+        link::from_node(&self.roads, link)
+    }
+
+    pub fn link_to(&self, link: LinkId) -> u32 {
+        link::to_node(&self.roads, link)
+    }
+
+    pub fn link_length(&self, link: LinkId) -> f64 {
+        link::length(&self.roads, link)
+    }
+
+    pub fn incoming(&self, node: u32) -> impl Iterator<Item = LinkId> + '_ {
+        self.incident(node)
+            .map(move |road| arriving(&self.roads, road, node))
+            .filter(|&link| self.is_link_active(link))
+    }
+
+    pub fn outgoing(&self, node: u32) -> impl Iterator<Item = LinkId> + '_ {
+        self.incident(node)
+            .map(move |road| departing(&self.roads, road, node))
+            .filter(|&link| self.is_link_active(link))
+    }
+
+    fn incident(&self, node: u32) -> impl Iterator<Item = u32> + '_ {
+        self.nodes.roads[node as usize].iter().copied()
+    }
+
+    pub fn active_degree(&self, node: u32) -> usize {
+        self.nodes
+            .active_degree(node, |road| self.is_road_active(road))
+    }
+
+    pub fn setback_at(&self, node: u32, road: u32) -> f64 {
+        setback(
+            &self.roads,
+            &self.nodes,
+            |r| self.is_road_active(r),
+            node,
+            road,
+        )
+    }
+
+    pub fn link_span(&self, link: LinkId) -> (f64, f64) {
+        let road = road_of(link);
+        let start = self.setback_at(self.link_from(link), road);
+        let end = self.link_length(link) - self.setback_at(self.link_to(link), road);
+        (start, end)
+    }
+
+    pub fn centre_pose(&self, link: LinkId, s: f64) -> (Vec2, Vec2) {
+        link::centre_pose(&self.roads, link, s)
+    }
+
+    pub fn lane_offset(&self, road: u32, lane: u8) -> f64 {
+        self.roads.width(road) / 2.0 - (f64::from(lane) + 0.5) * LANE_WIDTH
+    }
+
+    pub fn link_pose(&self, link: LinkId, s: f64, lane: u8) -> (Vec2, Vec2) {
+        let (pos, tangent) = self.centre_pose(link, s);
+        let offset = self.lane_offset(road_of(link), lane);
+        (pos + tangent.perp_right() * offset, tangent)
+    }
+
+    pub fn is_banned(&self, node: u32, from_road: u32, to_road: u32) -> bool {
+        self.bans.contains(&TurnBan {
+            via_node: node,
+            from_road,
+            to_road,
+        })
+    }
+
+    pub fn ensure_junction(&mut self, node: u32) -> &Junction {
+        let index = node as usize;
+        let built = self.junctions[index]
+            .take()
+            .unwrap_or_else(|| build_junction(self, node));
+        self.junctions[index].insert(built)
+    }
+
+    pub fn junction(&self, node: u32) -> Option<&Junction> {
+        self.junctions.get(node as usize).and_then(Option::as_ref)
+    }
+
+    pub fn invalidate_node(&mut self, node: u32) {
+        if let Some(slot) = self.junctions.get_mut(node as usize) {
+            *slot = None;
+        }
+    }
+
+    pub fn build_all_junctions(&mut self) {
+        for node in 0..self.nodes.count() as u32 {
+            self.ensure_junction(node);
+        }
+    }
+
+    pub fn signal_state(&self, link: LinkId, tick: u64) -> Option<SignalState> {
+        self.signals.state(link, tick)
+    }
+
+    pub fn signals(&self) -> &Signals {
+        &self.signals
+    }
+
+    pub fn region(&self) -> Option<&RegionMask> {
+        self.region.as_ref()
+    }
+
+    pub fn version(&self) -> u64 {
+        self.version
+    }
+}

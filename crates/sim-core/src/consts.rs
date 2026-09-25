@@ -1,0 +1,14 @@
+pub const LANE_WIDTH: f64 = 3.2;
+pub const TICKS_PER_SECOND: u32 = 10;
+pub const DT: f64 = 0.1;
+pub const SIGNAL_GREEN_TICKS: u32 = 300;
+pub const SIGNAL_AMBER_TICKS: u32 = 30;
+pub const SIGNAL_ALL_RED_TICKS: u32 = 20;
+pub const SIGNAL_CLUSTER_RADIUS: f64 = 30.0;
+pub const SIGNAL_BIN_TOLERANCE_DEG: f64 = 35.0;
+pub const THROUGH_MAX_TURN_DEG: f64 = 30.0;
+pub const UTURN_MIN_TURN_DEG: f64 = 150.0;
+pub const SETBACK_MARGIN: f64 = 1.0;
+pub const MAX_SETBACK_FRACTION: f64 = 0.4;
+pub const BEZIER_SEGMENTS: usize = 8;
+pub const SPATIAL_CELL: f64 = 100.0;

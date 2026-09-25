@@ -9,12 +9,14 @@ license.workspace = true
 serde.workspace = true
 ts-rs.workspace = true
 postcard.workspace = true
+libm.workspace = true
 
 [features]
 fixtures = []
 
 [dev-dependencies]
 trapiks-sim-core = { path = ".", features = ["fixtures"] }
+flate2.workspace = true
 
 [lints]
 workspace = true
