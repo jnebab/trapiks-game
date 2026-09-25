@@ -7,5 +7,8 @@ pub mod map;
 mod meta;
 pub mod network;
 pub mod render;
+pub mod rng;
+pub mod sim;
+pub mod vehicle;
 
 pub use meta::{MapMeta, map_meta};

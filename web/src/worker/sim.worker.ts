@@ -8,9 +8,14 @@ const wasmReady = init();
 async function load(url: string): Promise<void> {
   const bytes = await fetchMap(url);
   const engine = Engine.load(bytes);
-  const meta: unknown = engine.meta();
-  const geometry = collectGeometry(engine);
-  engine.free();
+  let meta: unknown;
+  let geometry: ReturnType<typeof collectGeometry>;
+  try {
+    meta = engine.meta();
+    geometry = collectGeometry(engine);
+  } finally {
+    engine.free();
+  }
   if (!isMapMeta(meta)) {
     throw new Error('Invalid map meta from wasm');
   }

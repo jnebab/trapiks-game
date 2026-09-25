@@ -9,7 +9,7 @@ export type Bounds = readonly [number, number, number, number];
 export const MIN_SCALE = 0.02;
 export const MAX_SCALE = 40;
 
-export function clamp(value: number, min: number, max: number): number {
+function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 

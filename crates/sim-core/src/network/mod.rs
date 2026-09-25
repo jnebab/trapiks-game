@@ -70,7 +70,10 @@ impl Network {
     }
 
     pub fn is_link_active(&self, link: LinkId) -> bool {
-        self.is_road_active(road_of(link)) && self.link_lanes(link) > 0
+        let road = road_of(link);
+        (road as usize) < self.roads.count()
+            && self.is_road_active(road)
+            && self.link_lanes(link) > 0
     }
 
     pub fn link_lanes(&self, link: LinkId) -> u8 {

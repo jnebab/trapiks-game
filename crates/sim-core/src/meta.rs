@@ -3,7 +3,7 @@ use ts_rs::TS;
 
 use crate::map::{AreaKind, Control, MapData, PointTable, RoadClass, map_hash};
 
-#[derive(Clone, Debug, PartialEq, Serialize, TS)]
+#[derive(Debug, Serialize, TS)]
 #[ts(export)]
 pub struct MapMeta {
     pub map_hash: String,
