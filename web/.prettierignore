@@ -2,3 +2,5 @@ dist
 src/generated
 src/wasm
 pnpm-lock.yaml
+test-results
+playwright-report

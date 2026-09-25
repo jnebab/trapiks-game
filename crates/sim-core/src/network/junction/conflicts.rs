@@ -1,9 +1,7 @@
 use crate::consts::BEZIER_SEGMENTS;
-use crate::geom::{Vec2, bounds, intersect};
+use crate::geom::{Bounds, bounds, intersect};
 
 use super::{Conflict, Movement};
-
-type Bounds = (Vec2, Vec2);
 
 pub fn find(movements: &[Movement]) -> Vec<Vec<Conflict>> {
     let boxes: Vec<Bounds> = movements.iter().map(|m| bounds(m.path)).collect();

@@ -1,5 +1,5 @@
 use crate::consts::SPATIAL_CELL;
-use crate::geom::{Vec2, bounds};
+use crate::geom::{Bounds, Vec2, bounds};
 
 use super::node::NodeStore;
 use super::road::RoadStore;
@@ -174,7 +174,7 @@ fn road_touches(roads: &RoadStore, road: u32, center: Vec2, radius: f64) -> bool
         .any(|p| p.distance(center) <= radius)
 }
 
-fn around(center: Vec2, radius: f64) -> (Vec2, Vec2) {
+fn around(center: Vec2, radius: f64) -> Bounds {
     let r = Vec2::new(radius, radius);
     (center - r, center + r)
 }

@@ -8,13 +8,11 @@ use crate::network::road::RoadStore;
 const BIN_B_MIN_DEG: f64 = 90.0 - SIGNAL_BIN_TOLERANCE_DEG;
 
 pub fn plan(roads: &RoadStore, approaches: &[LinkId]) -> Vec<Vec<LinkId>> {
-    let Some(&first) = approaches.first() else {
-        return Vec::new();
-    };
-    two_bins(roads, approaches, first).unwrap_or_else(|| one_per_approach(approaches))
+    two_bins(roads, approaches).unwrap_or_else(|| one_per_approach(approaches))
 }
 
-fn two_bins(roads: &RoadStore, approaches: &[LinkId], first: LinkId) -> Option<Vec<Vec<LinkId>>> {
+fn two_bins(roads: &RoadStore, approaches: &[LinkId]) -> Option<Vec<Vec<LinkId>>> {
+    let &first = approaches.first()?;
     let a0 = end_axis(roads, first);
     let mut bin_a = Vec::new();
     let mut bin_b = Vec::new();

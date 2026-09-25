@@ -1,5 +1,5 @@
-use trapiks_sim_core::MAP_FORMAT_VERSION;
 use trapiks_sim_core::fnv::fnv1a64;
+use trapiks_sim_core::map::MAP_FORMAT_VERSION;
 use trapiks_sim_core::map::{
     AreaKind, AreaTable, Control, GeoOrigin, MapData, MapError, NodeTable, PointTable, RoadClass,
     RoadTable, TurnBan, from_bytes, map_hash, to_bytes,

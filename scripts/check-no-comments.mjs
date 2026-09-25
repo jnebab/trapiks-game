@@ -167,6 +167,7 @@ function report(files, findOffsets) {
 function main() {
   const tsFiles = [
     ...walk(join(webRoot, 'src'), '.ts', excludedTsDirs),
+    ...walk(join(webRoot, 'e2e'), '.ts'),
     ...rootConfigFiles(),
     ...walk(join(repoRoot, 'scripts'), '.mjs'),
   ];

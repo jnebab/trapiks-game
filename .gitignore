@@ -2,6 +2,8 @@ target/
 crates/*/bindings/
 web/node_modules/
 web/dist/
+web/test-results/
+web/playwright-report/
 web/src/wasm/pkg/
 web/src/generated/
 data/osm/

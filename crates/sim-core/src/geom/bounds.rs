@@ -1,6 +1,8 @@
 use super::Vec2;
 
-pub fn bounds(points: impl IntoIterator<Item = Vec2>) -> (Vec2, Vec2) {
+pub type Bounds = (Vec2, Vec2);
+
+pub fn bounds(points: impl IntoIterator<Item = Vec2>) -> Bounds {
     let mut min = Vec2::new(f64::INFINITY, f64::INFINITY);
     let mut max = Vec2::new(f64::NEG_INFINITY, f64::NEG_INFINITY);
     for p in points {

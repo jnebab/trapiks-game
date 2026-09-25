@@ -7,7 +7,7 @@ mod road_class;
 mod validate;
 
 pub use area::{AreaKind, AreaTable};
-pub use codec::{MAP_MAGIC, from_bytes, map_hash, to_bytes};
+pub use codec::{MAP_FORMAT_VERSION, MAP_MAGIC, from_bytes, map_hash, to_bytes};
 pub use control::Control;
 pub use data::{GeoOrigin, MapData, NodeTable, PointTable, RoadTable, TurnBan};
 pub use error::MapError;

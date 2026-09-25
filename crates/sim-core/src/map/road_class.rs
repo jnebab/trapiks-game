@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub enum RoadClass {
     Motorway,
     MotorwayLink,
@@ -20,6 +22,44 @@ pub enum RoadClass {
 }
 
 impl RoadClass {
+    pub const ALL: [RoadClass; 15] = [
+        Self::Motorway,
+        Self::MotorwayLink,
+        Self::Trunk,
+        Self::TrunkLink,
+        Self::Primary,
+        Self::PrimaryLink,
+        Self::Secondary,
+        Self::SecondaryLink,
+        Self::Tertiary,
+        Self::TertiaryLink,
+        Self::Unclassified,
+        Self::Road,
+        Self::Residential,
+        Self::LivingStreet,
+        Self::Service,
+    ];
+
+    pub fn code(self) -> u8 {
+        match self {
+            Self::Motorway => 0,
+            Self::MotorwayLink => 1,
+            Self::Trunk => 2,
+            Self::TrunkLink => 3,
+            Self::Primary => 4,
+            Self::PrimaryLink => 5,
+            Self::Secondary => 6,
+            Self::SecondaryLink => 7,
+            Self::Tertiary => 8,
+            Self::TertiaryLink => 9,
+            Self::Unclassified => 10,
+            Self::Road => 11,
+            Self::Residential => 12,
+            Self::LivingStreet => 13,
+            Self::Service => 14,
+        }
+    }
+
     pub fn rank(self) -> u8 {
         match self {
             Self::Motorway => 14,

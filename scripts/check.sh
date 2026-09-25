@@ -13,5 +13,6 @@ pnpm --dir web format
 pnpm --dir web test
 node --test scripts/check-no-comments.test.mjs
 pnpm --dir web check:comments
+pnpm --dir web e2e
 
 echo "ALL CHECKS PASSED"
