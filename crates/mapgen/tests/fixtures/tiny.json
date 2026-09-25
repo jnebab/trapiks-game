@@ -1,0 +1,26 @@
+{
+  "version": 0.6,
+  "generator": "hand-written fixture",
+  "elements": [
+    { "type": "node", "id": 1, "lat": 14.6, "lon": 120.9995 },
+    { "type": "node", "id": 2, "lat": 14.6, "lon": 121.0005 },
+    { "type": "node", "id": 3, "lat": 14.5995, "lon": 121.0 },
+    { "type": "node", "id": 4, "lat": 14.6005, "lon": 121.0 },
+    { "type": "node", "id": 5, "lat": 14.6, "lon": 121.0 },
+    { "type": "node", "id": 6, "lat": 14.6, "lon": 120.99991, "tags": { "highway": "traffic_signals" } },
+    { "type": "way", "id": 101, "nodes": [1, 6, 5], "tags": { "highway": "residential", "name": "Mabini Street" } },
+    { "type": "way", "id": 102, "nodes": [5, 2], "tags": { "highway": "residential", "name": "Mabini Street" } },
+    { "type": "way", "id": 201, "nodes": [3, 5], "tags": { "highway": "residential", "name": "Rizal Avenue" } },
+    { "type": "way", "id": 202, "nodes": [5, 4], "tags": { "highway": "residential", "name": "Rizal Avenue" } },
+    {
+      "type": "relation",
+      "id": 900,
+      "members": [
+        { "type": "way", "ref": 101, "role": "from" },
+        { "type": "node", "ref": 5, "role": "via" },
+        { "type": "way", "ref": 202, "role": "to" }
+      ],
+      "tags": { "type": "restriction", "restriction": "no_left_turn" }
+    }
+  ]
+}
