@@ -312,7 +312,6 @@ Invariant: the bounded route work per step, (4 + 4) × the average A* time, stay
 | `DeleteRoad { road }` | Deletes a road. Vehicles on it despawn; vehicles routed through it are flagged for reroute |
 | `SetLanes { road, forward, backward }` | Adds or removes lanes, makes a road one-way or two-way, or reverses it |
 | `SetSpeedLimit { road, kph }` | Changes the speed limit |
-| `SetLayer { road, layer }` | Changes elevation for render and crossing; connectivity is unchanged |
 | `SetJunctionControl { node, control }` | Sets the control to `Priority`, `Yield`, `Stop`, `AllWayStop` or `Signal` |
 | `SetSignalTiming { node, greens, offset }` | Sets green time per phase and the offset |
 | `SetTurnAllowed { node, from, to, allowed }` | Bans or allows a turn |
@@ -489,7 +488,8 @@ Each milestone ends with `scripts/check.sh` green, an approving review, a commit
 | M9a | Renderer base: camera (pan, zoom, inertia, fly-to), LOD tiles, shared layered containers, road outlines and fills, areas | Playwright screenshot centred on a tile boundary shows no seam. City-zoom screenshot |
 | M9b | Street detail: junction shapes with fillets, centre lines, lane dividers, yield/stop lines, one-way arrows | Pixel checks and street-zoom screenshots reviewed against the reference |
 | M9c | Depth and life: elevated shadows, signal pills with live states, vehicle sprite polish | Screenshots at street zoom (a skyway ramp and a signalized junction) reviewed against the reference |
-| M10 | Edit commands in sim-core: all §3.6 commands except roundabout and add-road, inverses, costs, budget, undo, id stability, flagged reroutes | Per-command apply → inverse round-trip tests (hash equality). Rejection tests. Deleting a primary road with 20k active vehicles never produces a native step over 50 ms |
+| M10a | Edit commands in sim-core: delete, lanes, speed, control, timing, turn bans, undo, costs, budget, quotes, flagged reroutes | Per-command apply → inverse round-trip tests (content-hash equality). Rejection tests. Deleting a primary road with 20k active vehicles never produces a native step over 50 ms |
+| M10b | Flyovers: road splitting with appended ids, range-based road geometry, spatial and junction rebuilds, undo by truncation | A flyover on the four-way removes the N–S/E–W conflict. Undo restores the content hash. Id stability holds |
 | M11 | Editing UI: picking grid, hover and selection, tool palette, inspector, tooltip chips, `networkDelta` → tile rebuild | Playwright: delete a road and vehicles reroute; add a lane and the tile updates; undo |
 | M12 | Challenges in sim-core: definitions, region metrics, baseline/evaluate phases, scoring | Scoring tests. Replaying a command log reproduces the same hash |
 | M13 | Game screens: title, challenge list, sandbox, result screen, saves, traffic layer, attribution | Playwright plays one challenge end to end, and reload restores the save |
