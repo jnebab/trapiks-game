@@ -1,8 +1,8 @@
 use trapiks_sim_core::MAP_FORMAT_VERSION;
 use trapiks_sim_core::fnv::fnv1a64;
 use trapiks_sim_core::map::{
-    Control, GeoOrigin, MapData, MapError, NodeTable, PointTable, RoadClass, RoadTable, TurnBan,
-    from_bytes, map_hash, to_bytes,
+    AreaKind, AreaTable, Control, GeoOrigin, MapData, MapError, NodeTable, PointTable, RoadClass,
+    RoadTable, TurnBan, from_bytes, map_hash, to_bytes,
 };
 
 fn sample_map() -> MapData {
@@ -37,6 +37,12 @@ fn sample_map() -> MapData {
             from_road: 0,
             to_road: 1,
         }],
+        areas: AreaTable {
+            kind: vec![AreaKind::Water],
+            ring_start: vec![0, 3],
+            x: vec![0.0, 10.0, 0.0],
+            y: vec![0.0, 0.0, 10.0],
+        },
     }
 }
 
@@ -91,4 +97,37 @@ fn road_points_len(map: &MapData) -> usize {
 fn fnv1a64_matches_reference_vectors() {
     assert_eq!(fnv1a64(b""), 0xcbf2_9ce4_8422_2325);
     assert_eq!(fnv1a64(b"a"), 0xaf63_dc4c_8601_ec8c);
+}
+
+#[test]
+fn rejects_area_ring_with_two_points() {
+    let mut map = sample_map();
+    map.areas.ring_start = vec![0, 2];
+    map.areas.x.truncate(2);
+    map.areas.y.truncate(2);
+    assert!(matches!(
+        from_bytes(&encode(&map)),
+        Err(MapError::Invalid(_))
+    ));
+}
+
+#[test]
+fn rejects_bad_ring_start() {
+    let mut map = sample_map();
+    map.areas.ring_start = vec![1, 3];
+    assert!(matches!(
+        from_bytes(&encode(&map)),
+        Err(MapError::Invalid(_))
+    ));
+    map.areas.ring_start = vec![0];
+    assert!(matches!(
+        from_bytes(&encode(&map)),
+        Err(MapError::Invalid(_))
+    ));
+}
+
+#[test]
+fn area_ring_returns_ring_points() {
+    let map = sample_map();
+    assert_eq!(map.area_ring(0).0, &[0.0, 10.0, 0.0]);
 }

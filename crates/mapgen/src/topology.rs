@@ -22,6 +22,15 @@ impl Attributes {
             ..self.clone()
         }
     }
+
+    pub fn equals_reversed(&self, other: &Self) -> bool {
+        self.lanes_forward == other.lanes_backward
+            && self.lanes_backward == other.lanes_forward
+            && self.class == other.class
+            && self.speed_kph == other.speed_kph
+            && self.layer == other.layer
+            && self.name == other.name
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

@@ -1,4 +1,6 @@
 mod engine_info;
+#[cfg(feature = "fixtures")]
+pub mod fixtures;
 pub mod fnv;
 pub mod map;
 

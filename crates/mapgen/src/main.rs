@@ -1,32 +1,71 @@
 use std::process::ExitCode;
 
-use trapiks_mapgen::{build::build, input::load, stats::print, write::write};
+use trapiks_mapgen::build::{BuildStats, build};
+use trapiks_mapgen::input::{LoadStats, load};
+use trapiks_mapgen::{stats::print, write::write};
+use trapiks_sim_core::fixtures::{GridCity, grid_city};
+use trapiks_sim_core::map::MapData;
 
-const USAGE: &str = "usage: trapiks-mapgen --out <output.bin.gz> <input.json>...";
+const USAGE: &str = "usage: trapiks-mapgen --out <output.bin.gz> (<input.json>... | --synthetic <cols>x<rows>@<spacing>)";
+
+enum Source {
+    Osm(Vec<String>),
+    Synthetic(GridCity),
+}
 
 struct Args {
     out: String,
-    inputs: Vec<String>,
+    source: Source,
+}
+
+fn parse_grid(value: &str) -> Option<GridCity> {
+    let (size, spacing) = value.split_once('@')?;
+    let (cols, rows) = size.split_once('x')?;
+    Some(GridCity {
+        cols: cols.parse().ok()?,
+        rows: rows.parse().ok()?,
+        spacing: spacing.parse().ok()?,
+    })
+}
+
+fn parse_source(inputs: &[String]) -> Option<Source> {
+    match inputs {
+        [flag, grid] if flag == "--synthetic" => parse_grid(grid).map(Source::Synthetic),
+        [] => None,
+        _ => Some(Source::Osm(inputs.to_vec())),
+    }
 }
 
 fn parse_args(args: &[String]) -> Option<Args> {
     let [flag, out, inputs @ ..] = args else {
         return None;
     };
-    if flag != "--out" || inputs.is_empty() {
+    if flag != "--out" {
         return None;
     }
     Some(Args {
         out: out.clone(),
-        inputs: inputs.to_vec(),
+        source: parse_source(inputs)?,
     })
 }
 
+fn produce(source: &Source) -> Result<(LoadStats, BuildStats, MapData), String> {
+    match source {
+        Source::Synthetic(spec) => {
+            Ok((LoadStats::default(), BuildStats::default(), grid_city(spec)))
+        }
+        Source::Osm(inputs) => {
+            let (osm, load_stats) = load(inputs)?;
+            let (map, build_stats) = build(&osm)?;
+            Ok((load_stats, build_stats, map))
+        }
+    }
+}
+
 fn run(args: &Args) -> Result<(), String> {
-    let (osm, load_stats) = load(&args.inputs)?;
-    let map = build(&osm)?;
+    let (load_stats, build_stats, map) = produce(&args.source)?;
     let sizes = write(&map, &args.out)?;
-    print(&load_stats, &map, &sizes);
+    print(&load_stats, &build_stats, &map, &sizes);
     Ok(())
 }
 

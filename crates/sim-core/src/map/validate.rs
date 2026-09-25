@@ -5,7 +5,8 @@ pub fn validate(map: &MapData) -> Result<(), MapError> {
     validate_roads(map)?;
     validate_points(map)?;
     validate_names(map)?;
-    validate_turn_bans(map)
+    validate_turn_bans(map)?;
+    validate_areas(map)
 }
 
 fn invalid(message: String) -> Result<(), MapError> {
@@ -97,6 +98,24 @@ fn validate_turn_bans(map: &MapData) -> Result<(), MapError> {
     });
     if out_of_range {
         return invalid("turn ban index out of range".to_string());
+    }
+    Ok(())
+}
+
+fn validate_areas(map: &MapData) -> Result<(), MapError> {
+    let areas = &map.areas;
+    let starts = &areas.ring_start;
+    if areas.kind.len() + 1 != starts.len() || starts[0] != 0 {
+        return invalid("ring_start must have ring_count + 1 entries starting at 0".to_string());
+    }
+    if starts
+        .windows(2)
+        .any(|pair| pair[1] < pair[0].saturating_add(3))
+    {
+        return invalid("every area ring needs at least 3 points".to_string());
+    }
+    if areas.y.len() != areas.x.len() || starts[starts.len() - 1] as usize != areas.x.len() {
+        return invalid("ring_start must end at the area point count".to_string());
     }
     Ok(())
 }

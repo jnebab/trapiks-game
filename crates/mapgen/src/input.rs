@@ -68,6 +68,7 @@ fn merge_element(data: &mut OsmData, stats: &mut LoadStats, element: Element) {
         Element::Relation { id, members, tags } => {
             data.relations.insert(id, OsmRelation { members, tags });
         }
+        Element::Other => {}
     }
 }
 

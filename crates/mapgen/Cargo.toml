@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-trapiks-sim-core = { path = "../sim-core" }
+trapiks-sim-core = { path = "../sim-core", features = ["fixtures"] }
 serde.workspace = true
 serde_json.workspace = true
 flate2.workspace = true

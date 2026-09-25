@@ -84,29 +84,40 @@ impl Graph {
 }
 
 fn join(road: &TopoRoad, other: &TopoRoad, node: i64) -> Option<TopoRoad> {
-    if road.to_node() == node {
-        let second = starting_at(other, node);
-        return joined_if_compatible(road, &second);
+    let appending = road.to_node() == node;
+    let other_near_is_from = other.from_node() == node;
+    let flip = appending != other_near_is_from;
+    let other_far = if other_near_is_from {
+        other.to_node()
+    } else {
+        other.from_node()
+    };
+    let road_far = if appending {
+        road.from_node()
+    } else {
+        road.to_node()
+    };
+    if other_far == road_far || !compatible(road, other, flip) {
+        return None;
     }
-    let first = ending_at(other, node);
-    joined_if_compatible(&first, road)
+    let other = oriented(other, flip);
+    if appending {
+        return Some(concat(road, &other));
+    }
+    Some(concat(&other, road))
 }
 
-fn starting_at(road: &TopoRoad, node: i64) -> TopoRoad {
-    if road.from_node() == node {
+fn compatible(road: &TopoRoad, other: &TopoRoad, flip: bool) -> bool {
+    if flip {
+        return road.attributes.equals_reversed(&other.attributes);
+    }
+    road.attributes == other.attributes
+}
+
+fn oriented(road: &TopoRoad, flip: bool) -> TopoRoad {
+    if !flip {
         return road.clone();
     }
-    reversed(road)
-}
-
-fn ending_at(road: &TopoRoad, node: i64) -> TopoRoad {
-    if road.to_node() == node {
-        return road.clone();
-    }
-    reversed(road)
-}
-
-fn reversed(road: &TopoRoad) -> TopoRoad {
     let mut node_ids = road.node_ids.clone();
     node_ids.reverse();
     TopoRoad {
@@ -114,13 +125,6 @@ fn reversed(road: &TopoRoad) -> TopoRoad {
         attributes: road.attributes.reversed(),
         ..road.clone()
     }
-}
-
-fn joined_if_compatible(first: &TopoRoad, second: &TopoRoad) -> Option<TopoRoad> {
-    if first.from_node() == second.to_node() || first.attributes != second.attributes {
-        return None;
-    }
-    Some(concat(first, second))
 }
 
 fn concat(first: &TopoRoad, second: &TopoRoad) -> TopoRoad {

@@ -1,7 +1,7 @@
 use serde::Serialize;
 use ts_rs::TS;
 
-pub const MAP_FORMAT_VERSION: u32 = 1;
+pub const MAP_FORMAT_VERSION: u32 = 2;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]

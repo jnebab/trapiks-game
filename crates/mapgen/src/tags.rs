@@ -98,7 +98,11 @@ fn is_set(tags: &Tags, key: &str) -> bool {
 }
 
 pub fn name(tags: &Tags) -> Option<&str> {
-    tag(tags, "name").or_else(|| tag(tags, "ref"))
+    non_empty(tags, "name").or_else(|| non_empty(tags, "ref"))
+}
+
+fn non_empty<'a>(tags: &'a Tags, key: &str) -> Option<&'a str> {
+    tag(tags, key).filter(|value| !value.is_empty())
 }
 
 pub fn tag<'a>(tags: &'a Tags, key: &str) -> Option<&'a str> {

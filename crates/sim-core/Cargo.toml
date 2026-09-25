@@ -10,5 +10,11 @@ serde.workspace = true
 ts-rs.workspace = true
 postcard.workspace = true
 
+[features]
+fixtures = []
+
+[dev-dependencies]
+trapiks-sim-core = { path = ".", features = ["fixtures"] }
+
 [lints]
 workspace = true

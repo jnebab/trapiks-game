@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 mod support;
 
 use support::{Fixture, LAT, LON, STEP, four_way, restriction, single_way_map};
@@ -171,6 +172,8 @@ fn speed_rules() {
     assert_eq!(speed_of("60 km/h"), 60);
     assert_eq!(speed_of("40 mph"), 64);
     assert_eq!(speed_of("none"), 60);
+    assert_eq!(speed_of("3000000 mph"), 60);
+    assert_eq!(speed_of("65535 mph"), 130);
 }
 
 fn layer_of(key: &str, value: &str) -> i8 {
@@ -304,4 +307,27 @@ fn lasso_way_has_no_self_loop() {
     let map = fixture.build();
     assert!((0..map.road_count()).all(|r| map.roads.from[r] != map.roads.to[r]));
     assert_eq!(validate(&map), Ok(()));
+}
+
+#[test]
+fn unknown_element_types_are_skipped() {
+    let json = r#"{ "elements": [
+      { "type": "area", "id": 3600000001, "tags": { "name": "x" } },
+      { "type": "count", "id": 0, "tags": { "total": "5" } },
+      { "type": "node", "id": 1, "lat": 14.6, "lon": 121.0 }
+    ] }"#;
+    let mut osm = OsmData::default();
+    let mut stats = LoadStats::default();
+    match parse(json.as_bytes()) {
+        Ok(response) => merge(&mut osm, &mut stats, response),
+        Err(error) => panic!("parse failed: {error}"),
+    }
+    assert_eq!(osm.nodes.len(), 1);
+}
+
+#[test]
+fn empty_name_is_unnamed() {
+    let map = single_way_map(&[("highway", "residential"), ("name", "")]);
+    assert_eq!(map.names, vec![String::new()]);
+    assert_eq!(map.roads.name[0], 0);
 }

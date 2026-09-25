@@ -1,6 +1,6 @@
 use trapiks_mapgen::build::build;
 use trapiks_mapgen::input::{OsmData, OsmNode, OsmRelation, OsmWay};
-use trapiks_mapgen::osm::{Member, Tags};
+use trapiks_mapgen::osm::{LatLon, Member, Tags};
 use trapiks_sim_core::map::MapData;
 
 pub const LAT: f64 = 14.6;
@@ -25,6 +25,9 @@ fn member(kind: &str, id: i64, role: &str) -> Member {
         kind: kind.to_string(),
         id,
         role: role.to_string(),
+        geometry: None,
+        lat: None,
+        lon: None,
     }
 }
 
@@ -65,9 +68,43 @@ impl Fixture {
 
     pub fn build(&self) -> MapData {
         match build(&self.osm) {
-            Ok(map) => map,
+            Ok((map, _)) => map,
             Err(error) => panic!("build failed: {error}"),
         }
+    }
+
+    pub fn multipolygon(
+        &mut self,
+        id: i64,
+        members: &[(&str, i64)],
+        pairs: &[(&str, &str)],
+    ) -> &mut Self {
+        let members = members
+            .iter()
+            .map(|(role, way)| Member {
+                geometry: Some(self.way_geometry(*way)),
+                ..member("way", *way, role)
+            })
+            .collect();
+        let relation = OsmRelation {
+            members,
+            tags: tags(pairs),
+        };
+        self.osm.relations.insert(id, relation);
+        self
+    }
+
+    fn way_geometry(&self, way: i64) -> Vec<LatLon> {
+        let nodes = self.osm.ways.get(&way).map(|w| w.nodes.clone());
+        nodes
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|id| self.osm.nodes.get(id))
+            .map(|n| LatLon {
+                lat: n.lat,
+                lon: n.lon,
+            })
+            .collect()
     }
 
     pub fn row(&mut self, first_id: i64, count: i64) -> &mut Self {

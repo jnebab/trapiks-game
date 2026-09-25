@@ -33,6 +33,8 @@ pub enum Element {
         #[serde(default)]
         tags: Tags,
     },
+    #[serde(other)]
+    Other,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
@@ -41,11 +43,17 @@ pub struct LatLon {
     pub lon: f64,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct Member {
     #[serde(rename = "type")]
     pub kind: String,
     #[serde(rename = "ref")]
     pub id: i64,
     pub role: String,
+    #[serde(default)]
+    pub geometry: Option<Vec<LatLon>>,
+    #[serde(default)]
+    pub lat: Option<f64>,
+    #[serde(default)]
+    pub lon: Option<f64>,
 }

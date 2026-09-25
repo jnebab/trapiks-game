@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Control, RoadClass};
+use super::{AreaTable, Control, RoadClass};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct GeoOrigin {
@@ -49,6 +49,7 @@ pub struct MapData {
     pub points: PointTable,
     pub names: Vec<String>,
     pub turn_bans: Vec<TurnBan>,
+    pub areas: AreaTable,
 }
 
 impl MapData {
@@ -65,5 +66,12 @@ impl MapData {
         let start = self.roads.point_start[index] as usize;
         let end = self.roads.point_start[index + 1] as usize;
         (&self.points.x[start..end], &self.points.y[start..end])
+    }
+
+    pub fn area_ring(&self, ring: u32) -> (&[f32], &[f32]) {
+        let index = ring as usize;
+        let start = self.areas.ring_start[index] as usize;
+        let end = self.areas.ring_start[index + 1] as usize;
+        (&self.areas.x[start..end], &self.areas.y[start..end])
     }
 }
