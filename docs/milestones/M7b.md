@@ -157,7 +157,7 @@ Update `FOUR_WAY_HASH_5000`, because the hash inputs changed.
 - **Runs to report:**
   1. City: `120x120@150` synthetic, `--vph 100000 --warmup 9000 --ticks 3000`. The targets are about 20k active vehicles, a median step ≤ 12 ms native, and route work ≤ 4 ms per step. Watch mean speed and `stranded`, so gridlock is visible instead of hiding behind a low step time.
   2. Region: the same map, `--region 9000,9000,2000 --vph 36000 --warmup 3000 --ticks 3000`. The targets are about 3k active vehicles and a median step ≤ 2 ms native.
-- On `grid_city`, trips that start on the skyway's second half, or end on its first half, are structurally unserved: the second half has no successor and the first half no predecessor. Expect about 5 % unserved in city mode and more in regions crossing the skyway. Do not read that as gridlock.
+- On `grid_city`, the skyway's second half has no successor and its first half no predecessor, so the demand tables exclude them (see Demand). Any remaining `unserved` count comes from trip-band misses and queue timeouts, not from the skyway.
 - When a target is missed, report the numbers and the top cost from a quick profile (`perf` if available, otherwise timing splits added to the example). Don't change the spec's algorithms without the orchestrator.
 
 ## Acceptance
@@ -165,3 +165,19 @@ Update `FOUR_WAY_HASH_5000`, because the hash inputs changed.
 - `bash scripts/check.sh` passes.
 - Report both bench outputs.
 - No comments. Do not modify `CLAUDE.md`, `docs/` or `.claude/`.
+
+## Carry-over from the M7a review (do these too)
+
+1. **A* speed.** `route_bench` on `120x120@150` measures a mean route time of 594–648 µs on this container with nothing else running (1,042 mean expansions, 81 links). The target is ≤ 0.5 ms.
+   - First measure where the time goes with timing splits: heap, heuristic, successor scan and cost lookup.
+   - Then reduce the per-expansion cost. Keep the result admissible and deterministic.
+   - The expected fix is **active landmarks**: at query start, pick the `ACTIVE_LANDMARKS = 4` landmarks that give the largest lower bound for `(from, to)`, ties to the lower index, and take the heuristic's max over only those. A max over a subset is still a lower bound.
+   - `astar_optimal` must still match Dijkstra.
+   - Report the bench before and after, run three times with nothing else running.
+2. **`route_bench` assertion.** After building, `assert!(network.link_count() < LANDMARK_COUNT || landmarks.count() == LANDMARK_COUNT)`, as the M7a spec says.
+3. **`tests/reroute.rs`:** keep only the `matches!(…, Place::Link { link: 3, .. })` condition. The `== Place::Link { link: 3, lane: 0 }` arm is redundant.
+4. **`sim/spawn.rs` `landing_onto`** scans every live vehicle per spawn attempt, which is O(live) per attempt once spawn queues exist.
+   - Replace it with a junction-local lookup: at `link_from(link)`, for each movement with `to_link == link`, check that movement's occupancy entries for a vehicle whose `to_lane == lane`.
+   - Include pending entries, as `last_on` does.
+5. **Bench-driven caches.** If the city bench profile shows `link_span` or a junction's max movement rank among the top costs, cache them per link and per junction. Invalidate them with the junction cache.
+
