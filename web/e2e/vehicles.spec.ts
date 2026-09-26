@@ -45,3 +45,14 @@ test('runs and draws vehicles with speed controls', async ({ page }, testInfo) =
   expect(errors).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('vehicles.png') });
 });
+
+test('street zoom shows jeepneys and buses', async ({ page }, testInfo) => {
+  test.setTimeout(150_000);
+  await page.goto('/?map=synthetic&cx=1500&cy=1500&z=4#/challenge/downtown');
+  await page.waitForTimeout(20_000);
+  await page.keyboard.press('4');
+  await page.waitForTimeout(40_000);
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(1_000);
+  await page.screenshot({ path: testInfo.outputPath('vehicle-kinds.png') });
+});

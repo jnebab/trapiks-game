@@ -59,7 +59,7 @@ impl Sim {
             let Some((next, next_cursor)) = next_place(&self.network, route, place, cursor) else {
                 return Outcome::Stranded;
             };
-            self.vehicles.place[index] = next;
+            self.vehicles.set_place(slot, next);
             self.vehicles.route_cursor[index] = next_cursor as u16;
             self.vehicles.s[index] = self.place_start(next) + s - end;
             self.vehicles.reset_junction_state(slot);

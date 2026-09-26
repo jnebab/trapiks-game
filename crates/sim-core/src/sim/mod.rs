@@ -6,6 +6,7 @@ mod flagged;
 mod flyover;
 mod free_flow;
 mod hash;
+mod lane_changes;
 mod lookahead;
 mod reroute;
 mod routes;
@@ -54,6 +55,9 @@ pub struct Sim {
     v_ref: Vec<f64>,
     checked_version: u64,
     edits: EditState,
+    lane_picks: Vec<(u32, u8)>,
+    lane_change_count: u64,
+    lane_changes_enabled: bool,
 }
 
 impl Sim {
@@ -111,6 +115,9 @@ impl Sim {
             stats: StatsWindow::default(),
             checked_version: u64::MAX,
             edits: EditState::new(config.budget),
+            lane_picks: Vec::new(),
+            lane_change_count: 0,
+            lane_changes_enabled: true,
         }
     }
 
@@ -146,6 +153,7 @@ impl Sim {
         self.spawn_queued();
         self.refresh_ahead();
         self.update_zones();
+        self.change_lanes();
         self.decide();
         self.compute_accelerations();
         self.integrate();
@@ -182,9 +190,10 @@ impl Sim {
     fn acceleration_of(&self, ctx: &RuleContext, slot: u32) -> f64 {
         let v = self.vehicles.v[slot as usize];
         let v0 = self.desired_speed(slot);
+        let a = self.vehicles.kind[slot as usize].accel();
         match self.obstacle(ctx, slot) {
-            Some((gap, leader_v)) => acceleration(v, v0, gap, v - leader_v),
-            None => acceleration(v, v0, f64::INFINITY, 0.0),
+            Some((gap, leader_v)) => acceleration(v, v0, gap, v - leader_v, a),
+            None => acceleration(v, v0, f64::INFINITY, 0.0, a),
         }
     }
 
@@ -205,7 +214,8 @@ impl Sim {
             Place::Link { link, .. } => Some(link),
             Place::Movement { .. } => self.ahead_of(slot).next(),
         };
-        link.map_or(0.0, |link| self.network.link_speed(link))
+        let factor = self.vehicles.kind[slot as usize].speed_factor();
+        link.map_or(0.0, |link| self.network.link_speed(link) * factor)
     }
 
     fn integrate(&mut self) {

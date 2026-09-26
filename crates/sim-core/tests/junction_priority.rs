@@ -1,7 +1,7 @@
 mod support;
 
 use support::{Commits, check_invariants, slot_of};
-use trapiks_sim_core::consts::{CAR_LENGTH, WAIT_TIMEOUT_TICKS};
+use trapiks_sim_core::consts::WAIT_TIMEOUT_TICKS;
 use trapiks_sim_core::fixtures::{four_way, t_junction};
 use trapiks_sim_core::map::{Control, MapData};
 use trapiks_sim_core::network::road_of;
@@ -45,7 +45,7 @@ fn major_passed(sim: &Sim, id: u32) -> bool {
             junction.conflicts[usize::from(movement)]
                 .iter()
                 .filter(|c| Some(usize::from(c.other)) == minor)
-                .all(|c| vehicles.s[slot as usize] - CAR_LENGTH > c.s_self)
+                .all(|c| vehicles.s[slot as usize] - vehicles.length(slot) > c.s_self)
         }
     }
 }

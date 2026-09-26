@@ -23,6 +23,7 @@ pub struct Ahead {
     next: Option<LinkId>,
     movement: Option<(u32, u16)>,
     crossing: bool,
+    from_lanes: Option<(u8, u8)>,
     landing: Option<u8>,
     len: usize,
     places: [AheadPlace; LEADER_LOOKAHEAD_PLACES],
@@ -37,6 +38,7 @@ impl Ahead {
         next: None,
         movement: None,
         crossing: false,
+        from_lanes: None,
         landing: None,
         len: 0,
         places: [AheadPlace {
@@ -76,11 +78,16 @@ impl Ahead {
         }
         ahead.movement = relevant_movement(network, place, ahead.next);
         ahead.crossing = has_crossing(network, ahead.movement);
+        ahead.from_lanes = from_lanes(network, place, ahead.movement);
         ahead
     }
 
     pub fn movement(&self) -> Option<(u32, u16)> {
         self.movement
+    }
+
+    pub fn from_lanes(&self) -> Option<(u8, u8)> {
+        self.from_lanes
     }
 
     pub fn landing(&self) -> Option<u8> {
@@ -127,6 +134,15 @@ fn has_crossing(network: &Network, movement: Option<(u32, u16)>) -> bool {
         .junction(node)
         .and_then(|junction| junction.has_crossing.get(usize::from(index)))
         .is_some_and(|&crossing| crossing)
+}
+
+fn from_lanes(network: &Network, place: Place, movement: Option<(u32, u16)>) -> Option<(u8, u8)> {
+    let Place::Link { .. } = place else {
+        return None;
+    };
+    let (node, index) = movement?;
+    let movement = network.junction(node)?.movements.get(usize::from(index))?;
+    Some(movement.from_lanes)
 }
 
 fn landing_of(next: Place) -> Option<u8> {

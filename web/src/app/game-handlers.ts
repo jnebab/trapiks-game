@@ -38,7 +38,7 @@ function showScene(shell: Shell, client: SimClient, ready: ReadyMessage): void {
     camera: shell.camera,
     client,
     overlay: shell.overlay,
-    vehicleTexture: shell.vehicleTexture,
+    vehicleAtlas: shell.vehicleAtlas,
     editHost: shell.state.screen?.editHost,
   };
   shell.state.mapScene = buildMapScene(deps, ready);

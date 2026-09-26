@@ -1,6 +1,8 @@
-use crate::consts::{IDM_MIN_GAP, STOP_LINE_WINDOW, STOPPED_SPEED};
+use crate::consts::{IDM_MIN_GAP, STOP_LINE_WINDOW, STOPPED_SPEED, WAIT_TIMEOUT_TICKS};
 use crate::network::LinkId;
-use crate::vehicle::approach::{PriorityKey, approach, priority_key, within_zone};
+use crate::vehicle::approach::{
+    PriorityKey, approach, priority_key, within_zone, wrong_lane_state,
+};
 use crate::vehicle::entry::{Verdict, evaluate};
 use crate::vehicle::{Place, RuleContext};
 
@@ -26,6 +28,7 @@ impl Sim {
             }
         }
         self.zone = zone;
+        self.lapse_exclusions();
     }
 
     fn update_zone(&mut self, slot: u32) -> bool {
@@ -44,6 +47,23 @@ impl Sim {
             self.vehicles.stopped_at_line[index] = true;
         }
         zone
+    }
+
+    fn lapse_exclusions(&mut self) {
+        let timeout = WAIT_TIMEOUT_TICKS as u32;
+        for slot in 0..self.vehicles.slot_count() as u32 {
+            if !self.vehicles.alive[slot as usize] || !self.in_zone(slot) {
+                continue;
+            }
+            if wrong_lane_state(&self.rule_context(), slot) == Some(false) {
+                let wait = &mut self.vehicles.wait_ticks[slot as usize];
+                *wait = (*wait).max(timeout);
+            }
+        }
+    }
+
+    fn is_excluded(&self, ctx: &RuleContext, slot: u32) -> bool {
+        self.in_zone(slot) && wrong_lane_state(ctx, slot) == Some(true)
     }
 
     fn in_zone(&self, slot: u32) -> bool {
@@ -73,6 +93,9 @@ impl Sim {
         let ctx = self.rule_context();
         for slot in self.vehicles.live_slots() {
             if self.vehicles.committed[slot as usize] || !self.in_zone(slot) {
+                continue;
+            }
+            if self.is_excluded(&ctx, slot) {
                 continue;
             }
             if let Some(a) = approach(&ctx, slot) {

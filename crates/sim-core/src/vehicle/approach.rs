@@ -1,6 +1,6 @@
 use std::cmp::Reverse;
 
-use crate::consts::{DECISION_MARGIN, IDM_COMFORT_DECEL, IDM_MAX_ACCEL};
+use crate::consts::{DECISION_MARGIN, IDM_COMFORT_DECEL, WAIT_TIMEOUT_TICKS};
 use crate::map::Control;
 use crate::network::{Junction, LinkId, Movement, Network, SignalState};
 
@@ -68,6 +68,28 @@ pub fn in_zone(network: &Network, vehicles: &VehicleStore, slot: u32) -> bool {
     within_zone(remaining, vehicles.v[index])
 }
 
+pub fn in_wrong_lane(ctx: &RuleContext, slot: u32) -> bool {
+    let Place::Link { lane, .. } = ctx.vehicles.place[slot as usize] else {
+        return false;
+    };
+    current_ahead(ctx.network, ctx.vehicles, slot)
+        .from_lanes()
+        .is_some_and(|(low, high)| lane < low || lane > high)
+}
+
+pub fn wrong_lane_state(ctx: &RuleContext, slot: u32) -> Option<bool> {
+    let index = slot as usize;
+    let arrival = ctx.vehicles.arrival_tick[index];
+    if ctx.vehicles.committed[index] || arrival == u64::MAX || !in_wrong_lane(ctx, slot) {
+        return None;
+    }
+    Some(ctx.tick.saturating_sub(arrival) < WAIT_TIMEOUT_TICKS)
+}
+
+pub fn excluded(ctx: &RuleContext, slot: u32) -> bool {
+    in_zone(ctx.network, ctx.vehicles, slot) && wrong_lane_state(ctx, slot) == Some(true)
+}
+
 pub fn within_zone(remaining: f64, v: f64) -> bool {
     remaining <= stopping_distance(v) + DECISION_MARGIN
 }
@@ -76,9 +98,15 @@ pub fn heads_to(vehicles: &VehicleStore, slot: u32, target: LinkId) -> bool {
     vehicles.route_link(slot, 1) == Some(target)
 }
 
-pub fn time_to(d: f64, v: f64, v0: f64) -> f64 {
-    let accelerating = (-v + libm::sqrt(v * v + 2.0 * IDM_MAX_ACCEL * d)) / IDM_MAX_ACCEL;
+pub fn time_to(d: f64, v: f64, v0: f64, a: f64) -> f64 {
+    let accelerating = (-v + libm::sqrt(v * v + 2.0 * a * d)) / a;
     accelerating.max(d / v0)
+}
+
+pub fn approach_time(ctx: &RuleContext, approach: &Approach, d: f64) -> f64 {
+    let kind = ctx.vehicles.kind[approach.slot as usize];
+    let v0 = ctx.network.link_speed(approach.link) * kind.speed_factor();
+    time_to(d, approach.v, v0, kind.accel())
 }
 
 pub fn is_minor(network: &Network, approach: &Approach) -> bool {

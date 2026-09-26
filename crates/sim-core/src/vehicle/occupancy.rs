@@ -38,6 +38,10 @@ pub fn movement_key(node: u32, movement: u16) -> u64 {
     MOVEMENT_BIT | (u64::from(node) << 16) | u64::from(movement)
 }
 
+pub fn movement_index_of(key: u64) -> u16 {
+    (key & u64::from(u16::MAX)) as u16
+}
+
 fn order(a: &Entry, b: &Entry) -> Ordering {
     a.key
         .cmp(&b.key)
@@ -125,6 +129,38 @@ impl Occupancy {
         match self.index_of(slot) {
             Some(index) if bounds.contains(&index) => &self.entries[bounds.start..index],
             _ => &self.entries[bounds],
+        }
+    }
+
+    pub fn link_block(&self, link: LinkId) -> &[Entry] {
+        let group = link as usize;
+        match (self.link_first.get(group), self.link_first.get(group + 1)) {
+            (Some(&a), Some(&b)) => &self.entries[a as usize..b as usize],
+            _ => &[],
+        }
+    }
+
+    pub fn pending_on(&self, key: u64) -> impl Iterator<Item = &Entry> + '_ {
+        self.pending.iter().filter(move |entry| entry.key == key)
+    }
+
+    pub fn move_to_lane(&mut self, slot: u32, link: LinkId, lane: u8) {
+        let Some(index) = self.index_of(slot) else {
+            return;
+        };
+        self.entries[index].key = link_key(link, lane);
+        let group = link as usize;
+        let (Some(&a), Some(&b)) = (self.link_first.get(group), self.link_first.get(group + 1))
+        else {
+            return;
+        };
+        let (a, b) = (a as usize, b as usize);
+        self.entries[a..b].sort_unstable_by(order);
+        for i in a..b {
+            let slot = self.entries[i].slot as usize;
+            if self.index[slot] != NO_INDEX {
+                self.index[slot] = i as u32;
+            }
         }
     }
 

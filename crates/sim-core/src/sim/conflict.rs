@@ -1,4 +1,4 @@
-use crate::consts::{CAR_LENGTH, CONFLICT_CLEAR_MARGIN, STOPPED_SPEED};
+use crate::consts::{CONFLICT_STOP_BACK, STOPPED_SPEED};
 use crate::network::{Conflict, Junction, Movement};
 use crate::vehicle::approach::{PriorityKey, RuleContext, movement_priority};
 use crate::vehicle::{Place, movement_key};
@@ -20,7 +20,7 @@ impl Sim {
         let mut own = None;
         let mut best: Option<f64> = None;
         for conflict in at.conflicts {
-            let stop = conflict.s_self - CONFLICT_CLEAR_MARGIN;
+            let stop = conflict.s_self - CONFLICT_STOP_BACK;
             if conflict.merge || at.s >= stop || !point_held(ctx, &at, conflict, &mut own) {
                 continue;
             }
@@ -71,9 +71,9 @@ fn point_held(
     let Some(movement) = at.junction.movements.get(usize::from(conflict.other)) else {
         return false;
     };
-    let low = conflict.s_other - CONFLICT_CLEAR_MARGIN;
-    let high = conflict.s_other + CAR_LENGTH + CONFLICT_CLEAR_MARGIN;
+    let low = conflict.s_other - CONFLICT_STOP_BACK;
     for entry in ctx.occupancy.range(movement_key(at.node, conflict.other)) {
+        let high = conflict.s_other + ctx.vehicles.length(entry.slot) + CONFLICT_STOP_BACK;
         if entry.s < low || entry.s > high {
             continue;
         }

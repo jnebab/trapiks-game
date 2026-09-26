@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use crate::consts::{DESTINATION_DRAWS, TRIP_EXPIRY_TICKS};
 use crate::network::{LinkId, Network, reverse};
 use crate::rng::Pcg32;
+use crate::vehicle::VehicleKind;
 
 use super::DemandTables;
 
@@ -11,6 +12,7 @@ pub struct Trip {
     pub from: LinkId,
     pub to: LinkId,
     pub created_tick: u64,
+    pub kind: VehicleKind,
 }
 
 impl Trip {
@@ -60,6 +62,7 @@ pub fn draw_trip(
                 from,
                 to,
                 created_tick: tick,
+                kind: VehicleKind::draw(rng),
             });
         }
     }

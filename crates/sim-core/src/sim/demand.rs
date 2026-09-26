@@ -113,7 +113,7 @@ impl Sim {
     }
 
     fn spawn_routed(&mut self, routed: &RoutedTrip) -> Result<u32, SpawnError> {
-        let id = self.spawn(&routed.route)?;
+        let id = self.spawn_kind(&routed.route, routed.trip.kind)?;
         let waited = self.tick.saturating_sub(routed.trip.created_tick);
         self.stats.accrued_delay += waited as f64 * DT;
         Ok(id)

@@ -1,6 +1,6 @@
 import { createApp } from '../render/app';
 import { wireCameraInput, type CameraState } from '../render/camera-input';
-import { createVehicleTexture } from '../render/vehicle-texture';
+import { createVehicleAtlas } from '../render/vehicle-atlas';
 import { createDebugOverlay } from '../hud/debug-overlay';
 import { createSpeedControl } from '../hud/speed-control';
 import type { SimConfig } from '../generated/SimConfig';
@@ -42,7 +42,7 @@ export async function runGame(root: HTMLElement, mapName: string): Promise<void>
     scene,
     overlay,
     camera,
-    vehicleTexture: createVehicleTexture(scene.app.renderer),
+    vehicleAtlas: createVehicleAtlas(scene.app.renderer),
     saves: browserSaves(),
     mapName,
     speed: speed.element,

@@ -63,10 +63,13 @@ pub fn settle_links(
             continue;
         }
         let top = network.link_lanes(link) - 1;
-        vehicles.place[index] = Place::Link {
-            link,
-            lane: lane.min(top),
-        };
+        vehicles.set_place(
+            slot,
+            Place::Link {
+                link,
+                lane: lane.min(top),
+            },
+        );
         if invalidated.binary_search(&network.link_to(link)).is_ok() {
             vehicles.committed[index] = false;
         }
@@ -98,12 +101,13 @@ fn remap_one(network: &mut Network, vehicles: &mut VehicleStore, entry: &HeldMov
         return false;
     };
     let length = junction.movements[movement].length;
-    vehicles.place[index] = Place::Movement {
+    let place = Place::Movement {
         node: entry.node,
         movement: movement as u16,
         from_lane: from_lane.min(network.link_lanes(entry.from).saturating_sub(1)),
         to_lane: to_lane.min(network.link_lanes(entry.to).saturating_sub(1)),
     };
+    vehicles.set_place(entry.slot, place);
     vehicles.s[index] = vehicles.s[index].min(length);
     true
 }

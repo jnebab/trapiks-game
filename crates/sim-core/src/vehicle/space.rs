@@ -1,15 +1,30 @@
-use crate::consts::{CAR_LENGTH, IDM_MIN_GAP};
-use crate::network::LinkId;
+use crate::consts::IDM_MIN_GAP;
+use crate::network::{LinkId, Network};
 
 use super::approach::{Approach, RuleContext, heads_to};
 use super::leader::current_ahead;
 use super::occupancy::{link_key, movement_key};
+use super::{Occupancy, VehicleStore};
 
-const SLOT_LENGTH: f64 = CAR_LENGTH + IDM_MIN_GAP;
+pub struct Free {
+    pub length: f64,
+    pub empty: bool,
+}
 
-struct Free {
-    length: f64,
-    empty: bool,
+struct Demand {
+    required: f64,
+    counted: usize,
+}
+
+impl Demand {
+    fn add(&mut self, length: f64) {
+        self.required += length + IDM_MIN_GAP;
+        self.counted += 1;
+    }
+
+    fn fits(&self, free: &Free) -> bool {
+        free.length >= self.required || (free.empty && self.counted == 0)
+    }
 }
 
 pub fn space_ok(ctx: &RuleContext, approach: &Approach) -> bool {
@@ -34,33 +49,46 @@ fn target_has_room(ctx: &RuleContext, approach: &Approach) -> bool {
         return false;
     };
     let target = approach.movement.to_link;
-    let free = free_space(ctx, target, lane);
-    let mut n = ctx
+    let free = free_space(ctx.network, ctx.vehicles, ctx.occupancy, target, lane);
+    let mut demand = Demand {
+        required: ctx.vehicles.length(approach.slot) + IDM_MIN_GAP,
+        counted: 0,
+    };
+    let occupants = ctx
         .occupancy
-        .count(movement_key(approach.node, approach.index));
-    let key = link_key(approach.link, approach.lane);
-    for entry in ctx.occupancy.ahead(approach.slot, key).iter().rev() {
-        if !fits(n, &free) {
-            return false;
-        }
+        .slots_on(movement_key(approach.node, approach.index));
+    for slot in occupants {
+        demand.add(ctx.vehicles.length(slot));
+    }
+    if !demand.fits(&free) {
+        return false;
+    }
+    for entry in ctx.occupancy.link_block(approach.link) {
         let slot = entry.slot;
-        if ctx.vehicles.committed[slot as usize] && heads_to(ctx.vehicles, slot, target) {
-            n += 1;
+        if slot == approach.slot || !ctx.vehicles.committed[slot as usize] {
+            continue;
+        }
+        if heads_to(ctx.vehicles, slot, target) {
+            demand.add(ctx.vehicles.length(slot));
+            if !demand.fits(&free) {
+                return false;
+            }
         }
     }
-    fits(n, &free)
+    true
 }
 
-fn fits(n: usize, free: &Free) -> bool {
-    let required = SLOT_LENGTH * (1 + n) as f64;
-    free.length >= required || (free.empty && n == 0)
-}
-
-fn free_space(ctx: &RuleContext, link: LinkId, lane: u8) -> Free {
-    let (start, end) = ctx.network.link_span(link);
-    match ctx.occupancy.last_on(link_key(link, lane)) {
-        Some((_, s)) => Free {
-            length: s - start,
+pub fn free_space(
+    network: &Network,
+    vehicles: &VehicleStore,
+    occupancy: &Occupancy,
+    link: LinkId,
+    lane: u8,
+) -> Free {
+    let (start, end) = network.link_span(link);
+    match occupancy.last_on(link_key(link, lane)) {
+        Some((slot, s)) => Free {
+            length: s - vehicles.length(slot) - start,
             empty: false,
         },
         None => Free {
@@ -80,8 +108,9 @@ fn cluster_exit_has_room(ctx: &RuleContext, approach: &Approach) -> bool {
     let Some(&exit) = rest.iter().find(|&&link| !signals.is_internal(link)) else {
         return true;
     };
+    let needed = ctx.vehicles.length(approach.slot) + IDM_MIN_GAP;
     (0..ctx.network.link_lanes(exit)).any(|lane| {
-        let free = free_space(ctx, exit, lane);
-        free.empty || free.length >= SLOT_LENGTH
+        let free = free_space(ctx.network, ctx.vehicles, ctx.occupancy, exit, lane);
+        free.empty || free.length >= needed
     })
 }

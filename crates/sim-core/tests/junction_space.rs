@@ -1,7 +1,7 @@
 mod support;
 
 use support::{run_until, slot_of};
-use trapiks_sim_core::consts::{CAR_LENGTH, IDM_MIN_GAP};
+use trapiks_sim_core::consts::IDM_MIN_GAP;
 use trapiks_sim_core::fixtures::four_way;
 use trapiks_sim_core::sim::Sim;
 use trapiks_sim_core::vehicle::entry::has_space;
@@ -16,7 +16,9 @@ fn spillback() {
     let span_start = sim.network().link_span(3).0;
     let cleared = run_until(&mut sim, 200, |sim| {
         slot_of(sim, a).is_some_and(|slot| {
-            sim.vehicles().s[slot as usize] - span_start >= CAR_LENGTH + IDM_MIN_GAP
+            let vehicles = sim.vehicles();
+            let free = vehicles.s[slot as usize] - vehicles.length(slot) - span_start;
+            free >= vehicles.length(b_slot) + IDM_MIN_GAP
         })
     });
     assert!(cleared);

@@ -5,7 +5,8 @@ use crate::map::Control;
 use crate::network::{Conflict, Movement, SignalState};
 
 use super::approach::{
-    Approach, RuleContext, approach, beats, heads_to, in_zone, is_minor, stopping_distance, time_to,
+    Approach, RuleContext, approach, approach_time, beats, excluded, heads_to, in_zone, is_minor,
+    stopping_distance,
 };
 use super::occupancy::{link_key, movement_key};
 use super::space::{predecessor_committed, room_ok, space_ok};
@@ -80,11 +81,12 @@ fn clear(ctx: &RuleContext, a: &Approach) -> bool {
 }
 
 fn movement_clear(ctx: &RuleContext, node: u32, conflict: &Conflict) -> bool {
-    let limit = conflict.s_other + CONFLICT_CLEAR_MARGIN;
     ctx.occupancy
         .range(movement_key(node, conflict.other))
         .iter()
-        .all(|entry| entry.s >= limit)
+        .all(|entry| {
+            entry.s >= conflict.s_other + ctx.vehicles.length(entry.slot) + CONFLICT_CLEAR_MARGIN
+        })
 }
 
 fn no_priority(ctx: &RuleContext, a: &Approach) -> bool {
@@ -95,7 +97,7 @@ fn no_priority(ctx: &RuleContext, a: &Approach) -> bool {
 
 fn yields_on(ctx: &RuleContext, a: &Approach, conflict: &Conflict) -> bool {
     let other = &a.junction.movements[usize::from(conflict.other)];
-    (other.from_lanes.0..=other.from_lanes.1)
+    (0..ctx.network.link_lanes(other.from_link))
         .filter_map(|lane| candidate(ctx, other, lane))
         .any(|slot| must_yield(ctx, a, conflict, slot))
 }
@@ -119,22 +121,18 @@ fn has_room_if_deciding(ctx: &RuleContext, b: &Approach) -> bool {
 }
 
 fn must_yield(ctx: &RuleContext, a: &Approach, conflict: &Conflict, slot: u32) -> bool {
+    if excluded(ctx, slot) {
+        return false;
+    }
     let Some(b) = approach(ctx, slot) else {
         return false;
     };
     if !ctx.vehicles.committed[slot as usize] && !contends(ctx, &b, a) {
         return false;
     }
-    let t_other = time_to(
-        b.span_end - b.s + conflict.s_other,
-        b.v,
-        ctx.network.link_speed(b.link),
-    );
-    let t_self = time_to(
-        a.span_end - a.s + conflict.s_self + CONFLICT_CLEAR_MARGIN,
-        a.v,
-        ctx.network.link_speed(a.link),
-    );
+    let t_other = approach_time(ctx, &b, b.span_end - b.s + conflict.s_other);
+    let own = ctx.vehicles.length(a.slot) + CONFLICT_CLEAR_MARGIN;
+    let t_self = approach_time(ctx, a, a.span_end - a.s + conflict.s_self + own);
     t_other <= t_self + courtesy_gap(ctx, a)
 }
 

@@ -48,8 +48,9 @@ impl Sim {
     pub(super) fn accrue_delay(&mut self) {
         let mut delay = 0.0;
         for slot in self.vehicles.live_slots() {
-            delay +=
-                DT * (1.0 - self.vehicles.v[slot as usize] / self.reference_speed(slot)).max(0.0);
+            let desired =
+                self.reference_speed(slot) * self.vehicles.kind[slot as usize].speed_factor();
+            delay += DT * (1.0 - self.vehicles.v[slot as usize] / desired).max(0.0);
         }
         self.stats.accrued_delay += delay;
     }

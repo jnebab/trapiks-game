@@ -1,5 +1,5 @@
 use crate::geom::{Vec2, pose_at};
-use crate::network::{Movement, Network, road_of};
+use crate::network::{LinkId, Movement, Network, road_of};
 
 use super::Place;
 
@@ -32,6 +32,23 @@ pub fn pose(network: &Network, place: Place, s: f64) -> Option<(Vec2, f64)> {
     Some((pos, libm::atan2(tangent.y, tangent.x)))
 }
 
+pub fn link_pose_blended(
+    network: &Network,
+    link: LinkId,
+    s: f64,
+    lanes: (u8, u8),
+    u: f64,
+) -> (Vec2, f64) {
+    let (from, tangent) = network.link_pose(link, s, lanes.0);
+    let (to, _) = network.link_pose(link, s, lanes.1);
+    let t = smoothstep(u.clamp(0.0, 1.0));
+    (from + (to - from) * t, libm::atan2(tangent.y, tangent.x))
+}
+
+fn smoothstep(u: f64) -> f64 {
+    u * u * (3.0 - 2.0 * u)
+}
+
 fn movement_pose(network: &Network, movement: &Movement, s: f64, lanes: (u8, u8)) -> (Vec2, Vec2) {
     let (point, tangent) = pose_at(&movement.path, &movement.cumulative, s);
     let from_road = road_of(movement.from_link);
@@ -41,8 +58,7 @@ fn movement_pose(network: &Network, movement: &Movement, s: f64, lanes: (u8, u8)
     let delta_to = network.lane_offset(to_road, lanes.1)
         - network.lane_offset(to_road, movement.primary_lanes.1);
     let u = progress(s, movement.length);
-    let smooth = u * u * (3.0 - 2.0 * u);
-    let lateral = delta_from + (delta_to - delta_from) * smooth;
+    let lateral = delta_from + (delta_to - delta_from) * smoothstep(u);
     (point + tangent.perp_right() * lateral, tangent)
 }
 

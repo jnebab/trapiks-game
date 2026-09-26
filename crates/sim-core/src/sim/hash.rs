@@ -44,6 +44,7 @@ impl Sim {
             hasher.write_u32(trip.from);
             hasher.write_u32(trip.to);
             hasher.write_u64(trip.created_tick);
+            hasher.write_u32(u32::from(trip.kind.code()));
         }
     }
 
@@ -60,6 +61,9 @@ impl Sim {
         hasher.write_u64(vehicles.arrival_tick[index]);
         hasher.write_u32(vehicles.wait_ticks[index]);
         hasher.write_u32(u32::from(vehicles.stopped_at_line[index]));
+        hasher.write_u32(u32::from(vehicles.kind[index].code()));
+        hasher.write_u32(u32::from(vehicles.lane_from[index]));
+        hasher.write_u64(vehicles.lane_change_tick[index]);
         for &link in vehicles.route(slot) {
             hasher.write_u32(link);
         }

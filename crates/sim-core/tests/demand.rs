@@ -6,7 +6,7 @@ use trapiks_sim_core::map::{MapData, RoadClass};
 use trapiks_sim_core::network::{LinkId, Network, road_of};
 use trapiks_sim_core::rng::Pcg32;
 use trapiks_sim_core::sim::Sim;
-use trapiks_sim_core::vehicle::{Place, SpawnError};
+use trapiks_sim_core::vehicle::{Place, SpawnError, VehicleKind};
 
 const SAMPLES: u32 = 100_000;
 
@@ -96,6 +96,7 @@ fn routed(from: LinkId, created_tick: u64) -> RoutedTrip {
             from,
             to: 99,
             created_tick,
+            kind: VehicleKind::Car,
         },
         route: vec![from, 99],
     }

@@ -1,7 +1,7 @@
 use crate::network::LinkId;
 
 use super::ahead::Ahead;
-use super::{Place, SpawnError};
+use super::{Place, SpawnError, VehicleKind};
 
 const MAX_ROUTE_LEN: usize = u16::MAX as usize;
 const UNCHECKED: u16 = u16::MAX;
@@ -11,6 +11,7 @@ pub struct NewVehicle<'a> {
     pub s: f64,
     pub v: f64,
     pub color: u8,
+    pub kind: VehicleKind,
     pub route: &'a [LinkId],
     pub tick: u64,
 }
@@ -22,6 +23,9 @@ pub struct VehicleStore {
     pub s: Vec<f64>,
     pub v: Vec<f64>,
     pub color: Vec<u8>,
+    pub kind: Vec<VehicleKind>,
+    pub lane_from: Vec<u8>,
+    pub lane_change_tick: Vec<u64>,
     pub route_start: Vec<u32>,
     pub route_len: Vec<u16>,
     pub route_cursor: Vec<u16>,
@@ -51,6 +55,9 @@ impl VehicleStore {
             s: Vec::with_capacity(capacity),
             v: Vec::with_capacity(capacity),
             color: Vec::with_capacity(capacity),
+            kind: Vec::with_capacity(capacity),
+            lane_from: Vec::with_capacity(capacity),
+            lane_change_tick: Vec::with_capacity(capacity),
             route_start: Vec::with_capacity(capacity),
             route_len: Vec::with_capacity(capacity),
             route_cursor: Vec::with_capacity(capacity),
@@ -124,10 +131,12 @@ impl VehicleStore {
         let index = slot as usize;
         self.alive[index] = true;
         self.id[index] = id;
-        self.place[index] = vehicle.place;
+        self.set_place(slot, vehicle.place);
         self.s[index] = vehicle.s;
         self.v[index] = vehicle.v;
         self.color[index] = vehicle.color;
+        self.kind[index] = vehicle.kind;
+        self.lane_change_tick[index] = vehicle.tick;
         self.route_start[index] = start;
         self.route_len[index] = len;
         self.route_cursor[index] = 0;
@@ -168,6 +177,16 @@ impl VehicleStore {
         true
     }
 
+    pub fn set_place(&mut self, slot: u32, place: Place) {
+        let index = slot as usize;
+        self.place[index] = place;
+        self.lane_from[index] = lane_of(place);
+    }
+
+    pub fn length(&self, slot: u32) -> f64 {
+        self.kind[slot as usize].length()
+    }
+
     pub fn needs_check(&self, slot: u32) -> bool {
         let index = slot as usize;
         self.checked_cursor[index] != self.route_cursor[index]
@@ -184,6 +203,7 @@ impl VehicleStore {
         self.arrival_tick[index] = u64::MAX;
         self.wait_ticks[index] = 0;
         self.stopped_at_line[index] = false;
+        self.lane_from[index] = lane_of(self.place[index]);
     }
 
     fn allocate(&mut self) -> u32 {
@@ -197,6 +217,9 @@ impl VehicleStore {
         self.s.push(0.0);
         self.v.push(0.0);
         self.color.push(0);
+        self.kind.push(VehicleKind::Car);
+        self.lane_from.push(0);
+        self.lane_change_tick.push(0);
         self.route_start.push(0);
         self.route_len.push(0);
         self.route_cursor.push(0);
@@ -239,5 +262,12 @@ impl VehicleStore {
         }
         std::mem::swap(&mut self.routes, &mut self.scratch);
         self.dead_len = 0;
+    }
+}
+
+fn lane_of(place: Place) -> u8 {
+    match place {
+        Place::Link { lane, .. } => lane,
+        Place::Movement { to_lane, .. } => to_lane,
     }
 }

@@ -1,8 +1,9 @@
-use crate::consts::{CAR_LENGTH, COLOR_COUNT, IDM_MIN_GAP};
+use crate::consts::{COLOR_COUNT, IDM_MIN_GAP};
 use crate::network::LinkId;
-use crate::vehicle::lanes::entry_lane;
+use crate::vehicle::lanes::allowed_lanes;
+use crate::vehicle::space::free_space;
 use crate::vehicle::{
-    NewVehicle, Place, SpawnError, VehicleStore, entry_of, movement_key, place_key,
+    NewVehicle, Place, SpawnError, VehicleKind, VehicleStore, entry_of, movement_key, place_key,
 };
 
 use super::Sim;
@@ -11,6 +12,10 @@ const LEADER_SPEED_RANGE: f64 = 50.0;
 
 impl Sim {
     pub fn spawn(&mut self, route: &[LinkId]) -> Result<u32, SpawnError> {
+        self.spawn_kind(route, VehicleKind::Car)
+    }
+
+    pub fn spawn_kind(&mut self, route: &[LinkId], kind: VehicleKind) -> Result<u32, SpawnError> {
         let first = *route.first().ok_or(SpawnError::EmptyRoute)?;
         let len = VehicleStore::check_route_len(route)?;
         self.check_active(route)?;
@@ -24,18 +29,19 @@ impl Sim {
             return Err(SpawnError::Blocked);
         }
         let place = Place::Link { link: first, lane };
-        let v = self.entry_speed(first, place, start)?;
+        let v = self.entry_speed(first, place, kind)?;
         let color = self.rng.below(COLOR_COUNT) as u8;
         let vehicle = NewVehicle {
             place,
             s: start,
             v,
             color,
+            kind,
             route,
             tick: self.tick,
         };
         let (slot, id) = self.vehicles.insert(&vehicle, len);
-        self.vehicles.free_flow[slot as usize] = self.route_free_time(route);
+        self.vehicles.free_flow[slot as usize] = self.route_free_time(route) / kind.speed_factor();
         self.occupancy.push_pending(entry_of(&self.vehicles, slot));
         self.stats.spawned += 1;
         Ok(id)
@@ -63,13 +69,18 @@ impl Sim {
     }
 
     fn first_lane(&self, route: &[LinkId]) -> u8 {
-        let [first, second, ..] = *route else {
+        let Some((low, high)) = allowed_lanes(&self.network, route, 0) else {
             return 0;
         };
-        self.network
-            .junction(self.network.link_to(first))
-            .and_then(|junction| entry_lane(junction, first, second))
-            .unwrap_or(0)
+        let first = route[0];
+        let mut best = (low, f64::NEG_INFINITY);
+        for lane in low..=high {
+            let free = free_space(&self.network, &self.vehicles, &self.occupancy, first, lane);
+            if free.length > best.1 {
+                best = (lane, free.length);
+            }
+        }
+        best.0
     }
 
     fn landing_onto(&self, link: LinkId, lane: u8) -> bool {
@@ -101,13 +112,19 @@ impl Sim {
             )
     }
 
-    fn entry_speed(&self, link: LinkId, place: Place, start: f64) -> Result<f64, SpawnError> {
-        let v0 = self.network.link_speed(link);
+    fn entry_speed(
+        &self,
+        link: LinkId,
+        place: Place,
+        kind: VehicleKind,
+    ) -> Result<f64, SpawnError> {
+        let v0 = self.network.link_speed(link) * kind.speed_factor();
         let Some((leader, leader_s)) = self.occupancy.last_on(place_key(place)) else {
             return Ok(v0);
         };
+        let start = self.network.link_span(link).0;
         let distance = leader_s - start;
-        if distance < IDM_MIN_GAP + CAR_LENGTH {
+        if distance - self.vehicles.length(leader) < IDM_MIN_GAP {
             return Err(SpawnError::Blocked);
         }
         if distance > LEADER_SPEED_RANGE {

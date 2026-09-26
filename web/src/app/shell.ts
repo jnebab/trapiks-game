@@ -1,4 +1,4 @@
-import type { Texture } from 'pixi.js';
+import type { VehicleAtlas } from '../render/vehicle-atlas';
 import type { DebugApp } from '../render/app';
 import type { Bounds } from '../render/camera';
 import type { CameraState } from '../render/camera-input';
@@ -21,7 +21,7 @@ export interface Shell {
   scene: DebugApp;
   overlay: DebugOverlay;
   camera: CameraState;
-  vehicleTexture: Texture;
+  vehicleAtlas: VehicleAtlas;
   saves: SaveStore;
   mapName: string;
   speed: HTMLElement;

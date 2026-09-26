@@ -90,7 +90,7 @@ impl Sim {
         if !self.vehicles.rewrite_route(slot, route, cursor) {
             return self.strand(slot);
         }
-        self.vehicles.place[index] = Place::Link { link, lane };
+        self.vehicles.set_place(slot, Place::Link { link, lane });
         self.vehicles.s[index] = s;
     }
 

@@ -18,7 +18,8 @@ impl Sim {
             .route(slot)
             .get(cursor + 1..)
             .unwrap_or_default();
-        let remaining = self.place_free_time(slot) + self.route_free_time(rest);
+        let factor = self.vehicles.kind[index].speed_factor();
+        let remaining = (self.place_free_time(slot) + self.route_free_time(rest)) / factor;
         self.vehicles.free_flow[index] = elapsed + remaining;
     }
 

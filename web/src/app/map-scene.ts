@@ -1,4 +1,4 @@
-import type { Texture } from 'pixi.js';
+import type { VehicleAtlas } from '../render/vehicle-atlas';
 import type { DebugApp } from '../render/app';
 import type { CameraState } from '../render/camera-input';
 import { createMapView, type MapView } from '../render/map-view';
@@ -25,7 +25,7 @@ export interface SceneDeps {
   camera: CameraState;
   client: SimClient;
   overlay: DebugOverlay;
-  vehicleTexture: Texture;
+  vehicleAtlas: VehicleAtlas;
   editHost: EditHost | undefined;
 }
 
@@ -54,7 +54,7 @@ function watchView(deps: SceneDeps, view: MapView, traffic: TrafficLayer, life: 
 
 function showVehicles(deps: SceneDeps, view: MapView, life: Lifetime): SnapshotHistory {
   const history = new SnapshotHistory();
-  const layer = createVehicleLayer(deps.vehicleTexture);
+  const layer = createVehicleLayer(deps.vehicleAtlas);
   view.layers.vehicles.addChild(layer.container);
   const frame = createFrame();
   life.onTick(deps.scene.app.ticker, () => {

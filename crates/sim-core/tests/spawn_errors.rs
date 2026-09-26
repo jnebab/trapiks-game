@@ -42,6 +42,7 @@ fn full() {
 fn blocked() {
     let mut sim = Sim::new(&corridor(), 0);
     assert!(sim.spawn(&[0]).is_ok());
+    assert!(sim.spawn(&[0]).is_ok());
     assert_eq!(sim.spawn(&[0]), Err(SpawnError::Blocked));
 }
 
@@ -55,5 +56,6 @@ fn blocked_by_vehicle_that_just_entered() {
         steps += 1;
         assert!(steps < 10_000);
     }
+    assert!(sim.spawn(&[2, 4]).is_ok());
     assert_eq!(sim.spawn(&[2, 4]), Err(SpawnError::Blocked));
 }
