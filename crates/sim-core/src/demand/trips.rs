@@ -33,6 +33,13 @@ impl TripQueue {
         }
         dropped
     }
+
+    pub fn forget_links_from(&mut self, limit: LinkId) -> u64 {
+        let before = self.trips.len();
+        self.trips
+            .retain(|trip| trip.from < limit && trip.to < limit);
+        (before - self.trips.len()) as u64
+    }
 }
 
 pub fn draw_trip(

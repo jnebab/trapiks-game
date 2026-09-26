@@ -152,6 +152,22 @@ impl VehicleStore {
         self.reset_junction_state(slot);
     }
 
+    pub fn rewrite_route(&mut self, slot: u32, route: &[LinkId], cursor: usize) -> bool {
+        if route.len() > MAX_ROUTE_LEN || cursor >= route.len() {
+            return false;
+        }
+        let index = slot as usize;
+        self.dead_len += usize::from(self.route_len[index]);
+        self.route_start[index] = self.routes.len() as u32;
+        self.routes.extend_from_slice(route);
+        self.route_len[index] = route.len() as u16;
+        self.route_cursor[index] = cursor as u16;
+        self.checked_cursor[index] = UNCHECKED;
+        self.ahead[index] = Ahead::STALE;
+        self.reset_junction_state(slot);
+        true
+    }
+
     pub fn needs_check(&self, slot: u32) -> bool {
         let index = slot as usize;
         self.checked_cursor[index] != self.route_cursor[index]

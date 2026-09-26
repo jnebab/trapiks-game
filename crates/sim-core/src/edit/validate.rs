@@ -3,7 +3,7 @@ use crate::map::{Control, TurnBan};
 use crate::network::{Network, Timing, cycle_ticks, road_of};
 
 use super::apply::Edit;
-use super::{EditCommand, EditError, cost};
+use super::{EditCommand, EditError, cost, flyover_rules};
 
 pub const MAX_VPH: f64 = 200_000.0;
 const MAX_LANES: u8 = 8;
@@ -20,7 +20,7 @@ pub enum Prepared {
     Demand { vehicles_per_hour: f64 },
 }
 
-type Planned = Result<Prepared, EditError>;
+pub(super) type Planned = Result<Prepared, EditError>;
 
 pub fn prepare(network: &Network, command: &EditCommand, can_undo: bool) -> Planned {
     match *command {
@@ -51,6 +51,9 @@ pub fn prepare(network: &Network, command: &EditCommand, can_undo: bool) -> Plan
             },
             allowed,
         ),
+        EditCommand::BuildFlyover { node, through } => {
+            flyover_rules::build_flyover(network, node, through)
+        }
         EditCommand::Undo => can_undo
             .then_some(Prepared::Undo)
             .ok_or(EditError::NothingToUndo),
@@ -62,7 +65,7 @@ fn edit(edit: Edit, cost: i64) -> Planned {
     Ok(Prepared::Edit { edit, cost })
 }
 
-fn require(condition: bool, error: EditError) -> Result<(), EditError> {
+pub(super) fn require(condition: bool, error: EditError) -> Result<(), EditError> {
     if condition { Ok(()) } else { Err(error) }
 }
 

@@ -1,7 +1,9 @@
-use crate::edit::vehicles::{RouteDamage, record_movements, remap_movements, settle_links};
+use crate::edit::vehicles::{
+    HeldMovement, RouteDamage, record_movements, remap_movements, settle_links,
+};
 use crate::edit::{
-    Budget, CommandResult, Edit, EditCommand, EditError, EditOutcome, Outcome, Prepared, UndoEntry,
-    prepare,
+    Budget, CommandResult, Edit, EditCommand, EditError, EditOutcome, Outcome, Prepared, Scope,
+    UndoEntry, prepare,
 };
 
 use std::collections::{BTreeSet, VecDeque};
@@ -107,27 +109,45 @@ impl Sim {
     }
 
     fn apply_edit(&mut self, edit: &Edit, cost: i64) -> (Edit, EditOutcome) {
+        match edit {
+            Edit::BuildFlyover { node, through } => {
+                self.apply_flyover(edit, (*node, *through), cost)
+            }
+            Edit::UndoFlyover(undo) => self.undo_flyover(undo, cost),
+            _ => self.apply_plain(edit, cost),
+        }
+    }
+
+    fn apply_plain(&mut self, edit: &Edit, cost: i64) -> (Edit, EditOutcome) {
         let scope = edit.scope(&self.network);
         let held = record_movements(&self.network, &self.vehicles, &scope.invalidated);
         let inverse = edit.apply(&mut self.network);
         self.network.commit_edit(&scope.invalidated, scope.signals);
-        let mut stranded = settle_links(&self.network, &mut self.vehicles, &scope.invalidated);
-        stranded.extend(remap_movements(
-            &mut self.network,
-            &mut self.vehicles,
-            &held,
-        ));
+        self.settle_vehicles(&scope.roads, &scope.invalidated, &held);
+        (inverse, outcome(scope, cost))
+    }
+
+    pub(super) fn settle_vehicles(
+        &mut self,
+        roads: &[u32],
+        invalidated: &[u32],
+        held: &[HeldMovement],
+    ) {
+        let mut stranded = settle_links(&self.network, &mut self.vehicles, invalidated);
+        stranded.extend(remap_movements(&mut self.network, &mut self.vehicles, held));
         stranded.sort_unstable();
         for slot in stranded {
             self.strand(slot);
         }
-        let damage = RouteDamage::new(&self.network, &scope.roads, &scope.invalidated);
+        let damage = RouteDamage::new(&self.network, roads, invalidated);
         self.flag_damaged(&damage);
-        let outcome = EditOutcome {
-            cost,
-            changed_roads: scope.roads,
-            changed_nodes: scope.nodes,
-        };
-        (inverse, outcome)
+    }
+}
+
+pub(super) fn outcome(scope: Scope, cost: i64) -> EditOutcome {
+    EditOutcome {
+        cost,
+        changed_roads: scope.roads,
+        changed_nodes: scope.nodes,
     }
 }

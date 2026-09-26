@@ -41,11 +41,20 @@ impl LinkCosts {
     }
 
     pub fn rebuild(&mut self, network: &Network) {
+        self.shrink(network.link_count());
         self.grow(network);
         for link in 0..self.free_speed.len() as LinkId {
             self.refresh_link(network, link);
         }
         self.inverse_heuristic_speed = 1.0 / self.heuristic_speed;
+    }
+
+    fn shrink(&mut self, links: usize) {
+        self.free_speed.truncate(links);
+        self.ema_speed.truncate(links);
+        self.drive_len.truncate(links);
+        self.travel.truncate(links);
+        self.window.truncate(links);
     }
 
     fn refresh_link(&mut self, network: &Network, link: LinkId) {

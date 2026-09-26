@@ -16,7 +16,7 @@ pub struct RoadStore {
     pub speed_kph: Vec<u8>,
     pub speed: Vec<f64>,
     pub deleted: Vec<bool>,
-    pub point_start: Vec<u32>,
+    pub point_range: Vec<(u32, u32)>,
     pub points: Vec<Vec2>,
     pub cumulative: Vec<f64>,
     pub length: Vec<f64>,
@@ -36,7 +36,6 @@ impl RoadStore {
             speed_kph: table.speed_kph.clone(),
             speed: table.speed_kph.iter().map(|&kph| mps(kph)).collect(),
             deleted: vec![false; map.road_count()],
-            point_start: vec![0],
             ..RoadStore::default()
         };
         for road in 0..map.road_count() {
@@ -52,12 +51,24 @@ impl RoadStore {
             .zip(ys)
             .map(|(&x, &y)| Vec2::new(f64::from(x), f64::from(y)))
             .collect();
-        let cumulative = cumulative_lengths(&points);
-        self.length
-            .push(cumulative.last().copied().unwrap_or_default());
-        self.points.extend(points);
+        let (range, length) = self.push_points(&points);
+        self.point_range.push(range);
+        self.length.push(length);
+    }
+
+    pub(crate) fn push_points(&mut self, points: &[Vec2]) -> ((u32, u32), f64) {
+        let cumulative = cumulative_lengths(points);
+        let length = cumulative.last().copied().unwrap_or_default();
+        let range = (self.points.len() as u32, points.len() as u32);
+        self.points.extend_from_slice(points);
         self.cumulative.extend(cumulative);
-        self.point_start.push(self.points.len() as u32);
+        (range, length)
+    }
+
+    pub(crate) fn set_geometry(&mut self, road: u32, range: (u32, u32), length: f64) {
+        let index = road as usize;
+        self.point_range[index] = range;
+        self.length[index] = length;
     }
 
     pub fn count(&self) -> usize {
@@ -65,10 +76,12 @@ impl RoadStore {
     }
 
     fn range(&self, road: u32) -> std::ops::Range<usize> {
-        let index = road as usize;
-        let start = self.point_start.get(index).copied().unwrap_or_default() as usize;
-        let end = self.point_start.get(index + 1).copied().unwrap_or_default() as usize;
-        start..end.max(start)
+        let (start, len) = self
+            .point_range
+            .get(road as usize)
+            .copied()
+            .unwrap_or_default();
+        start as usize..(start + len) as usize
     }
 
     pub fn points(&self, road: u32) -> &[Vec2] {

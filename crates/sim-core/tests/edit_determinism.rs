@@ -6,6 +6,7 @@ use trapiks_sim_core::network::{Network, road_of};
 use trapiks_sim_core::sim::Sim;
 
 const TURN_NODE: u32 = 220;
+const FLYOVER_NODE: u32 = 290;
 
 fn map() -> MapData {
     grid_city(&GridCity {
@@ -15,8 +16,24 @@ fn map() -> MapData {
     })
 }
 
+fn straight_pair(network: &Network, node: u32) -> [u32; 2] {
+    let roads = &network.nodes.roads[node as usize];
+    let direction = |road: u32| {
+        let link = network.departing_link(road, node);
+        network.centre_pose(link, 10.0).1
+    };
+    let first = roads[0];
+    let opposite = roads[1..]
+        .iter()
+        .copied()
+        .find(|&road| direction(first).dot(direction(road)) < -0.9)
+        .unwrap_or(first);
+    [first, opposite]
+}
+
 fn edits(map: &MapData) -> Vec<EditCommand> {
-    let (from, to, _) = Network::from_map(map).turns(TURN_NODE)[0];
+    let network = Network::from_map(map);
+    let (from, to, _) = network.turns(TURN_NODE)[0];
     vec![
         EditCommand::DeleteRoad { road: 150 },
         EditCommand::SetLanes {
@@ -35,6 +52,10 @@ fn edits(map: &MapData) -> Vec<EditCommand> {
             to_road: road_of(to),
             allowed: false,
         },
+        EditCommand::BuildFlyover {
+            node: FLYOVER_NODE,
+            through: straight_pair(&network, FLYOVER_NODE),
+        },
         EditCommand::Undo,
     ]
 }
@@ -49,7 +70,7 @@ fn run(map: &MapData) -> (u64, Vec<CommandResult>) {
     let mut sim = Sim::from_config(map, &config);
     let mut pending = edits(map).into_iter();
     let mut results = Vec::new();
-    for tick in 0..700u64 {
+    for tick in 0..800u64 {
         if tick > 0
             && tick.is_multiple_of(100)
             && let Some(command) = pending.next()
@@ -69,7 +90,7 @@ fn determinism_with_edits() {
     let (hash_b, results_b) = run(&map);
     assert_eq!(hash_a, hash_b);
     assert_eq!(results_a, results_b);
-    assert_eq!(results_a.len(), 6);
+    assert_eq!(results_a.len(), 7);
     for result in &results_a {
         assert!(matches!(result.outcome, Outcome::Ok(_)), "{result:?}");
     }

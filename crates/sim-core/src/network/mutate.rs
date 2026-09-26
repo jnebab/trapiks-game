@@ -1,6 +1,6 @@
 use crate::map::{Control, TurnBan};
 
-use super::{Network, Timing};
+use super::{Network, SpatialGrid, Timing};
 
 impl Network {
     pub(crate) fn set_road_deleted(&mut self, road: u32, deleted: bool) -> bool {
@@ -42,8 +42,16 @@ impl Network {
     }
 
     pub(crate) fn commit_edit(&mut self, invalidated: &[u32], signals_changed: bool) {
+        let structural = self.structure != self.spatial_structure;
+        if structural {
+            self.spatial = SpatialGrid::build(&self.roads, &self.nodes);
+            self.spatial_structure = self.structure;
+        }
         for &node in invalidated {
             self.invalidate_node(node);
+        }
+        if structural {
+            self.compute_spans();
         }
         if signals_changed {
             self.rebuild_signals();

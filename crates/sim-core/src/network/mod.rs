@@ -1,3 +1,4 @@
+mod append;
 mod content_hash;
 mod junction;
 mod link;
@@ -38,6 +39,8 @@ pub struct Network {
     junctions: Vec<Option<Junction>>,
     spans: Vec<(f64, f64)>,
     version: u64,
+    structure: u64,
+    spatial_structure: u64,
     content: Cell<Option<(u64, u64)>>,
 }
 
@@ -57,6 +60,8 @@ impl Network {
             region: None,
             spans: Vec::new(),
             version: 0,
+            structure: 0,
+            spatial_structure: 0,
             content: Cell::new(None),
         };
         network.rebuild_signals();

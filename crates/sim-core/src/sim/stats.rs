@@ -55,6 +55,7 @@ impl Sim {
     }
 
     pub(super) fn extend_reference_speeds(&mut self) {
+        self.v_ref.truncate(self.network.roads.count());
         let known = self.v_ref.len();
         let speeds = self.network.roads.speed.get(known..).unwrap_or_default();
         self.v_ref.extend_from_slice(speeds);

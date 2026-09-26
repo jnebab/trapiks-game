@@ -42,6 +42,15 @@ impl LinkQueues {
         self.queues.values().flatten().map(|routed| &routed.trip)
     }
 
+    pub fn forget_links_from(&mut self, limit: LinkId) -> u64 {
+        let before = self.len();
+        for queue in self.queues.values_mut() {
+            queue.retain(|routed| routed.route.iter().all(|&link| link < limit));
+        }
+        self.queues.retain(|_, queue| !queue.is_empty());
+        (before - self.len()) as u64
+    }
+
     pub fn step(
         &mut self,
         tick: u64,

@@ -35,3 +35,25 @@ fn segment_index(cumulative: &[f64], s: f64) -> usize {
     let upper = cumulative.partition_point(|&c| c <= s);
     upper.saturating_sub(1).min(last_segment)
 }
+
+const VERTEX_SNAP: f64 = 1e-6;
+
+pub fn split_polyline(points: &[Vec2], cumulative: &[f64], s: f64) -> (Vec<Vec2>, Vec<Vec2>) {
+    if let Some(vertex) = cumulative
+        .iter()
+        .position(|&c| (c - s).abs() <= VERTEX_SNAP)
+    {
+        return (points[..=vertex].to_vec(), points[vertex..].to_vec());
+    }
+    let count = points.len().min(cumulative.len());
+    if count < 2 {
+        return (points.to_vec(), points.to_vec());
+    }
+    let segment = segment_index(&cumulative[..count], s);
+    let (cut, _) = pose_at(points, cumulative, s);
+    let mut head = points[..=segment].to_vec();
+    head.push(cut);
+    let mut tail = vec![cut];
+    tail.extend_from_slice(&points[segment + 1..count]);
+    (head, tail)
+}

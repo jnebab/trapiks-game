@@ -2,6 +2,8 @@ use crate::fnv::Fnv64;
 use crate::map::{Control, TurnBan};
 use crate::network::{Network, Timing};
 
+use super::flyover::{self, FlyoverUndo};
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Edit {
     SetDeleted {
@@ -29,6 +31,11 @@ pub enum Edit {
         ban: TurnBan,
         banned: bool,
     },
+    BuildFlyover {
+        node: u32,
+        through: [u32; 2],
+    },
+    UndoFlyover(Box<FlyoverUndo>),
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -49,6 +56,8 @@ impl Edit {
             Edit::SetControl { node, .. } => node_scope(node, true),
             Edit::SetTiming { key, .. } => node_scope(key, true),
             Edit::SetBan { ban, .. } => node_scope(ban.via_node, false),
+            Edit::BuildFlyover { node, through } => flyover::build_scope(network, node, through),
+            Edit::UndoFlyover(ref undo) => flyover::undo_scope(network, undo),
         }
     }
 
@@ -79,10 +88,23 @@ impl Edit {
                 ban,
                 banned: network.set_ban(ban, banned),
             },
+            Edit::BuildFlyover { node, through } => {
+                Edit::UndoFlyover(Box::new(flyover::build(network, node, through)))
+            }
+            Edit::UndoFlyover(ref undo) => {
+                flyover::undo(network, undo);
+                Edit::BuildFlyover {
+                    node: undo.node,
+                    through: undo.roads,
+                }
+            }
         }
     }
 
     pub fn hash_into(&self, hasher: &mut Fnv64) {
+        if let Edit::UndoFlyover(undo) = self {
+            return hash_flyover_undo(undo, hasher);
+        }
         let words = match self {
             Edit::SetDeleted { road, deleted } => vec![0, *road, u32::from(*deleted)],
             Edit::SetLanes {
@@ -102,11 +124,27 @@ impl Edit {
                     u32::from(*banned),
                 ]
             }
+            Edit::BuildFlyover { node, through } => vec![6, *node, through[0], through[1]],
+            Edit::UndoFlyover(_) => Vec::new(),
         };
         for word in words {
             hasher.write_u32(word);
         }
     }
+}
+
+fn hash_flyover_undo(undo: &FlyoverUndo, hasher: &mut Fnv64) {
+    hasher.write_u32(7);
+    hasher.write_u32(undo.node);
+    for index in 0..2 {
+        hasher.write_u32(undo.roads[index]);
+        hasher.write_u32(undo.old_ranges[index].0);
+        hasher.write_u32(undo.old_ranges[index].1);
+        hasher.write_f64(undo.old_lengths[index]);
+        hasher.write_u32(undo.old_ends[index]);
+    }
+    hasher.write_u32(undo.road_len_before);
+    hasher.write_u32(undo.node_len_before);
 }
 
 fn set_lanes(network: &mut Network, road: u32, forward: u8, backward: u8) -> Edit {

@@ -33,6 +33,10 @@ pub enum EditCommand {
         to_road: u32,
         allowed: bool,
     },
+    BuildFlyover {
+        node: u32,
+        through: [u32; 2],
+    },
     Undo,
     SetDemand {
         vehicles_per_hour: f64,
@@ -57,6 +61,9 @@ pub enum EditError {
     NothingToUndo,
     DemandLocked,
     InvalidDemand,
+    RoadNotIncident,
+    FlyoverNotStraight,
+    FlyoverTooShort,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
