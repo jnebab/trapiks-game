@@ -3,11 +3,14 @@ import type { RoadArrays } from '../../sim/protocol';
 import { DetailStore } from '../detail-store';
 import { NodeStore } from '../node-store';
 import { RoadStore } from '../road-store';
+import type { MapMeta } from '../../generated/MapMeta';
 import { buildTileIndex } from './tile-index';
+import { cityInclude } from './tile-manager';
 
 const PRIMARY = 4;
 const RESIDENTIAL = 12;
 const RANKS = [14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 3, 2, 1];
+const CLASS_NAMES = ['Motorway', 'MotorwayLink', 'Trunk', 'TrunkLink', 'Primary'];
 
 function makeRoads(): RoadArrays {
   const lines = [
@@ -26,6 +29,7 @@ function makeRoads(): RoadArrays {
     lanesBackward: Uint8Array.from([1, 1, 1, 1, 1]),
     layer: Int8Array.from([0, 0, 0, 0, 0]),
     name: Uint32Array.from([0, 0, 0, 0, 0]),
+    roundabout: Uint8Array.from([0, 0, 0, 0, 1]),
     from: new Uint32Array(5),
     to: new Uint32Array(5),
   };
@@ -66,6 +70,15 @@ describe('buildTileIndex', () => {
     const all = [...cityIndex.entries.values()].flatMap((entry) => [...entry.roads]);
     expect(all).not.toContain(2);
     expect(all.sort((a, b) => a - b)).toEqual([0, 1, 3, 4]);
+  });
+
+  it('keeps roundabout rings out of the city band', () => {
+    const meta = { class_names: CLASS_NAMES, class_ranks: RANKS } as unknown as MapMeta;
+    const city = { name: 'city', size: 4096, include: cityInclude(roads, meta) } as const;
+    const cityIndex = buildTileIndex(roads, city);
+    const all = [...cityIndex.entries.values()].flatMap((entry) => [...entry.roads]);
+    expect(roads.isRoundabout(4)).toBe(true);
+    expect(all.sort((a, b) => a - b)).toEqual([0, 1, 3]);
   });
 });
 

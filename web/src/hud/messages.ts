@@ -19,6 +19,11 @@ const MESSAGES: Record<EditError, string> = {
   RoadNotIncident: 'Road does not meet this junction',
   FlyoverNotStraight: 'Flyover needs a straight crossing',
   FlyoverTooShort: 'Roads too short for a flyover',
+  InvalidRadius: 'Radius out of range',
+  AlreadyRoundabout: 'Already a roundabout',
+  RoundaboutTooLarge: 'Roads too short for this size',
+  LayerMismatch: 'Roads are on different levels',
+  RoundaboutTooTight: 'Roads too close together',
 };
 
 export function errorMessage(error: EditError): string {

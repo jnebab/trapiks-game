@@ -29,6 +29,7 @@ function roadArrays(engine: Engine): RoadArrays {
     lanesBackward: g.lanesBackward,
     layer: g.layer,
     name: g.name,
+    roundabout: g.roundabout,
     from: g.from,
     to: g.to,
   };

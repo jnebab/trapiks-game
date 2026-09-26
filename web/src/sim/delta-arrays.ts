@@ -7,6 +7,7 @@ export interface DeltaColumns {
   roadLanesBackward: Uint8Array;
   roadLayer: Int8Array;
   roadName: Uint32Array;
+  roadRoundabout: Uint8Array;
   roadDeleted: Uint8Array;
   roadFrom: Uint32Array;
   roadTo: Uint32Array;
@@ -52,6 +53,7 @@ export const deltaShape: Record<keyof DeltaColumns, ArrayCtor> = {
   roadLanesBackward: Uint8Array,
   roadLayer: Int8Array,
   roadName: Uint32Array,
+  roadRoundabout: Uint8Array,
   roadDeleted: Uint8Array,
   roadFrom: Uint32Array,
   roadTo: Uint32Array,

@@ -70,6 +70,11 @@ impl RoadGeometry {
         self.0.name.clone()
     }
 
+    #[wasm_bindgen(getter, js_name = roundabout)]
+    pub fn roundabout(&self) -> Vec<u8> {
+        self.0.roundabout.clone()
+    }
+
     #[wasm_bindgen(getter, js_name = from)]
     pub fn from_node(&self) -> Vec<u32> {
         self.0.from.clone()

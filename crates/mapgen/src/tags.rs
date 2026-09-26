@@ -18,11 +18,14 @@ pub fn oneway(tags: &Tags, class: RoadClass) -> Oneway {
         Some("no") => return Oneway::No,
         _ => {}
     }
-    let roundabout = matches!(tag(tags, "junction"), Some("roundabout" | "circular"));
-    if roundabout || class.implies_oneway() {
+    if is_roundabout(tags) || class.implies_oneway() {
         return Oneway::Forward;
     }
     Oneway::No
+}
+
+pub fn is_roundabout(tags: &Tags) -> bool {
+    matches!(tag(tags, "junction"), Some("roundabout" | "circular"))
 }
 
 pub fn lanes(tags: &Tags, class: RoadClass, oneway: Oneway) -> (u8, u8) {

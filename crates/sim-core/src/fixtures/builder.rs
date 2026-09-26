@@ -102,8 +102,15 @@ impl MapBuilder {
         roads.speed_kph.push(spec.speed_kph);
         roads.layer.push(spec.layer);
         roads.name.push(name);
+        roads.roundabout.push(false);
         self.push_points(from, to, &spec.via);
         id
+    }
+
+    pub fn roundabout(&mut self, road: u32) {
+        if let Some(slot) = self.map.roads.roundabout.get_mut(road as usize) {
+            *slot = true;
+        }
     }
 
     pub fn control(&mut self, node: u32, control: Control) {

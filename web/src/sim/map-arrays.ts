@@ -9,6 +9,7 @@ export interface RoadArrays {
   lanesBackward: Uint8Array;
   layer: Int8Array;
   name: Uint32Array;
+  roundabout: Uint8Array;
   from: Uint32Array;
   to: Uint32Array;
 }
@@ -35,6 +36,7 @@ export const roadShape: Record<keyof RoadArrays, ArrayCtor> = {
   lanesBackward: Uint8Array,
   layer: Int8Array,
   name: Uint32Array,
+  roundabout: Uint8Array,
   from: Uint32Array,
   to: Uint32Array,
 };

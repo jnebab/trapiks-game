@@ -1,6 +1,7 @@
 mod conflicts;
 mod lanes;
 mod path;
+mod rank;
 mod turn;
 
 use crate::consts::BEZIER_SEGMENTS;
@@ -9,6 +10,7 @@ use crate::geom::Vec2;
 use super::Network;
 use super::link::{LinkId, reverse, road_of};
 
+pub use rank::{RING_RANK, movement_class_rank, movement_is_minor};
 pub use turn::TurnKind;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -120,12 +122,23 @@ fn candidates(network: &Network, node: u32, bans: Bans) -> Vec<Candidate> {
     result
 }
 
+fn ring_kind(network: &Network, from_link: LinkId, to_link: LinkId) -> Option<TurnKind> {
+    let from_ring = network.roads.is_roundabout(road_of(from_link));
+    let to_ring = network.roads.is_roundabout(road_of(to_link));
+    match (from_ring, to_ring) {
+        (true, true) => Some(TurnKind::Through),
+        (false, false) => None,
+        _ => Some(TurnKind::Right),
+    }
+}
+
 fn candidate(network: &Network, node: u32, from_link: LinkId, to_link: LinkId) -> Candidate {
     let s0 = network.link_length(from_link) - network.setback_at(node, road_of(from_link));
     let s3 = network.setback_at(node, road_of(to_link));
     let (_, d0) = network.centre_pose(from_link, s0);
     let (_, d3) = network.centre_pose(to_link, s3);
-    let kind = turn::classify(from_link, to_link, d0, d3);
+    let kind = ring_kind(network, from_link, to_link)
+        .unwrap_or_else(|| turn::classify(from_link, to_link, d0, d3));
     Candidate {
         from_link,
         to_link,

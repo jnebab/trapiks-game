@@ -1,4 +1,5 @@
 use crate::geom::split_polyline;
+use crate::map::Control;
 use crate::network::Network;
 
 use super::apply::Scope;
@@ -43,7 +44,7 @@ pub fn build(network: &mut Network, node: u32, through: [u32; 2]) -> FlyoverUndo
     let road_len_before = network.roads.count() as u32;
     let node_len_before = network.nodes.count() as u32;
     let layer = flyover_layer(network, node, through);
-    let top = network.append_node(network.nodes.pos[node as usize]);
+    let top = network.append_node(network.nodes.pos[node as usize], Control::Priority);
     let lifted = through.map(|road| lift(network, road, node, (top, layer)));
     FlyoverUndo {
         node,
@@ -79,7 +80,7 @@ fn lift(network: &mut Network, road: u32, node: u32, (top, layer): (u32, i8)) ->
     );
     let (outer, inner) = if arrives { (head, tail) } else { (tail, head) };
     let cut = if arrives { inner.first() } else { inner.last() };
-    let middle = network.append_node(cut.copied().unwrap_or_default());
+    let middle = network.append_node(cut.copied().unwrap_or_default(), Control::Priority);
     let (old_range, old_length) = network.repoint_road(road, &outer);
     network.set_endpoint(road, node, middle);
     let ends = if arrives {
@@ -172,7 +173,7 @@ fn changed(node: u32, roads: [u32; 2], inner: [u32; 2], added: [u32; 3], far: [u
     }
 }
 
-fn far_end(network: &Network, road: u32, near: u32) -> u32 {
+pub(super) fn far_end(network: &Network, road: u32, near: u32) -> u32 {
     let index = road as usize;
     let from = network.roads.from[index];
     if from == near {

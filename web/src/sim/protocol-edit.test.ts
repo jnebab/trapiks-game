@@ -14,6 +14,8 @@ describe('edit messages', () => {
     const command = { DeleteRoad: { road: 3 } };
     expect(isMainMessage({ type: 'command', command })).toBe(true);
     expect(isMainMessage({ type: 'command', command: 'Undo' })).toBe(true);
+    const roundabout = { BuildRoundabout: { node: 2, radius_m: 18 } };
+    expect(isMainMessage({ type: 'command', command: roundabout })).toBe(true);
     expect(isMainMessage({ type: 'quote', id: 1, command })).toBe(true);
     expect(isMainMessage({ type: 'command', command: { Explode: {} } })).toBe(false);
     expect(isMainMessage({ type: 'command', command: 'Redo' })).toBe(false);

@@ -37,6 +37,10 @@ pub enum EditCommand {
         node: u32,
         through: [u32; 2],
     },
+    BuildRoundabout {
+        node: u32,
+        radius_m: u8,
+    },
     Undo,
     SetDemand {
         vehicles_per_hour: f64,
@@ -64,6 +68,11 @@ pub enum EditError {
     RoadNotIncident,
     FlyoverNotStraight,
     FlyoverTooShort,
+    InvalidRadius,
+    AlreadyRoundabout,
+    RoundaboutTooLarge,
+    LayerMismatch,
+    RoundaboutTooTight,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]

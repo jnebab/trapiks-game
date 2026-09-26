@@ -12,6 +12,7 @@ const COMMAND_KEYS = new Set([
   'SetSignalTiming',
   'SetTurnAllowed',
   'BuildFlyover',
+  'BuildRoundabout',
   'SetDemand',
 ]);
 

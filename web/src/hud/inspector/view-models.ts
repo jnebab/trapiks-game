@@ -100,3 +100,26 @@ export function costLabel(outcome: QuoteOutcome, label: string): string {
   }
   return `${formatPesos(outcome.Ok)} · ${label}`;
 }
+
+export interface RoundaboutAction {
+  text: string;
+  action: string;
+  command: EditCommand;
+}
+
+const ROUNDABOUT_SIZES: [string, number][] = [
+  ['Small', 18],
+  ['Large', 28],
+];
+const MIN_ROUNDABOUT_ARMS = 3;
+
+export function roundaboutActions(info: NodeInspection): RoundaboutAction[] {
+  if (info.roads.length < MIN_ROUNDABOUT_ARMS) {
+    return [];
+  }
+  return ROUNDABOUT_SIZES.map(([text, radius_m]) => ({
+    text,
+    action: `${text} roundabout`,
+    command: { BuildRoundabout: { node: info.node, radius_m } },
+  }));
+}

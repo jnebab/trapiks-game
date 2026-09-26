@@ -14,7 +14,13 @@ import {
   type ViewContext,
 } from './controls';
 import { signalTiming } from './signal-timing';
-import { flyoverLabel, turnGroups, type TurnGroup } from './view-models';
+import {
+  flyoverLabel,
+  roundaboutActions,
+  turnGroups,
+  type RoundaboutAction,
+  type TurnGroup,
+} from './view-models';
 
 const CONTROLS: [Control, string][] = [
   ['Priority', 'Priority'],
@@ -96,6 +102,13 @@ function flyoverSection(
   return section('Flyover', ...buttons);
 }
 
+function roundaboutRow(actions: RoundaboutAction[], ctx: ViewContext): HTMLElement {
+  const buttons = actions.map(({ text, action, command }) =>
+    actionButton({ text, action }, () => command, ctx.client, ctx.tooltip),
+  );
+  return row('Roundabout', segmented(buttons));
+}
+
 export function buildNodeView(info: NodeInspection, ctx: ViewContext): HTMLElement {
   const root = el('div', 'inspector-body');
   root.dataset.control = info.control;
@@ -110,6 +123,10 @@ export function buildNodeView(info: NodeInspection, ctx: ViewContext): HTMLEleme
   }
   if (info.flyover_pairs.length > 0) {
     root.append(flyoverSection(info, labels, ctx));
+  }
+  const roundabouts = roundaboutActions(info);
+  if (roundabouts.length > 0) {
+    root.append(roundaboutRow(roundabouts, ctx));
   }
   return root;
 }

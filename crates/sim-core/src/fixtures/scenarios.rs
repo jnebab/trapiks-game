@@ -5,8 +5,8 @@ use crate::sim::Sim;
 
 use super::{GridCity, four_way, grid_city};
 
-pub const FOUR_WAY_HASH_5000: u64 = 0xd016_bc33_7e6c_66f5;
-pub const GRID_CITY_HASH_1000: u64 = 0xf1c3_23fe_d7fe_c0c8;
+pub const FOUR_WAY_HASH_5000: u64 = 0xdceb_7b79_899f_aae7;
+pub const GRID_CITY_HASH_1000: u64 = 0x6f9e_8bfb_43cb_81b6;
 
 pub fn four_way_5000() -> u64 {
     let map = four_way(2, 200.0);

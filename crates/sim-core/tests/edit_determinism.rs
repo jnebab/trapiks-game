@@ -7,6 +7,7 @@ use trapiks_sim_core::sim::Sim;
 
 const TURN_NODE: u32 = 220;
 const FLYOVER_NODE: u32 = 290;
+const ROUNDABOUT_NODE: u32 = 250;
 
 fn map() -> MapData {
     grid_city(&GridCity {
@@ -57,6 +58,10 @@ fn edits(map: &MapData) -> Vec<EditCommand> {
             through: straight_pair(&network, FLYOVER_NODE),
         },
         EditCommand::Undo,
+        EditCommand::BuildRoundabout {
+            node: ROUNDABOUT_NODE,
+            radius_m: 18,
+        },
     ]
 }
 
@@ -70,7 +75,7 @@ fn run(map: &MapData) -> (u64, Vec<CommandResult>) {
     let mut sim = Sim::from_config(map, &config);
     let mut pending = edits(map).into_iter();
     let mut results = Vec::new();
-    for tick in 0..800u64 {
+    for tick in 0..900u64 {
         if tick > 0
             && tick.is_multiple_of(100)
             && let Some(command) = pending.next()
@@ -90,7 +95,7 @@ fn determinism_with_edits() {
     let (hash_b, results_b) = run(&map);
     assert_eq!(hash_a, hash_b);
     assert_eq!(results_a, results_b);
-    assert_eq!(results_a.len(), 7);
+    assert_eq!(results_a.len(), 8);
     for result in &results_a {
         assert!(matches!(result.outcome, Outcome::Ok(_)), "{result:?}");
     }

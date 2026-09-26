@@ -142,6 +142,10 @@ impl Sim {
                 self.apply_flyover(edit, (*node, *through), cost)
             }
             Edit::UndoFlyover(undo) => self.undo_flyover(undo, cost),
+            Edit::BuildRoundabout { node, radius_m } => {
+                self.apply_roundabout(edit, (*node, *radius_m), cost)
+            }
+            Edit::UndoRoundabout(undo) => self.undo_roundabout(undo, cost),
             _ => self.apply_plain(edit, cost),
         }
     }

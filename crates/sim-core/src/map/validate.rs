@@ -32,6 +32,7 @@ fn validate_roads(map: &MapData) -> Result<(), MapError> {
         roads.speed_kph.len(),
         roads.layer.len(),
         roads.name.len(),
+        roads.roundabout.len(),
     ];
     if lengths.iter().any(|&len| len != count) {
         return invalid("road table lengths differ".to_string());

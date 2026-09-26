@@ -14,6 +14,7 @@ function roads(): RoadStore {
     lanesBackward: Uint8Array.from([1, 1, 2]),
     layer: Int8Array.from([0, 1, 0]),
     name: new Uint32Array(3),
+    roundabout: new Uint8Array(3),
     from: Uint32Array.from([0, 2, 4]),
     to: Uint32Array.from([1, 3, 5]),
   });
@@ -57,6 +58,7 @@ function moved(id: number, y: number, deleted = 0): RoadRows {
     lanesBackward: Uint8Array.from([2]),
     layer: new Int8Array(1),
     name: new Uint32Array(1),
+    roundabout: new Uint8Array(1),
     deleted: Uint8Array.from([deleted]),
     from: Uint32Array.from([4]),
     to: Uint32Array.from([5]),

@@ -25,6 +25,7 @@ fn sample_map() -> MapData {
             speed_kph: vec![20, 60],
             layer: vec![0, 1],
             name: vec![0, 1],
+            roundabout: vec![false, true],
             point_start: vec![0, 2, 5],
         },
         points: PointTable {

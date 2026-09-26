@@ -12,6 +12,7 @@ pub struct Attributes {
     pub speed_kph: u8,
     pub layer: i8,
     pub name: Option<String>,
+    pub roundabout: bool,
 }
 
 impl Attributes {
@@ -30,6 +31,7 @@ impl Attributes {
             && self.speed_kph == other.speed_kph
             && self.layer == other.layer
             && self.name == other.name
+            && self.roundabout == other.roundabout
     }
 }
 

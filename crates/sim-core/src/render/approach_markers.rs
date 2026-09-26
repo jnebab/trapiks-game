@@ -1,6 +1,6 @@
 use crate::consts::LANE_WIDTH;
 use crate::map::Control;
-use crate::network::{LinkId, Network, road_of};
+use crate::network::{LinkId, Network, movement_class_rank, road_of};
 
 use super::JUNCTION_MIN_DEGREE;
 
@@ -82,7 +82,7 @@ fn marker_kind(network: &Network, link: LinkId, node: u32) -> u8 {
 }
 
 fn is_minor(network: &Network, link: LinkId, node: u32) -> bool {
-    let rank = |l: LinkId| network.roads.class[road_of(l) as usize].rank();
+    let rank = |l: LinkId| movement_class_rank(network, road_of(l));
     let highest = network.incoming(node).map(rank).max();
     highest.is_some_and(|top| rank(link) < top)
 }

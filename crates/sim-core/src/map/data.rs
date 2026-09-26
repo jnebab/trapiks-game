@@ -25,6 +25,7 @@ pub struct RoadTable {
     pub speed_kph: Vec<u8>,
     pub layer: Vec<i8>,
     pub name: Vec<u32>,
+    pub roundabout: Vec<bool>,
     pub point_start: Vec<u32>,
 }
 

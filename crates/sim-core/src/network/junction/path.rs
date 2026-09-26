@@ -3,13 +3,13 @@ use crate::geom::{CubicBezier, Vec2};
 use crate::network::Network;
 use crate::network::link::road_of;
 
-use super::{Candidate, Movement, TurnKind};
+use super::{Candidate, Movement, TurnKind, movement_class_rank};
 
 pub fn movement(network: &Network, candidate: &Candidate, from_lanes: (u8, u8)) -> Movement {
     let primary_lanes = primary(network, candidate, from_lanes);
     let bezier = curve(network, candidate, primary_lanes);
     let (path, cumulative) = sample(&bezier);
-    let class_rank = network.roads.class[road_of(candidate.from_link) as usize].rank();
+    let class_rank = movement_class_rank(network, road_of(candidate.from_link));
     Movement {
         from_link: candidate.from_link,
         to_link: candidate.to_link,

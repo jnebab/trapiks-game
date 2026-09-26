@@ -1,30 +1,54 @@
 use crate::geom::Vec2;
-use crate::map::Control;
+use crate::map::{Control, RoadClass};
 
 use super::Network;
 use super::node::NodeStore;
 use super::road::RoadStore;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NewRoad {
+    pub ends: (u32, u32),
+    pub class: RoadClass,
+    pub lanes: (u8, u8),
+    pub layer: i8,
+    pub name: u32,
+    pub speed_kph: u8,
+    pub roundabout: bool,
+}
+
 impl RoadStore {
-    pub fn append_like(
-        &mut self,
-        r: u32,
-        (from, to): (u32, u32),
-        points: &[Vec2],
-        layer: i8,
-    ) -> u32 {
+    fn like(&self, r: u32, ends: (u32, u32), layer: i8) -> NewRoad {
         let index = r as usize;
+        NewRoad {
+            ends,
+            class: self.class[index],
+            lanes: (self.lanes_forward[index], self.lanes_backward[index]),
+            layer,
+            name: self.name[index],
+            speed_kph: self.speed_kph[index],
+            roundabout: self.roundabout[index],
+        }
+    }
+
+    pub fn append_like(&mut self, r: u32, ends: (u32, u32), points: &[Vec2], layer: i8) -> u32 {
+        let row = self.like(r, ends, layer);
+        self.append(&row, points)
+    }
+
+    pub fn append(&mut self, row: &NewRoad, points: &[Vec2]) -> u32 {
         let id = self.count() as u32;
-        self.from.push(from);
-        self.to.push(to);
-        self.class.push(self.class[index]);
-        self.lanes_forward.push(self.lanes_forward[index]);
-        self.lanes_backward.push(self.lanes_backward[index]);
-        self.layer.push(layer);
-        self.name.push(self.name[index]);
-        self.speed_kph.push(self.speed_kph[index]);
-        self.speed.push(self.speed[index]);
+        self.from.push(row.ends.0);
+        self.to.push(row.ends.1);
+        self.class.push(row.class);
+        self.lanes_forward.push(row.lanes.0);
+        self.lanes_backward.push(row.lanes.1);
+        self.layer.push(row.layer);
+        self.name.push(row.name);
+        self.speed_kph.push(row.speed_kph);
+        self.speed.push(0.0);
+        self.roundabout.push(row.roundabout);
         self.deleted.push(false);
+        self.set_speed_kph(id, row.speed_kph);
         let (range, length) = self.push_points(points);
         self.point_range.push(range);
         self.length.push(length);
@@ -41,6 +65,7 @@ impl RoadStore {
         self.name.truncate(len);
         self.speed_kph.truncate(len);
         self.speed.truncate(len);
+        self.roundabout.truncate(len);
         self.deleted.truncate(len);
         self.point_range.truncate(len);
         self.length.truncate(len);
@@ -48,10 +73,10 @@ impl RoadStore {
 }
 
 impl NodeStore {
-    pub fn append(&mut self, pos: Vec2) -> u32 {
+    pub fn append(&mut self, pos: Vec2, control: Control) -> u32 {
         let id = self.count() as u32;
         self.pos.push(pos);
-        self.control.push(Control::Priority);
+        self.control.push(control);
         self.roads.push(Vec::new());
         id
     }
@@ -82,10 +107,10 @@ impl NodeStore {
 }
 
 impl Network {
-    pub(crate) fn append_node(&mut self, pos: Vec2) -> u32 {
+    pub(crate) fn append_node(&mut self, pos: Vec2, control: Control) -> u32 {
         self.junctions.push(None);
         self.structure += 1;
-        self.nodes.append(pos)
+        self.nodes.append(pos, control)
     }
 
     pub(crate) fn append_road(
@@ -96,6 +121,15 @@ impl Network {
         layer: i8,
     ) -> u32 {
         let road = self.roads.append_like(r, ends, points, layer);
+        self.attach_appended(road, ends)
+    }
+
+    pub(crate) fn append_new_road(&mut self, row: &NewRoad, points: &[Vec2]) -> u32 {
+        let road = self.roads.append(row, points);
+        self.attach_appended(road, row.ends)
+    }
+
+    fn attach_appended(&mut self, road: u32, ends: (u32, u32)) -> u32 {
         self.nodes.attach_sorted(ends.0, road);
         self.nodes.attach_sorted(ends.1, road);
         if let Some(mask) = self.region.as_mut() {

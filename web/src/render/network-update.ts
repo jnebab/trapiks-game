@@ -21,6 +21,7 @@ function roadRows(delta: DeltaArrays): RoadRows {
     lanesBackward: delta.roadLanesBackward,
     layer: delta.roadLayer,
     name: delta.roadName,
+    roundabout: delta.roadRoundabout,
     deleted: delta.roadDeleted,
     from: delta.roadFrom,
     to: delta.roadTo,

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use trapiks_sim_core::map::Control;
 
@@ -17,6 +17,20 @@ pub fn assign(osm: &OsmData, roads: &[TopoRoad], positions: &Positions) -> BTree
         assign_road(osm, road, positions, &mut controls);
     }
     controls
+}
+
+pub fn roundabout_entries(roads: &[TopoRoad]) -> BTreeSet<i64> {
+    let mut ring = BTreeSet::new();
+    let mut other = BTreeSet::new();
+    for road in roads {
+        let side = if road.attributes.roundabout {
+            &mut ring
+        } else {
+            &mut other
+        };
+        side.extend([road.from_node(), road.to_node()]);
+    }
+    ring.intersection(&other).copied().collect()
 }
 
 pub fn node_control(tags: &Tags) -> Option<Control> {

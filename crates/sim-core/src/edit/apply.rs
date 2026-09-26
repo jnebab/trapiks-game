@@ -3,6 +3,7 @@ use crate::map::{Control, TurnBan};
 use crate::network::{Network, Timing};
 
 use super::flyover::{self, FlyoverUndo};
+use super::roundabout::{self, RoundaboutUndo};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Edit {
@@ -36,6 +37,11 @@ pub enum Edit {
         through: [u32; 2],
     },
     UndoFlyover(Box<FlyoverUndo>),
+    BuildRoundabout {
+        node: u32,
+        radius_m: u8,
+    },
+    UndoRoundabout(Box<RoundaboutUndo>),
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -58,6 +64,8 @@ impl Edit {
             Edit::SetBan { ban, .. } => node_scope(ban.via_node, false),
             Edit::BuildFlyover { node, through } => flyover::build_scope(network, node, through),
             Edit::UndoFlyover(ref undo) => flyover::undo_scope(network, undo),
+            Edit::BuildRoundabout { node, .. } => roundabout::build_scope(network, node),
+            Edit::UndoRoundabout(ref undo) => roundabout::undo_scope(network, undo),
         }
     }
 
@@ -88,6 +96,12 @@ impl Edit {
                 ban,
                 banned: network.set_ban(ban, banned),
             },
+            _ => self.apply_structural(network),
+        }
+    }
+
+    fn apply_structural(&self, network: &mut Network) -> Edit {
+        match *self {
             Edit::BuildFlyover { node, through } => {
                 Edit::UndoFlyover(Box::new(flyover::build(network, node, through)))
             }
@@ -98,12 +112,23 @@ impl Edit {
                     through: undo.roads,
                 }
             }
+            Edit::BuildRoundabout { node, radius_m } => {
+                Edit::UndoRoundabout(Box::new(roundabout::build(network, node, radius_m)))
+            }
+            Edit::UndoRoundabout(ref undo) => {
+                roundabout::undo(network, undo);
+                undo.rebuild()
+            }
+            _ => self.clone(),
         }
     }
 
     pub fn hash_into(&self, hasher: &mut Fnv64) {
         if let Edit::UndoFlyover(undo) = self {
             return hash_flyover_undo(undo, hasher);
+        }
+        if let Edit::UndoRoundabout(undo) = self {
+            return hash_roundabout_undo(undo, hasher);
         }
         let words = match self {
             Edit::SetDeleted { road, deleted } => vec![0, *road, u32::from(*deleted)],
@@ -125,7 +150,8 @@ impl Edit {
                 ]
             }
             Edit::BuildFlyover { node, through } => vec![6, *node, through[0], through[1]],
-            Edit::UndoFlyover(_) => Vec::new(),
+            Edit::BuildRoundabout { node, radius_m } => vec![8, *node, u32::from(*radius_m)],
+            Edit::UndoFlyover(_) | Edit::UndoRoundabout(_) => Vec::new(),
         };
         for word in words {
             hasher.write_u32(word);
@@ -142,6 +168,22 @@ fn hash_flyover_undo(undo: &FlyoverUndo, hasher: &mut Fnv64) {
         hasher.write_u32(undo.old_ranges[index].1);
         hasher.write_f64(undo.old_lengths[index]);
         hasher.write_u32(undo.old_ends[index]);
+    }
+    hasher.write_u32(undo.road_len_before);
+    hasher.write_u32(undo.node_len_before);
+}
+
+fn hash_roundabout_undo(undo: &RoundaboutUndo, hasher: &mut Fnv64) {
+    hasher.write_u32(9);
+    hasher.write_u32(undo.node);
+    hasher.write_u32(undo.arms.len() as u32);
+    for arm in &undo.arms {
+        hasher.write_u32(arm.road);
+        hasher.write_u32(arm.old_range.0);
+        hasher.write_u32(arm.old_range.1);
+        hasher.write_f64(arm.old_length);
+        hasher.write_u32(u32::from(arm.arrived));
+        hasher.write_f64(arm.cut);
     }
     hasher.write_u32(undo.road_len_before);
     hasher.write_u32(undo.node_len_before);

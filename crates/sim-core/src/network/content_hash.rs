@@ -46,6 +46,7 @@ impl Network {
             roads.lanes_backward[road],
             roads.speed_kph[road],
             roads.layer[road] as u8,
+            u8::from(roads.roundabout[road]),
         ]);
         hasher.write_u32(roads.from[road]);
         hasher.write_u32(roads.to[road]);

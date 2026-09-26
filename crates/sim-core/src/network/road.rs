@@ -15,6 +15,7 @@ pub struct RoadStore {
     pub name: Vec<u32>,
     pub speed_kph: Vec<u8>,
     pub speed: Vec<f64>,
+    pub roundabout: Vec<bool>,
     pub deleted: Vec<bool>,
     pub point_range: Vec<(u32, u32)>,
     pub points: Vec<Vec2>,
@@ -35,6 +36,7 @@ impl RoadStore {
             name: table.name.clone(),
             speed_kph: table.speed_kph.clone(),
             speed: table.speed_kph.iter().map(|&kph| mps(kph)).collect(),
+            roundabout: table.roundabout.clone(),
             deleted: vec![false; map.road_count()],
             ..RoadStore::default()
         };
@@ -105,6 +107,10 @@ impl RoadStore {
         let index = road as usize;
         self.speed_kph[index] = kph;
         self.speed[index] = mps(kph);
+    }
+
+    pub fn is_roundabout(&self, road: u32) -> bool {
+        self.roundabout.get(road as usize).copied().unwrap_or(false)
     }
 
     pub fn is_live(&self, road: u32) -> bool {

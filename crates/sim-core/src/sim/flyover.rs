@@ -101,8 +101,8 @@ impl Sim {
         restore_through(&mut self.network, undo);
         self.network.commit_edit(&scope.invalidated, true);
         self.ensure_graph();
-        self.strand_on_flyover(undo);
-        self.reroute_off_flyover(undo);
+        self.strand_in_movements_at(&undo.appended_nodes());
+        self.reroute_off_links_from(undo.road_len_before * 2);
         truncate_flyover(&mut self.network, undo);
         let surviving: Vec<u32> = scope
             .invalidated
@@ -163,8 +163,7 @@ impl Sim {
         None
     }
 
-    fn strand_on_flyover(&mut self, undo: &FlyoverUndo) {
-        let appended = undo.appended_nodes();
+    pub(super) fn strand_in_movements_at(&mut self, appended: &[u32]) {
         let slots: Vec<u32> = self
             .vehicles
             .live_slots()
@@ -178,14 +177,14 @@ impl Sim {
         }
     }
 
-    fn reroute_off_flyover(&mut self, undo: &FlyoverUndo) {
+    pub(super) fn reroute_off_links_from(&mut self, first: LinkId) {
         let slots: Vec<u32> = self
             .vehicles
             .live_slots()
             .filter(|&slot| {
                 let route = self.vehicles.route(slot);
                 let rest = route.get(self.vehicles.cursor(slot)..).unwrap_or_default();
-                rest.iter().any(|&link| undo.is_appended_link(link))
+                rest.iter().any(|&link| link >= first)
             })
             .collect();
         for slot in slots {
@@ -193,7 +192,7 @@ impl Sim {
         }
     }
 
-    fn forget_truncated_links(&mut self) {
+    pub(super) fn forget_truncated_links(&mut self) {
         let limit = self.network.link_count() as LinkId;
         let dropped = self.demand.trips.forget_links_from(limit)
             + self.demand.queues.forget_links_from(limit);

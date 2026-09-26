@@ -7,6 +7,7 @@ import {
   directionCommands,
   flyoverLabel,
   laneStep,
+  roundaboutActions,
   speedStep,
   turnGroups,
 } from './view-models';
@@ -160,6 +161,33 @@ describe('arm labels', () => {
     ]);
     expect(groups[0]?.turns.map((turn) => turn.label)).toEqual(['Avenue 5 S', 'Road 3 E']);
     expect(flyoverLabel([0, 1], labels)).toBe('Build flyover: Avenue 5 N ↔ Avenue 5 S');
+  });
+});
+
+describe('roundaboutActions', () => {
+  it('offers small and large roundabouts at a junction', () => {
+    const info: NodeInspection = {
+      node: 0,
+      control: 'Priority',
+      roads: [0, 1, 2],
+      signal: null,
+      turns: [],
+      flyover_pairs: [],
+    };
+    expect(roundaboutActions(info)).toEqual([
+      {
+        text: 'Small',
+        action: 'Small roundabout',
+        command: { BuildRoundabout: { node: 0, radius_m: 18 } },
+      },
+      {
+        text: 'Large',
+        action: 'Large roundabout',
+        command: { BuildRoundabout: { node: 0, radius_m: 28 } },
+      },
+    ]);
+    expect(roundaboutActions({ ...info, roads: [0, 1] })).toEqual([]);
+    expect(costLabel({ Ok: 2104 }, 'Small roundabout')).toBe('₱2,104 · Small roundabout');
   });
 });
 

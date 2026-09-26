@@ -1,5 +1,5 @@
 use crate::consts::IDM_MIN_GAP;
-use crate::network::{LinkId, Network};
+use crate::network::{LinkId, Network, road_of};
 
 use super::approach::{Approach, RuleContext, heads_to};
 use super::leader::current_ahead;
@@ -50,8 +50,9 @@ fn target_has_room(ctx: &RuleContext, approach: &Approach) -> bool {
     };
     let target = approach.movement.to_link;
     let free = free_space(ctx.network, ctx.vehicles, ctx.occupancy, target, lane);
+    let own = ctx.vehicles.length(approach.slot) + IDM_MIN_GAP;
     let mut demand = Demand {
-        required: ctx.vehicles.length(approach.slot) + IDM_MIN_GAP,
+        required: own * f64::from(1 + u8::from(is_ring_entry(ctx.network, approach))),
         counted: 0,
     };
     let occupants = ctx
@@ -76,6 +77,12 @@ fn target_has_room(ctx: &RuleContext, approach: &Approach) -> bool {
         }
     }
     true
+}
+
+fn is_ring_entry(network: &Network, approach: &Approach) -> bool {
+    let movement = approach.movement;
+    !network.roads.is_roundabout(road_of(movement.from_link))
+        && network.roads.is_roundabout(road_of(movement.to_link))
 }
 
 pub fn free_space(

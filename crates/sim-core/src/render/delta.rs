@@ -15,6 +15,7 @@ pub struct RoadRows {
     pub lanes_backward: Vec<u8>,
     pub layer: Vec<i8>,
     pub name: Vec<u32>,
+    pub roundabout: Vec<u8>,
     pub deleted: Vec<u8>,
     pub from: Vec<u32>,
     pub to: Vec<u32>,
@@ -120,6 +121,7 @@ fn push_road(network: &Network, road: u32, rows: &mut RoadRows) {
     rows.lanes_backward.push(store.lanes_backward[index]);
     rows.layer.push(store.layer[index]);
     rows.name.push(store.name[index]);
+    rows.roundabout.push(u8::from(store.roundabout[index]));
     rows.deleted.push(u8::from(store.deleted[index]));
     rows.from.push(store.from[index]);
     rows.to.push(store.to[index]);

@@ -47,9 +47,10 @@ function viewRect(camera: Camera, viewW: number, viewH: number): Rect {
   return { minX, minY, maxX, maxY };
 }
 
-function cityInclude(roads: RoadStore, meta: MapMeta): (road: number) => boolean {
+export function cityInclude(roads: RoadStore, meta: MapMeta): (road: number) => boolean {
   const primaryRank = meta.class_ranks[meta.class_names.indexOf('Primary')] ?? 0;
-  return (road) => (meta.class_ranks[roads.classCode(road)] ?? 0) >= primaryRank;
+  return (road) =>
+    !roads.isRoundabout(road) && (meta.class_ranks[roads.classCode(road)] ?? 0) >= primaryRank;
 }
 
 function createBand(roads: RoadStore, band: Band, style: RoadStyle): BandState {

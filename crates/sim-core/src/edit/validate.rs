@@ -3,7 +3,7 @@ use crate::map::{Control, TurnBan};
 use crate::network::{Network, Timing, cycle_ticks, road_of};
 
 use super::apply::Edit;
-use super::{EditCommand, EditError, cost, flyover_rules};
+use super::{EditCommand, EditError, cost, flyover_rules, roundabout};
 
 pub const MAX_VPH: f64 = 200_000.0;
 const MAX_LANES: u8 = 8;
@@ -54,6 +54,9 @@ pub fn prepare(network: &Network, command: &EditCommand, can_undo: bool) -> Plan
         EditCommand::BuildFlyover { node, through } => {
             flyover_rules::build_flyover(network, node, through)
         }
+        EditCommand::BuildRoundabout { node, radius_m } => {
+            roundabout::build_roundabout(network, node, radius_m)
+        }
         EditCommand::Undo => can_undo
             .then_some(Prepared::Undo)
             .ok_or(EditError::NothingToUndo),
@@ -103,7 +106,8 @@ fn set_lanes(network: &Network, road: u32, forward: u8, backward: u8) -> Planned
     check_road(network, road)?;
     let total = u16::from(forward) + u16::from(backward);
     let valid = total >= 1 && forward <= MAX_LANES && backward <= MAX_LANES;
-    require(valid, EditError::InvalidLanes)?;
+    let ring_ok = !network.roads.is_roundabout(road) || (forward > 0 && backward == 0);
+    require(valid && ring_ok, EditError::InvalidLanes)?;
     let index = road as usize;
     let current = (
         network.roads.lanes_forward[index],

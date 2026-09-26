@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use trapiks_sim_core::map::{Control, MapData, NodeTable, PointTable, RoadTable};
 
@@ -13,6 +13,7 @@ fn position(positions: &Positions, node: i64) -> (f32, f32) {
 
 pub fn node_table(osm: &OsmData, topology: &Topology, positions: &Positions) -> NodeTable {
     let controls = controls::assign(osm, &topology.roads, positions);
+    let entries = controls::roundabout_entries(&topology.roads);
     let mut table = NodeTable::default();
     for node in &topology.nodes {
         let (x, y) = position(positions, *node);
@@ -20,9 +21,23 @@ pub fn node_table(osm: &OsmData, topology: &Topology, positions: &Positions) -> 
         table.y.push(y);
         table
             .control
-            .push(controls.get(node).copied().unwrap_or(Control::Priority));
+            .push(default_control(&controls, &entries, *node));
     }
     table
+}
+
+fn default_control(
+    controls: &BTreeMap<i64, Control>,
+    entries: &BTreeSet<i64>,
+    node: i64,
+) -> Control {
+    if let Some(&control) = controls.get(&node) {
+        return control;
+    }
+    if entries.contains(&node) {
+        return Control::Yield;
+    }
+    Control::Priority
 }
 
 pub fn road_tables(
@@ -64,6 +79,7 @@ fn push_road(
     table.speed_kph.push(attributes.speed_kph);
     table.layer.push(attributes.layer);
     table.name.push(name);
+    table.roundabout.push(attributes.roundabout);
     push_points(&mut map.points, road, positions);
     let point_count = u32::try_from(map.points.x.len()).unwrap_or(u32::MAX);
     map.roads.point_start.push(point_count);

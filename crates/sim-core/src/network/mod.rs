@@ -17,7 +17,11 @@ use crate::consts::LANE_WIDTH;
 use crate::geom::Vec2;
 use crate::map::{MapData, TurnBan};
 
-pub use junction::{Conflict, Junction, Movement, TurnKind, build_junction};
+pub use append::NewRoad;
+pub use junction::{
+    Conflict, Junction, Movement, RING_RANK, TurnKind, build_junction, movement_class_rank,
+    movement_is_minor,
+};
 use junction::{turns, turns_ignoring_bans};
 pub use link::{Direction, LinkId, direction_of, link_id, reverse, road_of};
 use link::{arriving, departing};

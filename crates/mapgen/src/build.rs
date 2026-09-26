@@ -62,6 +62,7 @@ fn way_input(osm: &OsmData, id: i64, way: &OsmWay) -> Option<WayInput> {
         speed_kph: tags::speed_kph(&way.tags, class),
         layer: tags::layer(&way.tags),
         name: tags::name(&way.tags).map(str::to_string),
+        roundabout: tags::is_roundabout(&way.tags),
     };
     Some(WayInput {
         id,

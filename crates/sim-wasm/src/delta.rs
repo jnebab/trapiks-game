@@ -52,6 +52,11 @@ impl DeltaGeometry {
         self.0.roads.name.clone()
     }
 
+    #[wasm_bindgen(getter, js_name = roadRoundabout)]
+    pub fn road_roundabout(&self) -> Vec<u8> {
+        self.0.roads.roundabout.clone()
+    }
+
     #[wasm_bindgen(getter, js_name = roadDeleted)]
     pub fn road_deleted(&self) -> Vec<u8> {
         self.0.roads.deleted.clone()

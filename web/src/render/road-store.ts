@@ -9,6 +9,7 @@ export interface RoadRows {
   lanesBackward: Uint8Array;
   layer: Int8Array;
   name: Uint32Array;
+  roundabout: Uint8Array;
   deleted: Uint8Array;
   from: Uint32Array;
   to: Uint32Array;
@@ -31,6 +32,7 @@ export class RoadStore {
   private backward = new Uint8Array(0);
   private layers = new Int8Array(0);
   private names = new Uint32Array(0);
+  private roundabouts = new Uint8Array(0);
   private deleted = new Uint8Array(0);
   private fromNodes = new Uint32Array(0);
   private toNodes = new Uint32Array(0);
@@ -75,6 +77,10 @@ export class RoadStore {
 
   name(road: number): number {
     return this.names[road] ?? 0;
+  }
+
+  isRoundabout(road: number): boolean {
+    return this.roundabouts[road] === 1;
   }
 
   isDeleted(road: number): boolean {
@@ -123,6 +129,7 @@ export class RoadStore {
     this.backward[road] = at(rows.lanesBackward, i);
     this.layers[road] = at(rows.layer, i);
     this.names[road] = at(rows.name, i);
+    this.roundabouts[road] = at(rows.roundabout, i);
     this.deleted[road] = at(rows.deleted, i);
     this.fromNodes[road] = at(rows.from, i);
     this.toNodes[road] = at(rows.to, i);
@@ -146,6 +153,7 @@ export class RoadStore {
     this.backward = grow(this.backward, count, makeU8);
     this.layers = grow(this.layers, count, makeI8);
     this.names = grow(this.names, count, makeU32);
+    this.roundabouts = grow(this.roundabouts, count, makeU8);
     this.deleted = grow(this.deleted, count, makeU8);
     this.fromNodes = grow(this.fromNodes, count, makeU32);
     this.toNodes = grow(this.toNodes, count, makeU32);

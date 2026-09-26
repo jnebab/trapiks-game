@@ -2,7 +2,7 @@ use std::cmp::Reverse;
 
 use crate::consts::{DECISION_MARGIN, IDM_COMFORT_DECEL, WAIT_TIMEOUT_TICKS};
 use crate::map::Control;
-use crate::network::{Junction, LinkId, Movement, Network, SignalState};
+use crate::network::{Junction, LinkId, Movement, Network, SignalState, movement_is_minor};
 
 use super::leader::current_ahead;
 use super::{Occupancy, Place, VehicleStore};
@@ -110,12 +110,7 @@ pub fn approach_time(ctx: &RuleContext, approach: &Approach, d: f64) -> f64 {
 }
 
 pub fn is_minor(network: &Network, approach: &Approach) -> bool {
-    let control = network.nodes.control[approach.node as usize];
-    if !matches!(control, Control::Stop | Control::Yield) {
-        return false;
-    }
-    let highest = approach.junction.movements.iter().map(|m| m.rank.0).max();
-    highest.is_some_and(|top| approach.movement.rank.0 < top)
+    movement_is_minor(network, approach.node, approach.movement)
 }
 
 fn signal_priority(ctx: &RuleContext, link: LinkId) -> u8 {

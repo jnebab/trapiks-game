@@ -9,6 +9,7 @@ mod hash;
 mod lane_changes;
 mod lookahead;
 mod reroute;
+mod roundabout;
 mod routes;
 mod rules;
 mod snapshot;
