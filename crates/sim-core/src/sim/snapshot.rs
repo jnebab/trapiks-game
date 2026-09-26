@@ -2,7 +2,7 @@ use crate::vehicle::pose;
 
 use super::Sim;
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Debug, Default)]
 pub struct Snapshot {
     pub ids: Vec<u32>,
     pub x: Vec<f32>,

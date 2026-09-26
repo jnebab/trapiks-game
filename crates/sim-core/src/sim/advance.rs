@@ -35,6 +35,11 @@ impl Sim {
             if s <= end {
                 return true;
             }
+            if self.held_at_line(slot, place) {
+                self.vehicles.s[index] = end;
+                self.vehicles.v[index] = 0.0;
+                return true;
+            }
             self.ensure_route_junctions(slot);
             let route = self.vehicles.route(slot);
             let cursor = self.vehicles.cursor(slot);
@@ -44,7 +49,14 @@ impl Sim {
             self.vehicles.place[index] = next;
             self.vehicles.route_cursor[index] = next_cursor as u16;
             self.vehicles.s[index] = self.place_start(next) + s - end;
+            self.vehicles.reset_junction_state(slot);
         }
+    }
+
+    fn held_at_line(&self, slot: u32, place: Place) -> bool {
+        matches!(place, Place::Link { .. })
+            && !self.vehicles.committed[slot as usize]
+            && self.vehicles.route_link(slot, 1).is_some()
     }
 
     fn place_start(&self, place: Place) -> f64 {

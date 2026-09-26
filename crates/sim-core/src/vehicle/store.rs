@@ -24,6 +24,10 @@ pub struct VehicleStore {
     pub route_len: Vec<u16>,
     pub route_cursor: Vec<u16>,
     pub spawn_tick: Vec<u64>,
+    pub committed: Vec<bool>,
+    pub arrival_tick: Vec<u64>,
+    pub wait_ticks: Vec<u32>,
+    pub stopped_at_line: Vec<bool>,
     pub routes: Vec<LinkId>,
     free: Vec<u32>,
     scratch: Vec<LinkId>,
@@ -46,6 +50,10 @@ impl VehicleStore {
             route_len: Vec::with_capacity(capacity),
             route_cursor: Vec::with_capacity(capacity),
             spawn_tick: Vec::with_capacity(capacity),
+            committed: Vec::with_capacity(capacity),
+            arrival_tick: Vec::with_capacity(capacity),
+            wait_ticks: Vec::with_capacity(capacity),
+            stopped_at_line: Vec::with_capacity(capacity),
             routes: Vec::new(),
             free: Vec::with_capacity(capacity),
             scratch: Vec::new(),
@@ -98,11 +106,7 @@ impl VehicleStore {
         self.route(slot).get(self.cursor(slot) + offset).copied()
     }
 
-    pub fn insert(&mut self, vehicle: &NewVehicle) -> Result<(u32, u32), SpawnError> {
-        let len = Self::check_route_len(vehicle.route)?;
-        if self.is_full() {
-            return Err(SpawnError::Full);
-        }
+    pub fn insert(&mut self, vehicle: &NewVehicle, len: u16) -> (u32, u32) {
         let id = self.next_id;
         self.next_id += 1;
         self.live += 1;
@@ -120,7 +124,16 @@ impl VehicleStore {
         self.route_len[index] = len;
         self.route_cursor[index] = 0;
         self.spawn_tick[index] = vehicle.tick;
-        Ok((slot, id))
+        self.reset_junction_state(slot);
+        (slot, id)
+    }
+
+    pub fn reset_junction_state(&mut self, slot: u32) {
+        let index = slot as usize;
+        self.committed[index] = false;
+        self.arrival_tick[index] = u64::MAX;
+        self.wait_ticks[index] = 0;
+        self.stopped_at_line[index] = false;
     }
 
     fn allocate(&mut self) -> u32 {
@@ -138,6 +151,10 @@ impl VehicleStore {
         self.route_len.push(0);
         self.route_cursor.push(0);
         self.spawn_tick.push(0);
+        self.committed.push(false);
+        self.arrival_tick.push(u64::MAX);
+        self.wait_ticks.push(0);
+        self.stopped_at_line.push(false);
         slot
     }
 

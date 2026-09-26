@@ -1,5 +1,7 @@
 use std::cmp::Ordering;
 
+use crate::network::LinkId;
+
 use super::{Place, VehicleStore};
 
 const NO_INDEX: u32 = u32::MAX;
@@ -21,11 +23,17 @@ pub struct Occupancy {
 
 pub fn place_key(place: Place) -> u64 {
     match place {
-        Place::Link { link, lane } => (u64::from(link) << 8) | u64::from(lane),
-        Place::Movement { node, movement, .. } => {
-            MOVEMENT_BIT | (u64::from(node) << 16) | u64::from(movement)
-        }
+        Place::Link { link, lane } => link_key(link, lane),
+        Place::Movement { node, movement, .. } => movement_key(node, movement),
     }
+}
+
+pub fn link_key(link: LinkId, lane: u8) -> u64 {
+    (u64::from(link) << 8) | u64::from(lane)
+}
+
+pub fn movement_key(node: u32, movement: u16) -> u64 {
+    MOVEMENT_BIT | (u64::from(node) << 16) | u64::from(movement)
 }
 
 fn order(a: &Entry, b: &Entry) -> Ordering {
@@ -89,10 +97,31 @@ impl Occupancy {
         Some((best.slot, best.s))
     }
 
-    fn last_sorted(&self, key: u64) -> Option<Entry> {
+    pub fn range(&self, key: u64) -> &[Entry] {
+        &self.entries[self.bounds(key)]
+    }
+
+    pub fn count(&self, key: u64) -> usize {
+        let pending = self.pending.iter().filter(|entry| entry.key == key).count();
+        self.range(key).len() + pending
+    }
+
+    pub fn ahead(&self, slot: u32, key: u64) -> &[Entry] {
+        let bounds = self.bounds(key);
+        match self.index_of(slot) {
+            Some(index) if bounds.contains(&index) => &self.entries[bounds.start..index],
+            _ => &self.entries[bounds],
+        }
+    }
+
+    fn bounds(&self, key: u64) -> std::ops::Range<usize> {
         let start = self.entries.partition_point(|entry| entry.key < key);
         let end = self.entries.partition_point(|entry| entry.key <= key);
-        (start..end)
+        start..end
+    }
+
+    fn last_sorted(&self, key: u64) -> Option<Entry> {
+        self.bounds(key)
             .rev()
             .find(|&i| self.index_of(self.entries[i].slot) == Some(i))
             .map(|i| self.entries[i])

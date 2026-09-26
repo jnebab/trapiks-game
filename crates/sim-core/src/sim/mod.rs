@@ -1,12 +1,14 @@
 mod advance;
 mod hash;
+mod rules;
 mod snapshot;
 mod spawn;
 
 use crate::consts::{DT, MAX_VEHICLES};
 use crate::map::MapData;
-use crate::network::{Network, road_of};
+use crate::network::Network;
 use crate::rng::Pcg32;
+use crate::vehicle::approach::PriorityKey;
 use crate::vehicle::idm::acceleration;
 use crate::vehicle::{Occupancy, Place, VehicleStore, leader};
 
@@ -19,6 +21,7 @@ pub struct Sim {
     vehicles: VehicleStore,
     occupancy: Occupancy,
     accel: Vec<f64>,
+    candidates: Vec<(PriorityKey, u32)>,
     rng: Pcg32,
     tick: u64,
 }
@@ -34,6 +37,7 @@ impl Sim {
             vehicles: VehicleStore::with_capacity(capacity),
             occupancy: Occupancy::default(),
             accel: Vec::with_capacity(capacity),
+            candidates: Vec::new(),
             rng: Pcg32::new(seed, RNG_STREAM),
             tick: 0,
         }
@@ -58,6 +62,8 @@ impl Sim {
     pub fn step(&mut self) {
         self.ensure_all_route_junctions();
         self.occupancy.rebuild(&self.vehicles);
+        self.update_zones();
+        self.decide();
         self.compute_accelerations();
         self.integrate();
         self.advance_all();
@@ -74,7 +80,7 @@ impl Sim {
     }
 
     fn ensure_route_junctions(&mut self, slot: u32) {
-        for offset in 0..2 {
+        for offset in 0..3 {
             if let Some(link) = self.vehicles.route_link(slot, offset) {
                 let node = self.network.link_to(link);
                 self.network.ensure_junction(node);
@@ -93,9 +99,20 @@ impl Sim {
     fn acceleration_of(&self, slot: u32) -> f64 {
         let v = self.vehicles.v[slot as usize];
         let v0 = self.desired_speed(slot);
-        match leader(&self.network, &self.vehicles, &self.occupancy, slot) {
+        match self.obstacle(slot) {
             Some((gap, leader_v)) => acceleration(v, v0, gap, v - leader_v),
             None => acceleration(v, v0, f64::INFINITY, 0.0),
+        }
+    }
+
+    fn obstacle(&self, slot: u32) -> Option<(f64, f64)> {
+        let vehicle = leader(&self.network, &self.vehicles, &self.occupancy, slot);
+        let Some(line) = self.stop_line_gap(slot) else {
+            return vehicle;
+        };
+        match vehicle {
+            Some((gap, leader_v)) if gap <= line => Some((gap, leader_v)),
+            _ => Some((line, 0.0)),
         }
     }
 
@@ -104,7 +121,7 @@ impl Sim {
             Place::Link { link, .. } => Some(link),
             Place::Movement { .. } => self.vehicles.route_link(slot, 1),
         };
-        link.map_or(0.0, |link| self.network.roads.speed[road_of(link) as usize])
+        link.map_or(0.0, |link| self.network.link_speed(link))
     }
 
     fn integrate(&mut self) {

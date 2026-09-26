@@ -1,5 +1,5 @@
 use crate::consts::{CAR_LENGTH, COLOR_COUNT, IDM_MIN_GAP};
-use crate::network::{LinkId, road_of};
+use crate::network::LinkId;
 use crate::vehicle::lanes::entry_lane;
 use crate::vehicle::{NewVehicle, Place, SpawnError, VehicleStore, entry_of, place_key};
 
@@ -10,7 +10,7 @@ const LEADER_SPEED_RANGE: f64 = 50.0;
 impl Sim {
     pub fn spawn(&mut self, route: &[LinkId]) -> Result<u32, SpawnError> {
         let first = *route.first().ok_or(SpawnError::EmptyRoute)?;
-        VehicleStore::check_route_len(route)?;
+        let len = VehicleStore::check_route_len(route)?;
         self.check_active(route)?;
         self.check_connected(route)?;
         if self.vehicles.is_full() {
@@ -29,7 +29,7 @@ impl Sim {
             route,
             tick: self.tick,
         };
-        let (slot, id) = self.vehicles.insert(&vehicle)?;
+        let (slot, id) = self.vehicles.insert(&vehicle, len);
         self.occupancy.push_pending(entry_of(&self.vehicles, slot));
         Ok(id)
     }
@@ -66,7 +66,7 @@ impl Sim {
     }
 
     fn entry_speed(&self, link: LinkId, place: Place, start: f64) -> Result<f64, SpawnError> {
-        let v0 = self.network.roads.speed[road_of(link) as usize];
+        let v0 = self.network.link_speed(link);
         let Some((leader, leader_s)) = self.occupancy.last_on(place_key(place)) else {
             return Ok(v0);
         };

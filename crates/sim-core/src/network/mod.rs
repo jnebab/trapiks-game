@@ -92,6 +92,10 @@ impl Network {
         link::length(&self.roads, link)
     }
 
+    pub fn link_speed(&self, link: LinkId) -> f64 {
+        self.roads.speed[road_of(link) as usize]
+    }
+
     pub fn incoming(&self, node: u32) -> impl Iterator<Item = LinkId> + '_ {
         self.incident(node)
             .map(move |road| arriving(&self.roads, road, node))

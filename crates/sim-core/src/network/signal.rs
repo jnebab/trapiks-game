@@ -30,7 +30,7 @@ pub struct SignalCluster {
 pub struct Signals {
     clusters: Vec<SignalCluster>,
     node_cluster: BTreeMap<u32, u32>,
-    approach_phase: BTreeMap<LinkId, (u32, usize)>,
+    approach_phase: Vec<Option<(u32, u16)>>,
     internal: Vec<LinkId>,
 }
 
@@ -42,7 +42,10 @@ impl Signals {
         is_active: impl Fn(u32) -> bool,
     ) -> Signals {
         let groups = cluster::group(nodes, spatial, &is_active);
-        let mut signals = Signals::default();
+        let mut signals = Signals {
+            approach_phase: vec![None; roads.count() * 2],
+            ..Signals::default()
+        };
         for members in groups {
             signals.add_cluster(roads, nodes, &is_active, members);
         }
@@ -62,7 +65,9 @@ impl Signals {
         let phases = phases::plan(roads, &links.approaches);
         for (phase, group) in phases.iter().enumerate() {
             for &link in group {
-                self.approach_phase.insert(link, (index, phase));
+                if let Some(entry) = self.approach_phase.get_mut(link as usize) {
+                    *entry = Some((index, phase as u16));
+                }
             }
         }
         for &node in &members {
@@ -79,9 +84,9 @@ impl Signals {
     }
 
     pub fn state(&self, link: LinkId, tick: u64) -> Option<SignalState> {
-        let &(cluster, phase) = self.approach_phase.get(&link)?;
+        let (cluster, phase) = (*self.approach_phase.get(link as usize)?)?;
         let cluster = &self.clusters[cluster as usize];
-        Some(phase_state(cluster, phase, tick))
+        Some(phase_state(cluster, usize::from(phase), tick))
     }
 
     pub fn cluster_of(&self, node: u32) -> Option<u32> {

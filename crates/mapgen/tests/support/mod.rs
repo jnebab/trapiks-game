@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use trapiks_mapgen::build::build;
 use trapiks_mapgen::input::{OsmData, OsmNode, OsmRelation, OsmWay};
 use trapiks_mapgen::osm::{LatLon, Member, Tags};

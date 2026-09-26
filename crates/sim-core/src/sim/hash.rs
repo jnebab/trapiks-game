@@ -27,6 +27,10 @@ impl Sim {
         hasher.write_u64(vehicles.s[index].to_bits());
         hasher.write_u64(vehicles.v[index].to_bits());
         hasher.write_u32(u32::from(vehicles.route_cursor[index]));
+        hasher.write_u32(u32::from(vehicles.committed[index]));
+        hasher.write_u64(vehicles.arrival_tick[index]);
+        hasher.write_u32(vehicles.wait_ticks[index]);
+        hasher.write_u32(u32::from(vehicles.stopped_at_line[index]));
         for &link in vehicles.route(slot) {
             hasher.write_u32(link);
         }
