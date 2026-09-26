@@ -11,6 +11,7 @@ pub struct MapMeta {
     pub node_count: u32,
     pub area_ring_count: u32,
     pub class_names: Vec<RoadClass>,
+    pub class_ranks: Vec<u8>,
     pub control_names: Vec<Control>,
     pub area_kind_names: Vec<AreaKind>,
     pub names: Vec<String>,
@@ -24,6 +25,7 @@ pub fn map_meta(map: &MapData, bytes: &[u8]) -> MapMeta {
         node_count: count(map.node_count()),
         area_ring_count: count(map.areas.kind.len()),
         class_names: RoadClass::ALL.to_vec(),
+        class_ranks: RoadClass::ALL.iter().map(|class| class.rank()).collect(),
         control_names: Control::ALL.to_vec(),
         area_kind_names: AreaKind::ALL.to_vec(),
         names: map.names.clone(),
@@ -48,4 +50,24 @@ fn point_bounds(points: &PointTable) -> [f32; 4] {
         fold(&points.x, f32::max, f32::NEG_INFINITY),
         fold(&points.y, f32::max, f32::NEG_INFINITY),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fixtures::{GridCity, grid_city};
+
+    #[test]
+    fn class_ranks_match_road_class_rank() {
+        let map = grid_city(&GridCity {
+            cols: 2,
+            rows: 2,
+            spacing: 100.0,
+        });
+        let meta = map_meta(&map, &[]);
+        assert_eq!(meta.class_ranks.len(), meta.class_names.len());
+        for (class, rank) in meta.class_names.iter().zip(&meta.class_ranks) {
+            assert_eq!(class.rank(), *rank);
+        }
+    }
 }

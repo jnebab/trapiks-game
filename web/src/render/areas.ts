@@ -1,4 +1,4 @@
-import { Graphics } from 'pixi.js';
+import { Graphics, type Container } from 'pixi.js';
 import type { AreaKind } from '../generated/AreaKind';
 import type { AreaArrays } from '../sim/protocol';
 import { palette } from './palette';
@@ -18,7 +18,11 @@ function ringPoints(areas: AreaArrays, ring: number): number[] {
   return points;
 }
 
-export function drawAreas(areas: AreaArrays, kindNames: readonly AreaKind[]): Graphics {
+export function drawAreas(
+  areas: AreaArrays,
+  kindNames: readonly AreaKind[],
+  container: Container,
+): void {
   const g = new Graphics();
   for (let ring = 0; ring < areas.kindCode.length; ring += 1) {
     const kind = kindNames[areas.kindCode[ring] ?? 0];
@@ -27,5 +31,5 @@ export function drawAreas(areas: AreaArrays, kindNames: readonly AreaKind[]): Gr
     }
     g.poly(ringPoints(areas, ring), true).fill(areaColors[kind]);
   }
-  return g;
+  container.addChild(g);
 }

@@ -1,8 +1,5 @@
-import { drawAreas } from '../render/debug-areas';
-import { drawRoads } from '../render/debug-roads';
 import { createApp, type DebugApp } from '../render/app';
-import { fitBounds } from '../render/camera';
-import { applyCamera, wireCameraInput, type CameraState } from '../render/camera-input';
+import { createMapView, type MapView } from '../render/map-view';
 import { createVehicleLayer } from '../render/vehicle-layer';
 import { createVehicleTexture } from '../render/vehicle-texture';
 import { createDebugOverlay, type DebugOverlay } from '../hud/debug-overlay';
@@ -14,24 +11,20 @@ import { startSim, type SimClient } from '../sim/client';
 import { SnapshotHistory, createFrame } from '../sim/interpolation';
 import { demandFromQuery } from './demand-query';
 
-const FIT_MARGIN = 24;
 const SEED = 1;
 
-function showMap(scene: DebugApp, overlay: DebugOverlay, ready: ReadyMessage): void {
-  const { app, world } = scene;
-  world.addChild(drawAreas(ready.areas, ready.meta.area_kind_names));
-  world.addChild(drawRoads(ready.roads));
-  const state: CameraState = {
-    camera: fitBounds(ready.meta.bounds, app.screen.width, app.screen.height, FIT_MARGIN),
-  };
-  applyCamera(world, state.camera);
-  wireCameraInput(app.canvas, state, world);
+function showMap(scene: DebugApp, overlay: DebugOverlay, ready: ReadyMessage): MapView {
+  const view = createMapView(scene, ready);
   overlay.setRoads(ready.meta.road_count);
+  scene.app.ticker.add(() => {
+    overlay.setTiles(view.tiles.builtCount, view.tiles.visibleCount, view.tiles.activeBand);
+  });
+  return view;
 }
 
-function showVehicles(scene: DebugApp, history: SnapshotHistory): void {
+function showVehicles(scene: DebugApp, view: MapView, history: SnapshotHistory): void {
   const layer = createVehicleLayer(createVehicleTexture(scene.app.renderer));
-  scene.world.addChild(layer.container);
+  view.layers.vehicles.addChild(layer.container);
   const frame = createFrame();
   scene.app.ticker.add(() => {
     history.sample(performance.now(), frame);
@@ -70,8 +63,8 @@ export async function runDebugScene(root: HTMLElement, mapName: string): Promise
   const history = new SnapshotHistory();
   const client: SimClient = startSim(url, config, {
     onReady: (ready) => {
-      showMap(scene, overlay, ready);
-      showVehicles(scene, history);
+      const view = showMap(scene, overlay, ready);
+      showVehicles(scene, view, history);
     },
     onSnapshot: (message) => {
       receiveSnapshot(client, history, overlay, message);

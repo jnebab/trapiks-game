@@ -10,6 +10,7 @@ function readyMessage(): Record<string, unknown> {
       node_count: 2,
       area_ring_count: 0,
       class_names: ['Motorway'],
+      class_ranks: [14],
       control_names: ['Priority'],
       area_kind_names: ['Water'],
       names: [],

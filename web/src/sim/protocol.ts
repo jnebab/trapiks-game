@@ -119,6 +119,7 @@ export function isMapMeta(value: unknown): value is MapMeta {
     typeof value.road_count === 'number' &&
     typeof value.node_count === 'number' &&
     typeof value.area_ring_count === 'number' &&
+    Array.isArray(value.class_ranks) &&
     Array.isArray(value.bounds)
   );
 }

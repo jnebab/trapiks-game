@@ -10,6 +10,7 @@ export const palette = {
 export const roadStyle = {
   laneWidth: 3.2,
   outlineExtra: 0.7,
+  elevatedOutlineExtra: 1.0,
 } as const;
 
 export const VEHICLE_COLORS: readonly number[] = [
