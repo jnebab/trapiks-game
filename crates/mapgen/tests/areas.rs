@@ -2,7 +2,7 @@ mod support;
 
 use support::{Fixture, LAT, LON};
 use trapiks_mapgen::areas::{closed_way_ring, finish, relation_rings};
-use trapiks_mapgen::project::Projection;
+use trapiks_sim_core::geo::Projection;
 use trapiks_sim_core::map::AreaKind;
 
 const D: f64 = 0.001;

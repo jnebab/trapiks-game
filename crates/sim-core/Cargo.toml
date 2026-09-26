@@ -17,6 +17,7 @@ fixtures = []
 [dev-dependencies]
 trapiks-sim-core = { path = ".", features = ["fixtures"] }
 flate2.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

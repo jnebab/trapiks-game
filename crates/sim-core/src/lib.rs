@@ -1,3 +1,4 @@
+pub mod challenge;
 pub mod config;
 pub mod consts;
 pub mod demand;
@@ -5,6 +6,7 @@ pub mod edit;
 #[cfg(feature = "fixtures")]
 pub mod fixtures;
 pub mod fnv;
+pub mod geo;
 pub mod geom;
 pub mod map;
 mod meta;

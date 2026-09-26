@@ -185,3 +185,25 @@ pub fn grid_10() -> MapData {
         spacing: 150.0,
     })
 }
+
+pub trait Must<T> {
+    fn must(self, what: &str) -> T;
+}
+
+impl<T, E: std::fmt::Debug> Must<T> for Result<T, E> {
+    fn must(self, what: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{what}: {error:?}"),
+        }
+    }
+}
+
+impl<T> Must<T> for Option<T> {
+    fn must(self, what: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{what}: missing"),
+        }
+    }
+}

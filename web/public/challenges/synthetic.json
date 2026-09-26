@@ -1,0 +1,56 @@
+[
+  {
+    "id": "downtown",
+    "name": "Downtown Box",
+    "blurb": "Signalized avenues box in the city centre. Untangle the grid.",
+    "center": {
+      "Local": {
+        "x": 1500,
+        "y": 1500
+      }
+    },
+    "radius_m": 900,
+    "seed": 1,
+    "vehicles_per_hour": 9000,
+    "budget": 8000,
+    "target_improvement": 0.2,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  },
+  {
+    "id": "riverside",
+    "name": "Riverside Crawl",
+    "blurb": "Traffic crawls along the river. Find more ways across.",
+    "center": {
+      "Local": {
+        "x": 1500,
+        "y": 225
+      }
+    },
+    "radius_m": 700,
+    "seed": 2,
+    "vehicles_per_hour": 7000,
+    "budget": 5000,
+    "target_improvement": 0.2,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  },
+  {
+    "id": "skyway-exit",
+    "name": "Skyway Exit",
+    "blurb": "The skyway ramp backs up into the streets below.",
+    "center": {
+      "Local": {
+        "x": 2400,
+        "y": 2250
+      }
+    },
+    "radius_m": 600,
+    "seed": 3,
+    "vehicles_per_hour": 8000,
+    "budget": 6000,
+    "target_improvement": 0.15,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  }
+]

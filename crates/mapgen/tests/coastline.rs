@@ -5,8 +5,8 @@ use trapiks_mapgen::areas::finish;
 use trapiks_mapgen::coastline::{LonLatBox, sea_rings};
 use trapiks_mapgen::input::OsmWay;
 use trapiks_mapgen::osm::LatLon;
-use trapiks_mapgen::project::Projection;
 use trapiks_mapgen::simplify::ring_area;
+use trapiks_sim_core::geo::Projection;
 
 const BOX: LonLatBox = LonLatBox {
     min_lon: 120.95,

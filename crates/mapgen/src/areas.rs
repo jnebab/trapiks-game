@@ -4,9 +4,9 @@ use trapiks_sim_core::map::AreaKind;
 
 use crate::input::{OsmNode, OsmRelation, OsmWay};
 use crate::osm::{LatLon, Tags};
-use crate::project::Projection;
 use crate::simplify::{TOLERANCE_M, simplify_ring};
 use crate::tags::tag;
+use trapiks_sim_core::geo::Projection;
 
 pub fn area_kind(tags: &Tags) -> Option<AreaKind> {
     let water = tag(tags, "natural") == Some("water") || tag(tags, "waterway") == Some("riverbank");

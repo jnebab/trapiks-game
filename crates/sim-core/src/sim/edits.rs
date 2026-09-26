@@ -18,6 +18,7 @@ pub(super) struct EditState {
     pub budget: Budget,
     pub flagged: BTreeSet<u32>,
     pub reroutes: RerouteCounts,
+    pub log: Vec<EditCommand>,
 }
 
 impl EditState {
@@ -30,11 +31,28 @@ impl EditState {
             budget: Budget { limit, spent: 0 },
             flagged: BTreeSet::new(),
             reroutes: RerouteCounts::default(),
+            log: Vec::new(),
+        }
+    }
+
+    fn record(&mut self, command: EditCommand) {
+        let is_demand = |c: &EditCommand| matches!(c, EditCommand::SetDemand { .. });
+        if !is_demand(&command) {
+            self.log.push(command);
+            return;
+        }
+        match self.log.iter_mut().find(|c| is_demand(c)) {
+            Some(slot) => *slot = command,
+            None => self.log.push(command),
         }
     }
 }
 
 impl Sim {
+    pub fn command_log(&self) -> &[EditCommand] {
+        &self.edits.log
+    }
+
     pub fn enqueue(&mut self, command: EditCommand) -> u32 {
         let seq = self.edits.next_seq;
         self.edits.next_seq = self.edits.next_seq.wrapping_add(1);
@@ -80,7 +98,10 @@ impl Sim {
     pub fn apply_queued(&mut self) {
         while let Some((seq, command)) = self.edits.commands.pop_front() {
             let outcome = match self.execute(&command) {
-                Ok(outcome) => Outcome::Ok(outcome),
+                Ok(outcome) => {
+                    self.edits.record(command);
+                    Outcome::Ok(outcome)
+                }
                 Err(error) => Outcome::Err(error),
             };
             self.edits.results.push(CommandResult { seq, outcome });

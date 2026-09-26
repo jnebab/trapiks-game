@@ -307,6 +307,7 @@ dependencies = [
  "libm",
  "postcard",
  "serde",
+ "serde_json",
  "trapiks-sim-core",
  "ts-rs",
 ]

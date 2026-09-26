@@ -1,0 +1,128 @@
+[
+  {
+    "id": "edsa-ortigas",
+    "name": "EDSA–Ortigas",
+    "blurb": "The EDSA–Ortigas interchange jams every rush hour.",
+    "center": {
+      "LatLon": {
+        "lat": 14.5869,
+        "lon": 121.0567
+      }
+    },
+    "radius_m": 1500,
+    "seed": 101,
+    "vehicles_per_hour": 14000,
+    "budget": 12000,
+    "target_improvement": 0.25,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  },
+  {
+    "id": "magallanes",
+    "name": "Magallanes",
+    "blurb": "EDSA, SLEX and the Skyway knot together at Magallanes.",
+    "center": {
+      "LatLon": {
+        "lat": 14.5389,
+        "lon": 121.0192
+      }
+    },
+    "radius_m": 1500,
+    "seed": 102,
+    "vehicles_per_hour": 14000,
+    "budget": 12000,
+    "target_improvement": 0.25,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  },
+  {
+    "id": "balintawak",
+    "name": "Balintawak",
+    "blurb": "NLEX traffic pours into EDSA at Balintawak.",
+    "center": {
+      "LatLon": {
+        "lat": 14.6576,
+        "lon": 121.0006
+      }
+    },
+    "radius_m": 1500,
+    "seed": 103,
+    "vehicles_per_hour": 14000,
+    "budget": 12000,
+    "target_improvement": 0.25,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  },
+  {
+    "id": "edsa-quezon-ave",
+    "name": "EDSA–Quezon Ave",
+    "blurb": "Quezon Avenue crosses EDSA under heavy load.",
+    "center": {
+      "LatLon": {
+        "lat": 14.644,
+        "lon": 121.0381
+      }
+    },
+    "radius_m": 1200,
+    "seed": 104,
+    "vehicles_per_hour": 12000,
+    "budget": 10000,
+    "target_improvement": 0.25,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  },
+  {
+    "id": "c5-kalayaan",
+    "name": "C-5–Kalayaan",
+    "blurb": "C-5 meets Kalayaan at a crowded flyover.",
+    "center": {
+      "LatLon": {
+        "lat": 14.5617,
+        "lon": 121.062
+      }
+    },
+    "radius_m": 1200,
+    "seed": 105,
+    "vehicles_per_hour": 12000,
+    "budget": 10000,
+    "target_improvement": 0.25,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  },
+  {
+    "id": "espana-lacson",
+    "name": "España–Lacson",
+    "blurb": "The university belt crossing floods at every rain and rush.",
+    "center": {
+      "LatLon": {
+        "lat": 14.6109,
+        "lon": 120.993
+      }
+    },
+    "radius_m": 1000,
+    "seed": 106,
+    "vehicles_per_hour": 10000,
+    "budget": 8000,
+    "target_improvement": 0.25,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  },
+  {
+    "id": "taft-buendia",
+    "name": "Taft–Buendia",
+    "blurb": "Taft Avenue and Buendia meet under the LRT.",
+    "center": {
+      "LatLon": {
+        "lat": 14.5537,
+        "lon": 120.9973
+      }
+    },
+    "radius_m": 1000,
+    "seed": 107,
+    "vehicles_per_hour": 10000,
+    "budget": 8000,
+    "target_improvement": 0.25,
+    "star_steps": [0.1, 0.2],
+    "min_throughput_ratio": 0.95
+  }
+]

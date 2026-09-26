@@ -9,10 +9,10 @@ use crate::coastline::LonLatBox;
 use crate::controls::Positions;
 use crate::filter::road_class;
 use crate::input::{OsmData, OsmWay};
-use crate::project::Projection;
 use crate::restrictions;
 use crate::tags::{self, Oneway};
 use crate::topology::{self, Attributes, TopoRoad, WayInput};
+use trapiks_sim_core::geo::Projection;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct BuildStats {

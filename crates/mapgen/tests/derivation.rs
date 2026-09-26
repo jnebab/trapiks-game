@@ -2,7 +2,7 @@ mod support;
 
 use support::{Fixture, LAT, LON, STEP, four_way, restriction, single_way_map};
 use trapiks_mapgen::input::{LoadStats, OsmData, merge, parse};
-use trapiks_mapgen::project::Projection;
+use trapiks_sim_core::geo::Projection;
 use trapiks_sim_core::map::{Control, MapData, validate};
 
 const OVERPASS_JSON: &str = r#"{

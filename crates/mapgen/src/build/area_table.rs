@@ -5,8 +5,8 @@ use crate::areas::{closed_way_ring, finish, relation_rings};
 use crate::coastline::{LonLatBox, sea_rings};
 use crate::input::{OsmData, OsmWay};
 use crate::osm::LatLon;
-use crate::project::Projection;
 use crate::tags::tag;
+use trapiks_sim_core::geo::Projection;
 
 #[derive(Default)]
 struct Groups {
