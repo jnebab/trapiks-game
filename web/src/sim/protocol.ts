@@ -14,6 +14,12 @@ import {
   type NodeArrays,
   type RoadArrays,
 } from './map-arrays';
+import {
+  isInspectionMessage,
+  isInspectMessage,
+  type InspectionMessage,
+  type InspectMessage,
+} from './inspect-values';
 import { isBudgetState, isCommandResults, isEditCommand, isQuoteOutcome } from './edit-values';
 import {
   hasArrays,
@@ -37,6 +43,12 @@ import {
 export type { SnapshotBuffers, Speed } from './values';
 export type { ApproachMarkerArrays, JunctionShapeArrays, SignalPillArrays } from './street-arrays';
 export type { DeltaArrays } from './delta-arrays';
+export type {
+  InspectTarget,
+  Inspection,
+  InspectionMessage,
+  InspectMessage,
+} from './inspect-values';
 export type { AreaArrays, NodeArrays, RoadArrays } from './map-arrays';
 
 export interface LoadMessage {
@@ -67,7 +79,7 @@ export interface QuoteMessage {
 }
 
 export type MainMessage =
-  LoadMessage | SpeedMessage | BuffersMessage | CommandMessage | QuoteMessage;
+  LoadMessage | SpeedMessage | BuffersMessage | CommandMessage | QuoteMessage | InspectMessage;
 
 export interface ReadyMessage {
   type: 'ready';
@@ -125,6 +137,7 @@ export type WorkerMessage =
   | StatsMessage
   | SignalsMessage
   | QuoteResultMessage
+  | InspectionMessage
   | CommandResultsMessage;
 
 export function isMapMeta(value: unknown): value is MapMeta {
@@ -179,6 +192,7 @@ const workerGuards: Record<WorkerMessage['type'], (value: Record<string, unknown
   stats: isStatsMessage,
   signals: (value) => value.states instanceof Uint8Array,
   quoteResult: (value) => typeof value.id === 'number' && isQuoteOutcome(value.result),
+  inspection: isInspectionMessage,
   commandResults: isCommandResultsMessage,
 };
 
@@ -188,6 +202,7 @@ const mainGuards: Record<MainMessage['type'], (value: Record<string, unknown>) =
   buffers: (value) => isSnapshotBuffers(value.buffers),
   command: (value) => isEditCommand(value.command),
   quote: (value) => typeof value.id === 'number' && isEditCommand(value.command),
+  inspect: isInspectMessage,
 };
 
 function matches(

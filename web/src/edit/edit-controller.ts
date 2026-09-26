@@ -10,10 +10,13 @@ import type { CameraState } from '../render/camera-input';
 import type { RoadStore } from '../render/road-store';
 import type { SelectionLayer } from '../render/selection';
 import type { TileManager } from '../render/tiles/tile-manager';
+import type { InspectTarget } from '../sim/protocol';
+import type { InspectSelection } from './inspect-selection';
 import type { Picking } from './picking';
 import { trackPointer, type ScreenPosition } from './pointer-tracker';
 
 const PICK_TOLERANCE_PX = 6;
+const NODE_PICK_PX = 10;
 const MAX_TOLERANCE_M = 12;
 
 export interface EditContext {
@@ -24,6 +27,8 @@ export interface EditContext {
   picking: Picking;
   selection: SelectionLayer;
   roads: RoadStore;
+  inspect: InspectSelection;
+  topBar: HTMLElement;
   send: (command: EditCommand) => void;
 }
 
@@ -36,13 +41,13 @@ export class EditController {
   private readonly pointer: ScreenPosition;
 
   constructor(private readonly ctx: EditContext) {
-    ctx.root.appendChild(this.budget.element);
+    ctx.topBar.appendChild(this.budget.element);
     this.pointer = trackPointer(ctx.canvas, {
       onHover: (sx, sy) => {
         ctx.selection.setHover(this.pick(sx, sy));
       },
       onClick: (sx, sy) => {
-        ctx.selection.setSelected(this.pick(sx, sy));
+        ctx.inspect.select(this.pickTarget(sx, sy));
       },
       onPress: () => {
         ctx.selection.setHover(undefined);
@@ -52,11 +57,12 @@ export class EditController {
   }
 
   onResults(results: readonly CommandResult[], budget: BudgetState): void {
-    const { selection, roads } = this.ctx;
+    const { selection, roads, inspect } = this.ctx;
     selection.setHover(this.pick(this.pointer.x, this.pointer.y));
     if (selection.selected !== undefined && roads.isDeleted(selection.selected)) {
-      selection.setSelected(undefined);
+      inspect.select(undefined);
     }
+    inspect.onResults(results);
     this.budget.set(budget);
     for (const result of results) {
       if ('Err' in result.outcome) {
@@ -65,18 +71,40 @@ export class EditController {
     }
   }
 
+  private canPick(sx: number): boolean {
+    return !Number.isNaN(sx) && this.ctx.tiles.activeBand !== 'city';
+  }
+
   private pick(sx: number, sy: number): number | undefined {
-    const camera = this.ctx.state.camera;
-    if (Number.isNaN(sx) || this.ctx.tiles.activeBand === 'city') {
+    if (!this.canPick(sx)) {
       return undefined;
     }
+    const camera = this.ctx.state.camera;
     const [x, y] = screenToWorld(camera, sx, sy);
     const tolerance = Math.min(PICK_TOLERANCE_PX / camera.scale, MAX_TOLERANCE_M);
     return this.ctx.picking.pickRoad(x, y, tolerance);
   }
 
+  private pickTarget(sx: number, sy: number): InspectTarget | undefined {
+    if (!this.canPick(sx)) {
+      return undefined;
+    }
+    const camera = this.ctx.state.camera;
+    const [x, y] = screenToWorld(camera, sx, sy);
+    const node = this.ctx.picking.pickNode(x, y, NODE_PICK_PX / camera.scale);
+    if (node !== undefined) {
+      return { node };
+    }
+    const road = this.pick(sx, sy);
+    return road === undefined ? undefined : { road };
+  }
+
   private readonly onKey = (event: KeyboardEvent): void => {
     if (isEditableTarget(event)) {
+      return;
+    }
+    if (event.key === 'Escape') {
+      this.ctx.inspect.select(undefined);
       return;
     }
     const command = this.commandFor(event);

@@ -1,8 +1,12 @@
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
 use crate::consts::{THROUGH_MAX_TURN_DEG, UTURN_MIN_TURN_DEG};
 use crate::geom::{Vec2, signed_turn};
 use crate::network::link::{LinkId, reverse};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub enum TurnKind {
     Right,
     Through,

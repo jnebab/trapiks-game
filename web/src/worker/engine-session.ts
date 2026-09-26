@@ -15,6 +15,8 @@ import { deltaTransfer } from '../sim/delta-arrays';
 import { isBudgetState, isCommandResults, isQuoteOutcome } from '../sim/edit-values';
 import type { EditCommand } from '../generated/EditCommand';
 import { changedIds, collectDelta } from './delta';
+import { inspect } from './inspect';
+import type { InspectTarget } from '../sim/inspect-values';
 
 const STEP_BUDGET_MS = 90;
 const STATS_EVERY = 10;
@@ -88,6 +90,10 @@ export class EngineSession {
       throw new Error('Invalid quote from wasm');
     }
     this.post({ type: 'quoteResult', id, result }, []);
+  }
+
+  inspect(id: number, target: InspectTarget): void {
+    this.post({ type: 'inspection', id, target: inspect(this.engine, target) }, []);
   }
 
   private runSteps(): number {

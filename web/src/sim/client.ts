@@ -1,6 +1,8 @@
 import {
   isWorkerMessage,
   type CommandResultsMessage,
+  type InspectTarget,
+  type Inspection,
   type LoadMessage,
   type MainMessage,
   type ReadyMessage,
@@ -30,21 +32,35 @@ export interface SimClient {
   returnBuffers: (buffers: SnapshotBuffers) => void;
   sendCommand: (command: EditCommand) => void;
   quote: (command: EditCommand) => Promise<QuoteOutcome>;
+  inspect: (target: InspectTarget) => Promise<Inspection | null>;
 }
 
-type QuoteWaiters = Map<number, (result: QuoteOutcome) => void>;
+type Waiters<T> = Map<number, (result: T) => void>;
 
-function dispatch(message: WorkerMessage, handlers: SimHandlers, quotes: QuoteWaiters): void {
+interface Pending {
+  quotes: Waiters<QuoteOutcome>;
+  inspections: Waiters<Inspection | null>;
+}
+
+function settle<T>(waiters: Waiters<T>, id: number, result: T): void {
+  waiters.get(id)?.(result);
+  waiters.delete(id);
+}
+
+function dispatch(message: WorkerMessage, handlers: SimHandlers, pending: Pending): void {
   if (message.type === 'quoteResult') {
-    quotes.get(message.id)?.(message.result);
-    quotes.delete(message.id);
+    settle(pending.quotes, message.id, message.result);
+    return;
+  }
+  if (message.type === 'inspection') {
+    settle(pending.inspections, message.id, message.target);
     return;
   }
   dispatchEvent(message, handlers);
 }
 
 function dispatchEvent(
-  message: Exclude<WorkerMessage, { type: 'quoteResult' }>,
+  message: Exclude<WorkerMessage, { type: 'quoteResult' | 'inspection' }>,
   handlers: SimHandlers,
 ): void {
   switch (message.type) {
@@ -72,13 +88,13 @@ export function startSim(url: string, config: SimConfig, handlers: SimHandlers):
   const worker = new Worker(new URL('../worker/sim.worker.ts', import.meta.url), {
     type: 'module',
   });
-  const quotes: QuoteWaiters = new Map();
+  const pending: Pending = { quotes: new Map(), inspections: new Map() };
   worker.addEventListener('message', (event: MessageEvent<unknown>) => {
     if (!isWorkerMessage(event.data)) {
       handlers.onError('Malformed message from sim worker');
       return;
     }
-    dispatch(event.data, handlers, quotes);
+    dispatch(event.data, handlers, pending);
   });
   worker.addEventListener('error', (event: ErrorEvent) => {
     handlers.onError(event.message || 'Sim worker failed');
@@ -88,13 +104,23 @@ export function startSim(url: string, config: SimConfig, handlers: SimHandlers):
   };
   const load: LoadMessage = { type: 'load', url, config };
   send(load);
-  return clientFor(send, quotes);
+  return clientFor(send, pending);
 }
 
 type Send = (message: MainMessage, transfer?: Transferable[]) => void;
 
-function clientFor(send: Send, quotes: QuoteWaiters): SimClient {
-  let nextQuote = 0;
+function request<T>(waiters: Waiters<T>, id: number): Promise<T> {
+  return new Promise((resolve) => {
+    waiters.set(id, resolve);
+  });
+}
+
+function clientFor(send: Send, pending: Pending): SimClient {
+  let nextId = 0;
+  const takeId = (): number => {
+    nextId += 1;
+    return nextId;
+  };
   return {
     setSpeed: (speed) => {
       send({ type: 'speed', speed });
@@ -106,12 +132,14 @@ function clientFor(send: Send, quotes: QuoteWaiters): SimClient {
       send({ type: 'command', command });
     },
     quote: (command) => {
-      const id = nextQuote;
-      nextQuote += 1;
+      const id = takeId();
       send({ type: 'quote', id, command });
-      return new Promise((resolve) => {
-        quotes.set(id, resolve);
-      });
+      return request(pending.quotes, id);
+    },
+    inspect: (target) => {
+      const id = takeId();
+      send({ type: 'inspect', id, target });
+      return request(pending.inspections, id);
     },
   };
 }

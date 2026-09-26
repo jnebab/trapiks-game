@@ -1,5 +1,6 @@
 import type { BudgetState } from '../generated/BudgetState';
 import { el } from './dom';
+import { formatPesos } from './money';
 
 export interface BudgetChip {
   element: HTMLElement;
@@ -7,11 +8,11 @@ export interface BudgetChip {
 }
 
 function label(budget: BudgetState): string {
-  const spent = `₱${budget.spent.toLocaleString('en-US')}`;
+  const spent = formatPesos(budget.spent);
   if (budget.limit === null) {
     return `Spent ${spent}`;
   }
-  return `${spent} / ₱${budget.limit.toLocaleString('en-US')}`;
+  return `${spent} / ${formatPesos(budget.limit)}`;
 }
 
 export function createBudgetChip(): BudgetChip {

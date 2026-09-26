@@ -161,6 +161,16 @@ impl Engine {
         to_js(&self.sim.quote(&command_of(command)?))
     }
 
+    #[wasm_bindgen(js_name = inspectRoad)]
+    pub fn inspect_road(&self, road: u32) -> Result<JsValue, JsError> {
+        to_js(&self.sim.inspect_road(road))
+    }
+
+    #[wasm_bindgen(js_name = inspectNode)]
+    pub fn inspect_node(&self, node: u32) -> Result<JsValue, JsError> {
+        to_js(&self.sim.inspect_node(node))
+    }
+
     #[wasm_bindgen(js_name = flushCommands)]
     pub fn flush_commands(&mut self) {
         self.sim.apply_queued();

@@ -108,6 +108,11 @@ function route(message: MainMessage): void {
       withSession((active) => {
         active.quote(message.id, message.command);
       });
+      return;
+    case 'inspect':
+      withSession((active) => {
+        active.inspect(message.id, message.target);
+      });
   }
 }
 

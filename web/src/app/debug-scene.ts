@@ -82,10 +82,11 @@ export async function runDebugScene(root: HTMLElement, mapName: string): Promise
       showVehicles(scene, view, history);
       pills = showSignalPills(scene, view, ready);
       overlay.setSignalPills(pills.count());
-      onResults = startEditing(scene, root, { view, client, pills });
+      onResults = startEditing(scene, root, { view, client, pills, meta: ready.meta });
     },
     onCommandResults: (message) => {
       onResults?.(message);
+      overlay.setSignalPills(pills?.count() ?? 0);
     },
     onSnapshot: (message) => {
       receiveSnapshot(client, history, overlay, message);
