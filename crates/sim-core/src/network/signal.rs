@@ -1,6 +1,8 @@
 mod cluster;
 mod phases;
 
+use std::collections::BTreeMap;
+
 use crate::consts::{SIGNAL_ALL_RED_TICKS, SIGNAL_AMBER_TICKS, SIGNAL_GREEN_TICKS};
 
 use super::link::LinkId;
@@ -24,6 +26,32 @@ pub struct SignalCluster {
     pub offset_ticks: u32,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Timing {
+    pub green_ticks: Vec<u32>,
+    pub offset_ticks: u32,
+}
+
+impl SignalCluster {
+    pub fn key(&self) -> u32 {
+        self.nodes.first().copied().unwrap_or_default()
+    }
+
+    pub fn timing(&self) -> Timing {
+        Timing {
+            green_ticks: self.green_ticks.clone(),
+            offset_ticks: self.offset_ticks,
+        }
+    }
+}
+
+pub struct SignalInputs<'a> {
+    pub roads: &'a RoadStore,
+    pub nodes: &'a NodeStore,
+    pub spatial: &'a SpatialGrid,
+    pub timings: &'a BTreeMap<u32, Timing>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Signals {
     clusters: Vec<SignalCluster>,
@@ -33,13 +61,9 @@ pub struct Signals {
 }
 
 impl Signals {
-    pub fn build(
-        roads: &RoadStore,
-        nodes: &NodeStore,
-        spatial: &SpatialGrid,
-        is_active: impl Fn(u32) -> bool,
-    ) -> Signals {
-        let groups = cluster::group(nodes, spatial, &is_active);
+    pub fn build(inputs: &SignalInputs, is_active: impl Fn(u32) -> bool) -> Signals {
+        let (roads, nodes) = (inputs.roads, inputs.nodes);
+        let groups = cluster::group(nodes, inputs.spatial, &is_active);
         let mut signals = Signals {
             approach_phase: vec![None; roads.count() * 2],
             node_cluster: vec![None; nodes.count()],
@@ -49,7 +73,20 @@ impl Signals {
         for members in groups {
             signals.add_cluster(roads, nodes, &is_active, members);
         }
+        signals.apply_timings(inputs.timings);
         signals
+    }
+
+    fn apply_timings(&mut self, timings: &BTreeMap<u32, Timing>) {
+        for cluster in &mut self.clusters {
+            let Some(timing) = timings.get(&cluster.key()) else {
+                continue;
+            };
+            if timing.green_ticks.len() == cluster.phases.len() {
+                cluster.green_ticks.clone_from(&timing.green_ticks);
+                cluster.offset_ticks = timing.offset_ticks;
+            }
+        }
     }
 
     fn add_cluster(
@@ -105,6 +142,14 @@ impl Signals {
     pub fn clusters(&self) -> &[SignalCluster] {
         &self.clusters
     }
+
+    pub fn cluster_at(&self, node: u32) -> Option<&SignalCluster> {
+        self.clusters.get(self.cluster_of(node)? as usize)
+    }
+}
+
+pub fn cycle_ticks(green_ticks: &[u32]) -> u64 {
+    green_ticks.iter().map(|&g| window(g)).sum()
 }
 
 fn window(green: u32) -> u64 {
@@ -112,7 +157,7 @@ fn window(green: u32) -> u64 {
 }
 
 fn phase_state(cluster: &SignalCluster, phase: usize, tick: u64) -> SignalState {
-    let cycle: u64 = cluster.green_ticks.iter().map(|&g| window(g)).sum();
+    let cycle = cycle_ticks(&cluster.green_ticks);
     let t = (tick + u64::from(cluster.offset_ticks)) % cycle;
     let start: u64 = cluster.green_ticks[..phase]
         .iter()

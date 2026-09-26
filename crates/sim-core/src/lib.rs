@@ -1,6 +1,7 @@
 pub mod config;
 pub mod consts;
 pub mod demand;
+pub mod edit;
 #[cfg(feature = "fixtures")]
 pub mod fixtures;
 pub mod fnv;

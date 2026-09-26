@@ -18,4 +18,7 @@ pub struct SimConfig {
     pub seed: u64,
     pub mode: SimMode,
     pub vehicles_per_hour: f64,
+    #[serde(default)]
+    #[ts(optional)]
+    pub budget: Option<i64>,
 }

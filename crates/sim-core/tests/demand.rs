@@ -57,6 +57,7 @@ fn corridor_sim(vph: f64) -> Sim {
         seed: 3,
         mode: SimMode::City,
         vehicles_per_hour: vph,
+        budget: None,
     };
     Sim::from_config(&corridor(), &config)
 }
@@ -133,6 +134,7 @@ fn region_config(vph: f64) -> SimConfig {
             radius: 600.0,
         },
         vehicles_per_hour: vph,
+        budget: None,
     }
 }
 

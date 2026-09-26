@@ -1,5 +1,5 @@
 use crate::consts::{EMA_ALPHA, HEURISTIC_SPEED, MIN_LINK_SPEED};
-use crate::network::{LinkId, Network};
+use crate::network::{LinkId, Network, road_of};
 
 const MIN_DRIVE_LEN: f64 = 0.1;
 
@@ -38,6 +38,33 @@ impl LinkCosts {
             self.heuristic_speed = self.heuristic_speed.max(speed);
         }
         self.inverse_heuristic_speed = 1.0 / self.heuristic_speed;
+    }
+
+    pub fn rebuild(&mut self, network: &Network) {
+        self.grow(network);
+        for link in 0..self.free_speed.len() as LinkId {
+            self.refresh_link(network, link);
+        }
+        self.inverse_heuristic_speed = 1.0 / self.heuristic_speed;
+    }
+
+    fn refresh_link(&mut self, network: &Network, link: LinkId) {
+        let index = link as usize;
+        let speed = network.link_speed(link);
+        let (start, end) = network.link_span(link);
+        let len = (end - start).max(MIN_DRIVE_LEN);
+        let exists = network.roads.is_live(road_of(link)) && network.link_lanes(link) > 0;
+        let ema = if exists {
+            self.ema_speed[index].min(speed)
+        } else {
+            speed
+        };
+        self.free_speed[index] = speed;
+        self.ema_speed[index] = ema;
+        self.drive_len[index] = len;
+        self.travel[index] = len / ema.max(MIN_LINK_SPEED);
+        self.window[index] = (0.0, 0);
+        self.heuristic_speed = self.heuristic_speed.max(speed);
     }
 
     pub fn heuristic_speed(&self) -> f64 {

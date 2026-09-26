@@ -20,6 +20,7 @@ impl Sim {
     fn check_route(&mut self, slot: u32) {
         self.ensure_route_junctions(slot);
         if self.route_broken(slot) {
+            self.edits.reroutes.immediate += 1;
             return self.reroute(slot);
         }
         self.vehicles.mark_checked(slot);
@@ -46,7 +47,8 @@ impl Sim {
             .is_some_and(|junction| junction.movement_index(from, to).is_some())
     }
 
-    fn reroute(&mut self, slot: u32) {
+    pub(super) fn reroute(&mut self, slot: u32) {
+        self.edits.flagged.remove(&slot);
         let Some((prefix, from, target)) = self.reroute_ends(slot) else {
             return self.strand(slot);
         };
@@ -85,8 +87,7 @@ impl Sim {
     }
 
     pub(super) fn strand(&mut self, slot: u32) {
-        self.vehicles.release(slot);
-        self.occupancy.forget(slot);
+        self.release_slot(slot);
         self.stranded += 1;
         self.stats.stranded += 1;
     }

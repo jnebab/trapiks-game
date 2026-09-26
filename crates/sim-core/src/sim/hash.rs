@@ -16,10 +16,25 @@ impl Sim {
             self.hash_vehicle(&mut hasher, slot);
         }
         self.hash_demand(&mut hasher);
+        self.hash_edits(&mut hasher);
         for speed in &self.costs.ema_speed {
             hasher.write_u64(speed.to_bits());
         }
         hasher.finish()
+    }
+
+    fn hash_edits(&self, hasher: &mut Fnv64) {
+        hasher.write_u64(self.edits.undo.len() as u64);
+        for entry in &self.edits.undo {
+            entry.inverse.hash_into(hasher);
+            hasher.write_u64(entry.cost as u64);
+        }
+        hasher.write_u64(self.edits.budget.spent as u64);
+        hasher.write_u64(self.network.content_hash());
+        for &slot in &self.edits.flagged {
+            hasher.write_u32(slot);
+        }
+        hasher.write_u64(self.edits.commands.len() as u64);
     }
 
     fn hash_demand(&self, hasher: &mut Fnv64) {

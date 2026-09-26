@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::consts::{DESTINATION_DRAWS, TRIP_EXPIRY_TICKS};
-use crate::network::{LinkId, Network};
+use crate::network::{LinkId, Network, reverse};
 use crate::rng::Pcg32;
 
 use super::DemandTables;
@@ -42,10 +42,10 @@ pub fn draw_trip(
     tick: u64,
     rng: &mut Pcg32,
 ) -> Option<Trip> {
-    let from = tables.origins.sample(rng)?;
+    let from = live_link(network, tables.origins.sample(rng)?)?;
     let start = network.nodes.pos[network.link_to(from) as usize];
     for _ in 0..DESTINATION_DRAWS {
-        let to = tables.destinations.sample(rng)?;
+        let to = live_link(network, tables.destinations.sample(rng)?)?;
         let end = network.nodes.pos[network.link_from(to) as usize];
         let distance = start.distance(end);
         if to != from && distance >= band.0 && distance <= band.1 {
@@ -57,4 +57,10 @@ pub fn draw_trip(
         }
     }
     None
+}
+
+fn live_link(network: &Network, link: LinkId) -> Option<LinkId> {
+    [link, reverse(link)]
+        .into_iter()
+        .find(|&candidate| network.is_link_active(candidate))
 }

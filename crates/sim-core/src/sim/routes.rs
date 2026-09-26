@@ -49,9 +49,11 @@ impl Sim {
             return;
         }
         self.graph = RouteGraph::build(&self.network);
-        self.costs.grow(&self.network);
+        self.costs.rebuild(&self.network);
         self.extend_reference_speeds();
-        self.rebuild_demand_tables();
+        if self.network.region().is_none() {
+            self.rebuild_demand_tables();
+        }
     }
 
     pub(super) fn route_to_buffer(&mut self, from: LinkId, to: LinkId) -> bool {

@@ -1,6 +1,8 @@
 mod advance;
 mod conflict;
 mod demand;
+mod edits;
+mod flagged;
 mod free_flow;
 mod hash;
 mod lookahead;
@@ -23,9 +25,11 @@ use crate::vehicle::approach::{PriorityKey, RuleContext};
 use crate::vehicle::idm::acceleration;
 use crate::vehicle::{Occupancy, Place, VehicleStore, leader};
 
+pub use flagged::RerouteCounts;
 pub use snapshot::Snapshot;
 
 use demand::Demand;
+use edits::EditState;
 
 const RNG_STREAM: u64 = 0x5452_4150_494b_5301;
 
@@ -48,6 +52,7 @@ pub struct Sim {
     stats: StatsWindow,
     v_ref: Vec<f64>,
     checked_version: u64,
+    edits: EditState,
 }
 
 impl Sim {
@@ -60,6 +65,7 @@ impl Sim {
             seed,
             mode: SimMode::City,
             vehicles_per_hour: 0.0,
+            budget: None,
         };
         Sim::build(map, &config, capacity)
     }
@@ -103,6 +109,7 @@ impl Sim {
             demand,
             stats: StatsWindow::default(),
             checked_version: u64::MAX,
+            edits: EditState::new(config.budget),
         }
     }
 
@@ -128,8 +135,10 @@ impl Sim {
     }
 
     pub fn step(&mut self) {
+        self.apply_queued();
         self.ensure_graph();
         self.prefetch_and_reroute();
+        self.reroute_flagged();
         self.create_trips();
         self.route_trips();
         self.occupancy.rebuild(&self.vehicles);

@@ -59,14 +59,28 @@ struct Candidate {
 }
 
 pub fn turns(network: &Network, node: u32) -> Vec<(LinkId, LinkId, TurnKind)> {
-    candidates(network, node)
+    summarize(&candidates(network, node, Bans::Respect))
+}
+
+pub fn turns_ignoring_bans(network: &Network, node: u32) -> Vec<(LinkId, LinkId, TurnKind)> {
+    summarize(&candidates(network, node, Bans::Ignore))
+}
+
+fn summarize(candidates: &[Candidate]) -> Vec<(LinkId, LinkId, TurnKind)> {
+    candidates
         .iter()
         .map(|c| (c.from_link, c.to_link, c.kind))
         .collect()
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Bans {
+    Respect,
+    Ignore,
+}
+
 pub fn build_junction(network: &Network, node: u32) -> Junction {
-    let candidates = candidates(network, node);
+    let candidates = candidates(network, node, Bans::Respect);
     let from_lanes = lanes::assign(network, &candidates);
     let movements: Vec<Movement> = candidates
         .iter()
@@ -86,7 +100,7 @@ pub fn build_junction(network: &Network, node: u32) -> Junction {
     }
 }
 
-fn candidates(network: &Network, node: u32) -> Vec<Candidate> {
+fn candidates(network: &Network, node: u32, bans: Bans) -> Vec<Candidate> {
     let outgoing: Vec<LinkId> = network.outgoing(node).collect();
     let dead_end = network.active_degree(node) == 1;
     let mut result = Vec::new();
@@ -95,7 +109,9 @@ fn candidates(network: &Network, node: u32) -> Vec<Candidate> {
             if to_link == reverse(from_link) && !dead_end {
                 continue;
             }
-            if network.is_banned(node, road_of(from_link), road_of(to_link)) {
+            if bans == Bans::Respect
+                && network.is_banned(node, road_of(from_link), road_of(to_link))
+            {
                 continue;
             }
             result.push(candidate(network, node, from_link, to_link));

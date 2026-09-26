@@ -24,8 +24,7 @@ impl Sim {
             Outcome::Alive => {}
             Outcome::Arrived => {
                 self.record_arrival(slot);
-                self.vehicles.release(slot);
-                self.occupancy.forget(slot);
+                self.release_slot(slot);
                 return;
             }
             Outcome::Stranded => return self.strand(slot),

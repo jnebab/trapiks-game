@@ -13,6 +13,7 @@ fn run() -> (u64, StatsSnapshot) {
         seed: 17,
         mode: SimMode::City,
         vehicles_per_hour: 20_000.0,
+        budget: None,
     };
     let mut sim = Sim::from_config(&map, &config);
     for _ in 0..3_000 {

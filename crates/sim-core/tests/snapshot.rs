@@ -36,6 +36,7 @@ fn snapshot_buffers_never_reallocate() {
         seed: 5,
         mode: SimMode::City,
         vehicles_per_hour: 8_000.0,
+        budget: None,
     };
     let mut sim = Sim::from_config(&map, &config);
     let mut snapshot = Snapshot {

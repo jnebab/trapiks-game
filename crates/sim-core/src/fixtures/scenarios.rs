@@ -5,8 +5,8 @@ use crate::sim::Sim;
 
 use super::{GridCity, four_way, grid_city};
 
-pub const FOUR_WAY_HASH_5000: u64 = 0x74ed_b2c4_8572_d418;
-pub const GRID_CITY_HASH_1000: u64 = 0x435d_533a_82e9_5c08;
+pub const FOUR_WAY_HASH_5000: u64 = 0x3b38_c74e_c5f1_0a22;
+pub const GRID_CITY_HASH_1000: u64 = 0xd8e6_d80a_656f_b43b;
 
 pub fn four_way_5000() -> u64 {
     let map = four_way(2, 200.0);
@@ -41,6 +41,7 @@ pub fn grid_city_demand_1000() -> u64 {
         seed: 5,
         mode: SimMode::City,
         vehicles_per_hour: 8_000.0,
+        budget: None,
     };
     let mut sim = Sim::from_config(&map, &config);
     for _ in 0..1_000 {

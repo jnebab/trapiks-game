@@ -13,6 +13,7 @@ pub struct RoadStore {
     pub lanes_backward: Vec<u8>,
     pub layer: Vec<i8>,
     pub name: Vec<u32>,
+    pub speed_kph: Vec<u8>,
     pub speed: Vec<f64>,
     pub deleted: Vec<bool>,
     pub point_start: Vec<u32>,
@@ -32,11 +33,8 @@ impl RoadStore {
             lanes_backward: table.lanes_backward.clone(),
             layer: table.layer.clone(),
             name: table.name.clone(),
-            speed: table
-                .speed_kph
-                .iter()
-                .map(|&kph| f64::from(kph) / KPH_PER_MPS)
-                .collect(),
+            speed_kph: table.speed_kph.clone(),
+            speed: table.speed_kph.iter().map(|&kph| mps(kph)).collect(),
             deleted: vec![false; map.road_count()],
             point_start: vec![0],
             ..RoadStore::default()
@@ -90,7 +88,17 @@ impl RoadStore {
         f64::from(self.total_lanes(road)) * LANE_WIDTH
     }
 
+    pub fn set_speed_kph(&mut self, road: u32, kph: u8) {
+        let index = road as usize;
+        self.speed_kph[index] = kph;
+        self.speed[index] = mps(kph);
+    }
+
     pub fn is_live(&self, road: u32) -> bool {
         !self.deleted[road as usize]
     }
+}
+
+fn mps(kph: u8) -> f64 {
+    f64::from(kph) / KPH_PER_MPS
 }

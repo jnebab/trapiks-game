@@ -42,3 +42,4 @@ pub const DESTINATION_DRAWS: u32 = 8;
 pub const CITY_TRIP_BAND: (f64, f64) = (1_000.0, 12_000.0);
 pub const REGION_TRIP_BAND: (f64, f64) = (300.0, 4_000.0);
 pub const BOUNDARY_WEIGHT: f64 = 5.0;
+pub const FLAGGED_REROUTE_BUDGET: usize = 4;

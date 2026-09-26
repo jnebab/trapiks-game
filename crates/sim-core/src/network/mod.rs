@@ -1,5 +1,7 @@
+mod content_hash;
 mod junction;
 mod link;
+mod mutate;
 mod node;
 mod region;
 mod road;
@@ -7,21 +9,22 @@ mod setback;
 mod signal;
 mod spatial;
 
-use std::collections::BTreeSet;
+use std::cell::Cell;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::consts::LANE_WIDTH;
 use crate::geom::Vec2;
 use crate::map::{MapData, TurnBan};
 
-use junction::turns;
 pub use junction::{Conflict, Junction, Movement, TurnKind, build_junction};
+use junction::{turns, turns_ignoring_bans};
 pub use link::{Direction, LinkId, direction_of, link_id, reverse, road_of};
 use link::{arriving, departing};
 pub use node::NodeStore;
 pub use region::{Region, RegionMask};
 pub use road::RoadStore;
 pub use setback::setback;
-pub use signal::{SignalCluster, SignalState, Signals};
+pub use signal::{SignalCluster, SignalInputs, SignalState, Signals, Timing, cycle_ticks};
 pub use spatial::SpatialGrid;
 
 pub struct Network {
@@ -29,11 +32,13 @@ pub struct Network {
     pub nodes: NodeStore,
     pub spatial: SpatialGrid,
     bans: BTreeSet<TurnBan>,
+    timings: BTreeMap<u32, Timing>,
     signals: Signals,
     region: Option<RegionMask>,
     junctions: Vec<Option<Junction>>,
     spans: Vec<(f64, f64)>,
     version: u64,
+    content: Cell<Option<(u64, u64)>>,
 }
 
 impl Network {
@@ -41,18 +46,20 @@ impl Network {
         let roads = RoadStore::from_map(map);
         let nodes = NodeStore::from_map(map);
         let spatial = SpatialGrid::build(&roads, &nodes);
-        let signals = Signals::build(&roads, &nodes, &spatial, |road| roads.is_live(road));
         let mut network = Network {
             junctions: vec![None; nodes.count()],
             bans: map.turn_bans.iter().copied().collect(),
+            timings: BTreeMap::new(),
             roads,
             nodes,
             spatial,
-            signals,
+            signals: Signals::default(),
             region: None,
             spans: Vec::new(),
             version: 0,
+            content: Cell::new(None),
         };
+        network.rebuild_signals();
         network.compute_spans();
         network
     }
@@ -81,12 +88,20 @@ impl Network {
 
     pub fn set_region(&mut self, region: Option<Region>) {
         self.region = region.map(|r| RegionMask::build(self, r));
-        self.signals = Signals::build(&self.roads, &self.nodes, &self.spatial, |road| {
-            self.is_road_active(road)
-        });
+        self.rebuild_signals();
         self.junctions.iter_mut().for_each(|slot| *slot = None);
         self.compute_spans();
         self.version += 1;
+    }
+
+    fn rebuild_signals(&mut self) {
+        let inputs = SignalInputs {
+            roads: &self.roads,
+            nodes: &self.nodes,
+            spatial: &self.spatial,
+            timings: &self.timings,
+        };
+        self.signals = Signals::build(&inputs, |road| self.is_road_active(road));
     }
 
     pub fn is_road_active(&self, road: u32) -> bool {
@@ -205,6 +220,14 @@ impl Network {
 
     pub fn turns(&self, node: u32) -> Vec<(LinkId, LinkId, TurnKind)> {
         turns(self, node)
+    }
+
+    pub fn turns_ignoring_bans(&self, node: u32) -> Vec<(LinkId, LinkId, TurnKind)> {
+        turns_ignoring_bans(self, node)
+    }
+
+    pub fn timing_override(&self, key: u32) -> Option<&Timing> {
+        self.timings.get(&key)
     }
 
     pub fn link_count(&self) -> usize {

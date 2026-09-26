@@ -164,3 +164,24 @@ fn random_route(movements: &[(u32, u32)], starts: &[(u32, u32)], rng: &mut Pcg32
     }
     route
 }
+
+pub fn apply_now(
+    sim: &mut Sim,
+    command: trapiks_sim_core::edit::EditCommand,
+) -> trapiks_sim_core::edit::Outcome {
+    let seq = sim.enqueue(command);
+    sim.step();
+    let results = sim.take_results();
+    let Some(result) = results.into_iter().find(|result| result.seq == seq) else {
+        panic!("no result for command {seq}");
+    };
+    result.outcome
+}
+
+pub fn grid_10() -> MapData {
+    trapiks_sim_core::fixtures::grid_city(&trapiks_sim_core::fixtures::GridCity {
+        cols: 10,
+        rows: 10,
+        spacing: 150.0,
+    })
+}

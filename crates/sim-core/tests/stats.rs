@@ -9,6 +9,7 @@ fn stats_low_demand() {
         seed: 5,
         mode: SimMode::City,
         vehicles_per_hour: 60.0,
+        budget: None,
     };
     let mut sim = Sim::from_config(&corridor(), &config);
     sim.set_trip_band_for_test((100.0, 2_000.0));
@@ -31,6 +32,7 @@ fn reset_stats_keeps_hash() {
         seed: 5,
         mode: SimMode::City,
         vehicles_per_hour: 600.0,
+        budget: None,
     };
     let mut sim = Sim::from_config(&corridor(), &config);
     sim.set_trip_band_for_test((100.0, 2_000.0));
