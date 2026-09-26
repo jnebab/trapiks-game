@@ -58,6 +58,13 @@ struct Candidate {
     s3: f64,
 }
 
+pub fn turns(network: &Network, node: u32) -> Vec<(LinkId, LinkId, TurnKind)> {
+    candidates(network, node)
+        .iter()
+        .map(|c| (c.from_link, c.to_link, c.kind))
+        .collect()
+}
+
 pub fn build_junction(network: &Network, node: u32) -> Junction {
     let candidates = candidates(network, node);
     let from_lanes = lanes::assign(network, &candidates);

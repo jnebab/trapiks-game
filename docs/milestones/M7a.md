@@ -58,6 +58,7 @@ A CSR successor table over link ids (`0 .. 2 × road_count`), built from the `Ne
   1. Run Dijkstra forward from the lowest active link id on free-flow costs, where edge cost is `free_time(b) + penalty`.
   2. Landmark 1 is the reachable link with the largest distance. Ties go to the lowest id.
   3. Each next landmark is the link maximising the minimum forward distance from the landmarks chosen so far, over reachable links. Ties go to the lowest id.
+     - **Deviation (implementation):** links whose minimum distance is infinite (not reachable from some chosen landmark) are skipped, which keeps landmarks out of one-way sinks. It changes nothing on strongly connected maps.
      - The forward Dijkstra from each chosen landmark is exactly `from_l[L]`, so reuse it. That makes 1 + 8 + 8 Dijkstras in total.
   4. Stop at `LANDMARK_COUNT`, or earlier if no reachable link remains.
   5. If the seed reaches fewer than half of the active links (for example a one-way sink, or a fragment of a region), reseed from the lowest unreached active link and use the largest reachable set. Try at most 4 seeds.
@@ -74,6 +75,7 @@ A CSR successor table over link ids (`0 .. 2 × road_count`), built from the `Ne
   - `euclid` measures from the to-node of `v` to the from-node of `t`.
   - `heuristic_speed = max(HEURISTIC_SPEED, max free_speed over links)`, computed at build. `drive_len` excludes setbacks, so the Euclidean term can still slightly overestimate on short fast links. Routes stay valid.
   - The target-side values (`from_l[L][t]`, `to_l[L][t]` and the target point) are hoisted out of the expansion loop.
+  - **Deviation (fix round 1):** `h(t, t) = 0`. The Euclidean term otherwise measures the target link's own length at the goal (about 5.4 s on a 150 m grid), which inflated expansions from about 2400 to 3590 on grid120.
 - **Timing:** built once in `Sim::new`. Edits in M10 keep these tables, which may make bounds loose or slightly inadmissible. That is accepted: routes stay valid, just possibly suboptimal.
 - **Dijkstra:** uses the same heap type as A*, with an epoch-stamped visited array.
 
@@ -87,7 +89,8 @@ pub struct RouteStats { pub queries: u64, pub expanded: u64 }
 - **`route_into(&mut self, ctx: RouteContext, from: LinkId, to: LinkId, out: &mut Vec<LinkId>) -> bool`:**
   - `RouteContext { graph, costs, landmarks: Option<&Landmarks>, network }`.
   - Edge cost `a → b` is `travel_time(b) + penalty`. The start link costs 0.
-  - `f = g + h`.
+  - `f = g + h`, quantised to 1 ms (`round(f * 1e3) / 1e3`) before the heap push.
+    - **Deviation (fix round 1):** the `f32` landmark tables perturb `f` by about 1e-4 s, so exact grid ties stopped comparing equal and the larger-`g` tie-break never fired. Quantising restores it (grid120: 1042 expansions, mean 0.44 ms). Routes still match Dijkstra cost.
   - **Heap order:** `(f.to_bits() ascending, g.to_bits() descending, link ascending)`. Every `f ≥ 0`, so bit order equals numeric order. Preferring larger `g` on equal `f` avoids expanding whole tie diamonds on grids.
   - **Stale entries:** an entry whose recorded `g` is greater than the current `g[link]` is skipped.
   - **Reset:** `stamp` starts all 0 and `epoch` starts at 1. On wrap, set `stamp` to 0 and `epoch = 1`.

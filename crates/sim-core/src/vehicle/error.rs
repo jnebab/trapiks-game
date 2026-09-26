@@ -8,4 +8,5 @@ pub enum SpawnError {
     Disconnected(usize),
     Full,
     Blocked,
+    NoRoute,
 }

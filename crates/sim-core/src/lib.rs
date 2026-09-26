@@ -8,6 +8,7 @@ mod meta;
 pub mod network;
 pub mod render;
 pub mod rng;
+pub mod routing;
 pub mod sim;
 pub mod vehicle;
 

@@ -1,13 +1,17 @@
 mod advance;
+mod conflict;
 mod hash;
+mod reroute;
+mod routes;
 mod rules;
 mod snapshot;
 mod spawn;
 
 use crate::consts::{DT, MAX_VEHICLES};
 use crate::map::MapData;
-use crate::network::Network;
+use crate::network::{LinkId, Network};
 use crate::rng::Pcg32;
+use crate::routing::{Landmarks, LinkCosts, RouteGraph, Router};
 use crate::vehicle::approach::PriorityKey;
 use crate::vehicle::idm::acceleration;
 use crate::vehicle::{Occupancy, Place, VehicleStore, leader};
@@ -24,6 +28,12 @@ pub struct Sim {
     candidates: Vec<(PriorityKey, u32)>,
     rng: Pcg32,
     tick: u64,
+    graph: RouteGraph,
+    costs: LinkCosts,
+    landmarks: Landmarks,
+    router: Router,
+    route_buf: Vec<LinkId>,
+    stranded: u64,
 }
 
 impl Sim {
@@ -32,14 +42,24 @@ impl Sim {
     }
 
     pub fn with_capacity(map: &MapData, seed: u64, capacity: usize) -> Sim {
+        let network = Network::from_map(map);
+        let graph = RouteGraph::build(&network);
+        let costs = LinkCosts::build(&network);
+        let landmarks = Landmarks::build(&network, &graph, &costs);
         Sim {
-            network: Network::from_map(map),
+            network,
             vehicles: VehicleStore::with_capacity(capacity),
             occupancy: Occupancy::default(),
             accel: Vec::with_capacity(capacity),
             candidates: Vec::new(),
             rng: Pcg32::new(seed, RNG_STREAM),
             tick: 0,
+            graph,
+            costs,
+            landmarks,
+            router: Router::new(),
+            route_buf: Vec::new(),
+            stranded: 0,
         }
     }
 
@@ -55,28 +75,27 @@ impl Sim {
         &self.network
     }
 
+    #[cfg(feature = "fixtures")]
+    pub fn network_mut(&mut self) -> &mut Network {
+        &mut self.network
+    }
+
     pub fn vehicles(&self) -> &VehicleStore {
         &self.vehicles
     }
 
     pub fn step(&mut self) {
-        self.ensure_all_route_junctions();
+        self.ensure_graph();
+        self.prefetch_and_reroute();
         self.occupancy.rebuild(&self.vehicles);
         self.update_zones();
         self.decide();
         self.compute_accelerations();
         self.integrate();
         self.advance_all();
+        self.sample_speeds();
         self.vehicles.compact_routes();
         self.tick += 1;
-    }
-
-    fn ensure_all_route_junctions(&mut self) {
-        for slot in 0..self.vehicles.slot_count() as u32 {
-            if self.vehicles.alive[slot as usize] {
-                self.ensure_route_junctions(slot);
-            }
-        }
     }
 
     fn ensure_route_junctions(&mut self, slot: u32) {
@@ -107,13 +126,14 @@ impl Sim {
 
     fn obstacle(&self, slot: u32) -> Option<(f64, f64)> {
         let vehicle = leader(&self.network, &self.vehicles, &self.occupancy, slot);
-        let Some(line) = self.stop_line_gap(slot) else {
-            return vehicle;
-        };
-        match vehicle {
-            Some((gap, leader_v)) if gap <= line => Some((gap, leader_v)),
-            _ => Some((line, 0.0)),
-        }
+        let fixed = [self.stop_line_gap(slot), self.conflict_gap(slot)]
+            .into_iter()
+            .flatten()
+            .map(|gap| (gap, 0.0));
+        vehicle
+            .into_iter()
+            .chain(fixed)
+            .reduce(|best, next| if next.0 < best.0 { next } else { best })
     }
 
     fn desired_speed(&self, slot: u32) -> f64 {

@@ -1,6 +1,8 @@
+use trapiks_sim_core::consts::LANDMARK_COUNT;
 use trapiks_sim_core::fixtures::{GridCity, grid_city};
 use trapiks_sim_core::geom::Vec2;
 use trapiks_sim_core::network::{Direction, Network, Region, direction_of, link_id};
+use trapiks_sim_core::routing::{Landmarks, LinkCosts, RouteGraph};
 
 fn regional() -> Network {
     let spec = GridCity {
@@ -56,4 +58,13 @@ fn inactive_roads_have_inactive_links() {
         assert_eq!(direction_of(link), dir);
         assert!(!network.is_link_active(link));
     }
+}
+
+#[test]
+fn region_gets_full_landmark_set() {
+    let network = regional();
+    let graph = RouteGraph::build(&network);
+    let costs = LinkCosts::build(&network);
+    let landmarks = Landmarks::build(&network, &graph, &costs);
+    assert_eq!(landmarks.count(), LANDMARK_COUNT);
 }

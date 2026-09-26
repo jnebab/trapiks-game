@@ -128,6 +128,18 @@ impl VehicleStore {
         (slot, id)
     }
 
+    pub fn replace_route(&mut self, slot: u32, prefix: Option<LinkId>, rest: &[LinkId]) {
+        let index = slot as usize;
+        self.dead_len += usize::from(self.route_len[index]);
+        let start = self.routes.len();
+        self.routes.extend(prefix);
+        self.routes.extend_from_slice(rest);
+        self.route_start[index] = start as u32;
+        self.route_len[index] = (self.routes.len() - start) as u16;
+        self.route_cursor[index] = 0;
+        self.reset_junction_state(slot);
+    }
+
     pub fn reset_junction_state(&mut self, slot: u32) {
         let index = slot as usize;
         self.committed[index] = false;

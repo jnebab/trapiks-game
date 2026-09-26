@@ -1,7 +1,9 @@
 use crate::consts::{CAR_LENGTH, COLOR_COUNT, IDM_MIN_GAP};
 use crate::network::LinkId;
 use crate::vehicle::lanes::entry_lane;
-use crate::vehicle::{NewVehicle, Place, SpawnError, VehicleStore, entry_of, place_key};
+use crate::vehicle::{
+    NewVehicle, Place, SpawnError, VehicleStore, entry_of, movement_of, place_key,
+};
 
 use super::Sim;
 
@@ -18,6 +20,9 @@ impl Sim {
         }
         let lane = self.first_lane(route);
         let start = self.network.link_span(first).0;
+        if self.landing_onto(first, lane) {
+            return Err(SpawnError::Blocked);
+        }
         let place = Place::Link { link: first, lane };
         let v = self.entry_speed(first, place, start)?;
         let color = self.rng.below(COLOR_COUNT) as u8;
@@ -63,6 +68,22 @@ impl Sim {
             .junction(self.network.link_to(first))
             .and_then(|junction| entry_lane(junction, first, second))
             .unwrap_or(0)
+    }
+
+    fn landing_onto(&self, link: LinkId, lane: u8) -> bool {
+        self.vehicles.live_slots().any(|slot| {
+            let Place::Movement {
+                node,
+                movement,
+                to_lane,
+                ..
+            } = self.vehicles.place[slot as usize]
+            else {
+                return false;
+            };
+            to_lane == lane
+                && movement_of(&self.network, node, movement).is_some_and(|m| m.to_link == link)
+        })
     }
 
     fn entry_speed(&self, link: LinkId, place: Place, start: f64) -> Result<f64, SpawnError> {

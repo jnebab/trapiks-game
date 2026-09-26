@@ -13,6 +13,7 @@ use crate::consts::LANE_WIDTH;
 use crate::geom::Vec2;
 use crate::map::{MapData, TurnBan};
 
+use junction::turns;
 pub use junction::{Conflict, Junction, Movement, TurnKind, build_junction};
 pub use link::{Direction, LinkId, direction_of, link_id, reverse, road_of};
 use link::{arriving, departing};
@@ -162,6 +163,25 @@ impl Network {
             .take()
             .unwrap_or_else(|| build_junction(self, node));
         self.junctions[index].insert(built)
+    }
+
+    pub fn turns(&self, node: u32) -> Vec<(LinkId, LinkId, TurnKind)> {
+        turns(self, node)
+    }
+
+    pub fn link_count(&self) -> usize {
+        self.roads.count() * 2
+    }
+
+    #[cfg(feature = "fixtures")]
+    pub fn ban_turn_for_test(&mut self, node: u32, from_road: u32, to_road: u32) {
+        self.bans.insert(TurnBan {
+            via_node: node,
+            from_road,
+            to_road,
+        });
+        self.invalidate_node(node);
+        self.version += 1;
     }
 
     pub fn junction(&self, node: u32) -> Option<&Junction> {

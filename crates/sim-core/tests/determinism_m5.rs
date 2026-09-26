@@ -4,7 +4,7 @@ use trapiks_sim_core::rng::Pcg32;
 use trapiks_sim_core::sim::Sim;
 use trapiks_sim_core::vehicle::SpawnError;
 
-const FOUR_WAY_HASH_5000: u64 = 0x07c5_2ef1_2ed4_5553;
+const FOUR_WAY_HASH_5000: u64 = 0xe46b_9c6b_d553_cb1e;
 
 fn run() -> u64 {
     let map = four_way(2, 200.0);

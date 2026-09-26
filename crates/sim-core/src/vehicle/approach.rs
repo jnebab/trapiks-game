@@ -92,21 +92,30 @@ fn signal_priority(ctx: &RuleContext, link: LinkId) -> u8 {
     u8::from(lit || ctx.network.signals().is_internal(link))
 }
 
-fn effective_rank(ctx: &RuleContext, approach: &Approach) -> (u8, u8, u8) {
-    if ctx.network.nodes.control[approach.node as usize] == Control::AllWayStop {
+fn effective_rank(ctx: &RuleContext, node: u32, movement: &Movement) -> (u8, u8, u8) {
+    if ctx.network.nodes.control[node as usize] == Control::AllWayStop {
         return (0, 0, 0);
     }
-    let (class, turn) = approach.movement.rank;
-    (signal_priority(ctx, approach.link), class, turn)
+    let (class, turn) = movement.rank;
+    (signal_priority(ctx, movement.from_link), class, turn)
 }
 
-pub fn priority_key(ctx: &RuleContext, approach: &Approach) -> PriorityKey {
-    let index = approach.slot as usize;
+pub fn movement_priority(
+    ctx: &RuleContext,
+    slot: u32,
+    node: u32,
+    movement: &Movement,
+) -> PriorityKey {
+    let index = slot as usize;
     (
-        Reverse(effective_rank(ctx, approach)),
+        Reverse(effective_rank(ctx, node, movement)),
         ctx.vehicles.arrival_tick[index],
         ctx.vehicles.id[index],
     )
+}
+
+pub fn priority_key(ctx: &RuleContext, approach: &Approach) -> PriorityKey {
+    movement_priority(ctx, approach.slot, approach.node, approach.movement)
 }
 
 pub fn beats(ctx: &RuleContext, a: &Approach, b: &Approach) -> bool {
