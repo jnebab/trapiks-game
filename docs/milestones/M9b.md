@@ -68,7 +68,7 @@ Look at the reference screenshots in `/tmp/claude-0/-home-user-trapiks-game/74a6
   | 3 | signal (solid) | `network.signal_state(link, 0).is_some()` |
 
   Internal cluster links give 0.
-- **Output:** `ApproachMarkers { link: Vec<u32>, kind: Vec<u8>, x1, y1, x2, y2: Vec<f32> }`. Only non-zero kinds are included, in link order.
+- **Output:** `ApproachMarkers { link: Vec<u32>, node: Vec<u32>, kind: Vec<u8>, x1, y1, x2, y2: Vec<f32> }`, where `node` is the node the link arrives at. Only non-zero kinds are included, in link order.
 
 
 ### Tests
@@ -88,7 +88,7 @@ Look at the reference screenshots in `/tmp/claude-0/-home-user-trapiks-game/74a6
 Add these getters, computed once at load:
 - `roadSetbacks() -> Vec<f32>`
 - `junctionShapes() -> JunctionShapeGeometry`, with columns `node`, `layer`, `minLayer`, `ringStart`, `x`, `y`
-- `approachMarkers() -> ApproachMarkerGeometry`, with columns `link`, `kind`, `x1`, `y1`, `x2`, `y2`
+- `approachMarkers() -> ApproachMarkerGeometry`, with columns `link`, `node`, `kind`, `x1`, `y1`, `x2`, `y2`
 
 The worker adds them to `ready` (transferred), and the protocol and guards grow to match.
 
