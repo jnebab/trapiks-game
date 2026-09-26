@@ -15,6 +15,7 @@ import { createUndoChip, type UndoChip } from '../hud/inspector/undo-chip';
 import type { CommandResultsMessage } from '../sim/protocol';
 import type { SimClient } from '../sim/client';
 import type { Lifetime } from './lifetime';
+import { startRoadEditing, type RoadEditing } from './road-editing';
 
 export interface EditHost {
   root: HTMLElement;
@@ -59,10 +60,11 @@ interface ResultTargets {
   controller: EditController;
   pills: SignalPillLayer;
   undo: UndoChip;
+  road: RoadEditing;
 }
 
 function resultsHandler(targets: ResultTargets) {
-  const { view, picking, selection, controller, pills, undo } = targets;
+  const { view, picking, selection, controller, pills, undo, road } = targets;
   return ({ results, delta, budget }: CommandResultsMessage): void => {
     if (delta !== null) {
       applyDelta(delta, { ...view, picking });
@@ -70,6 +72,7 @@ function resultsHandler(targets: ResultTargets) {
     }
     controller.onResults(results, budget);
     undo.refresh();
+    road.tool.refresh();
     if (delta !== null) {
       pills.rebuild(pillArrays(delta));
     }
@@ -117,9 +120,10 @@ export function startEditing(
   });
   const undo = createUndoChip(client, tooltip);
   chips.appendChild(undo.element);
+  const road = startRoadEditing(scene, host, { ...targets, picking, controller }, lifetime);
   return {
-    onResults: resultsHandler({ view, picking, selection, controller, pills, undo }),
-    setLocked: locker(controller, undo, inspect),
+    onResults: resultsHandler({ view, picking, selection, controller, pills, undo, road }),
+    setLocked: locker(controller, undo, inspect, road),
   };
 }
 
@@ -142,9 +146,15 @@ function createController(
   });
 }
 
-function locker(controller: EditController, undo: UndoChip, inspect: InspectSelection) {
+function locker(
+  controller: EditController,
+  undo: UndoChip,
+  inspect: InspectSelection,
+  road: RoadEditing,
+) {
   return (locked: boolean): void => {
     controller.locked = locked;
+    road.tools.setLocked(locked);
     undo.element.disabled = locked;
     if (locked) {
       inspect.select(undefined);

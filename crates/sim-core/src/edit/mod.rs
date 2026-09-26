@@ -1,3 +1,4 @@
+mod add_road;
 mod apply;
 mod budget;
 mod command;
@@ -9,9 +10,15 @@ mod roundabout;
 mod validate;
 pub mod vehicles;
 
+pub use add_road::{
+    ADD_ROAD_MIN_ANGLE, ADD_ROAD_SEGMENTS, AddRoadSpec, AddRoadUndo, SplitRecord, curve_points,
+    delete_appended as delete_added_road, restore_split, truncate as truncate_added_road,
+};
 pub use apply::{Edit, Scope};
 pub use budget::{Budget, BudgetState};
-pub use command::{CommandResult, EditCommand, EditError, EditOutcome, Outcome, QuoteOutcome};
+pub use command::{
+    CommandResult, EditCommand, EditError, EditOutcome, Endpoint, Outcome, QuoteOutcome,
+};
 pub use flyover::{FlyoverUndo, restore_through, truncate as truncate_flyover};
 pub use inspect::{
     NodeInspection, RoadInspection, SignalInfo, TurnInfo, inspect_node, inspect_road,

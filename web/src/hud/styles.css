@@ -566,3 +566,52 @@ button.chip:disabled {
   display: flex;
   gap: 8px;
 }
+
+.bottom-centre {
+  position: fixed;
+  z-index: 2;
+  bottom: 56px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.toolbar,
+.road-options {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.road-options[hidden] {
+  display: none;
+}
+
+.chip.elevation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.elevation-value {
+  min-width: 1ch;
+  text-align: center;
+}
+
+.road-tooltip {
+  position: fixed;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.road-tooltip[hidden],
+.road-tooltip .chip[hidden] {
+  display: none;
+}

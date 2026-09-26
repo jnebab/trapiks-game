@@ -146,6 +146,8 @@ impl Sim {
                 self.apply_roundabout(edit, (*node, *radius_m), cost)
             }
             Edit::UndoRoundabout(undo) => self.undo_roundabout(undo, cost),
+            Edit::AddRoad(_) => self.apply_add_road(edit, cost),
+            Edit::UndoAddRoad(undo) => self.undo_add_road(undo, cost),
             _ => self.apply_plain(edit, cost),
         }
     }

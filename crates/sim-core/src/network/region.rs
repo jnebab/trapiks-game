@@ -11,6 +11,7 @@ pub struct Region {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RegionMask {
+    pub circle: Region,
     pub active_road: Vec<bool>,
     pub boundary: Vec<u32>,
     pub sources: Vec<LinkId>,
@@ -30,6 +31,7 @@ impl RegionMask {
         let boundary = boundary_nodes(network, &active_road);
         let (sources, sinks) = boundary_links(network, &active_road, &boundary);
         RegionMask {
+            circle: region,
             active_road,
             boundary,
             sources,

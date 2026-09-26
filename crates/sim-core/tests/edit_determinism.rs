@@ -1,5 +1,5 @@
 use trapiks_sim_core::config::{SimConfig, SimMode};
-use trapiks_sim_core::edit::{CommandResult, EditCommand, Outcome};
+use trapiks_sim_core::edit::{CommandResult, EditCommand, Endpoint, Outcome};
 use trapiks_sim_core::fixtures::{GridCity, grid_city};
 use trapiks_sim_core::map::{Control, MapData};
 use trapiks_sim_core::network::{Network, road_of};
@@ -8,6 +8,8 @@ use trapiks_sim_core::sim::Sim;
 const TURN_NODE: u32 = 220;
 const FLYOVER_NODE: u32 = 290;
 const ROUNDABOUT_NODE: u32 = 250;
+const ADD_ROAD_NODE: u32 = 154;
+const SPLIT_ROAD: u32 = 167;
 
 fn map() -> MapData {
     grid_city(&GridCity {
@@ -30,6 +32,22 @@ fn straight_pair(network: &Network, node: u32) -> [u32; 2] {
         .find(|&road| direction(first).dot(direction(road)) < -0.9)
         .unwrap_or(first);
     [first, opposite]
+}
+
+fn add_road() -> EditCommand {
+    EditCommand::AddRoad {
+        from: Endpoint::Node {
+            node: ADD_ROAD_NODE,
+        },
+        to: Endpoint::OnRoad {
+            road: SPLIT_ROAD,
+            at_m: 75.0,
+        },
+        via: None,
+        lanes_forward: 1,
+        lanes_backward: 1,
+        layer: 0,
+    }
 }
 
 fn edits(map: &MapData) -> Vec<EditCommand> {
@@ -62,6 +80,7 @@ fn edits(map: &MapData) -> Vec<EditCommand> {
             node: ROUNDABOUT_NODE,
             radius_m: 18,
         },
+        add_road(),
     ]
 }
 
@@ -75,7 +94,7 @@ fn run(map: &MapData) -> (u64, Vec<CommandResult>) {
     let mut sim = Sim::from_config(map, &config);
     let mut pending = edits(map).into_iter();
     let mut results = Vec::new();
-    for tick in 0..900u64 {
+    for tick in 0..1_000u64 {
         if tick > 0
             && tick.is_multiple_of(100)
             && let Some(command) = pending.next()
@@ -95,7 +114,7 @@ fn determinism_with_edits() {
     let (hash_b, results_b) = run(&map);
     assert_eq!(hash_a, hash_b);
     assert_eq!(results_a, results_b);
-    assert_eq!(results_a.len(), 8);
+    assert_eq!(results_a.len(), 9);
     for result in &results_a {
         assert!(matches!(result.outcome, Outcome::Ok(_)), "{result:?}");
     }

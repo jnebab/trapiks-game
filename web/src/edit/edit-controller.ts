@@ -39,6 +39,7 @@ function isUndoKey(event: KeyboardEvent): boolean {
 
 export class EditController {
   locked = false;
+  private selectEnabled = true;
   private readonly budget: BudgetChip = createBudgetChip();
   private readonly pointer: ScreenPosition;
 
@@ -51,7 +52,7 @@ export class EditController {
           ctx.selection.setHover(this.pick(sx, sy));
         },
         onClick: (sx, sy) => {
-          if (!this.locked) {
+          if (!this.locked && this.selectEnabled) {
             ctx.inspect.select(this.pickTarget(sx, sy));
           }
         },
@@ -62,6 +63,14 @@ export class EditController {
       ctx.signal,
     );
     window.addEventListener('keydown', this.onKey, { signal: ctx.signal });
+  }
+
+  setSelectEnabled(enabled: boolean): void {
+    this.selectEnabled = enabled;
+    if (!enabled) {
+      this.ctx.selection.setHover(undefined);
+      this.ctx.inspect.select(undefined);
+    }
   }
 
   onResults(results: readonly CommandResult[], budget: BudgetState): void {
@@ -80,7 +89,7 @@ export class EditController {
   }
 
   private canPick(sx: number): boolean {
-    return !Number.isNaN(sx) && this.ctx.tiles.activeBand !== 'city';
+    return this.selectEnabled && !Number.isNaN(sx) && this.ctx.tiles.activeBand !== 'city';
   }
 
   private pick(sx: number, sy: number): number | undefined {
@@ -127,7 +136,7 @@ export class EditController {
     if (isUndoKey(event)) {
       return 'Undo';
     }
-    if (event.key !== 'Delete' && event.key !== 'Backspace') {
+    if (!this.selectEnabled || (event.key !== 'Delete' && event.key !== 'Backspace')) {
       return undefined;
     }
     const road = this.ctx.selection.selected ?? this.ctx.selection.hovered;

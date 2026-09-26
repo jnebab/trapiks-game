@@ -2,6 +2,9 @@ use crate::fnv::Fnv64;
 use crate::map::{Control, TurnBan};
 use crate::network::{Network, Timing};
 
+use super::Endpoint;
+
+use super::add_road::{self, AddRoadSpec, AddRoadUndo};
 use super::flyover::{self, FlyoverUndo};
 use super::roundabout::{self, RoundaboutUndo};
 
@@ -42,6 +45,8 @@ pub enum Edit {
         radius_m: u8,
     },
     UndoRoundabout(Box<RoundaboutUndo>),
+    AddRoad(Box<AddRoadSpec>),
+    UndoAddRoad(Box<AddRoadUndo>),
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -66,6 +71,8 @@ impl Edit {
             Edit::UndoFlyover(ref undo) => flyover::undo_scope(network, undo),
             Edit::BuildRoundabout { node, .. } => roundabout::build_scope(network, node),
             Edit::UndoRoundabout(ref undo) => roundabout::undo_scope(network, undo),
+            Edit::AddRoad(ref spec) => add_road::build_scope(network, spec),
+            Edit::UndoAddRoad(ref undo) => add_road::undo_scope(network, undo),
         }
     }
 
@@ -119,16 +126,32 @@ impl Edit {
                 roundabout::undo(network, undo);
                 undo.rebuild()
             }
+            Edit::AddRoad(ref spec) => Edit::UndoAddRoad(Box::new(add_road::build(network, spec))),
+            Edit::UndoAddRoad(ref undo) => {
+                add_road::undo(network, undo);
+                Edit::AddRoad(Box::new(undo.spec))
+            }
             _ => self.clone(),
         }
     }
 
-    pub fn hash_into(&self, hasher: &mut Fnv64) {
-        if let Edit::UndoFlyover(undo) = self {
-            return hash_flyover_undo(undo, hasher);
+    fn hash_structural(&self, hasher: &mut Fnv64) -> bool {
+        match self {
+            Edit::UndoFlyover(undo) => hash_flyover_undo(undo, hasher),
+            Edit::UndoRoundabout(undo) => hash_roundabout_undo(undo, hasher),
+            Edit::AddRoad(spec) => {
+                hasher.write_u32(10);
+                hash_add_road_spec(spec, hasher);
+            }
+            Edit::UndoAddRoad(undo) => hash_add_road_undo(undo, hasher),
+            _ => return false,
         }
-        if let Edit::UndoRoundabout(undo) = self {
-            return hash_roundabout_undo(undo, hasher);
+        true
+    }
+
+    pub fn hash_into(&self, hasher: &mut Fnv64) {
+        if self.hash_structural(hasher) {
+            return;
         }
         let words = match self {
             Edit::SetDeleted { road, deleted } => vec![0, *road, u32::from(*deleted)],
@@ -151,7 +174,10 @@ impl Edit {
             }
             Edit::BuildFlyover { node, through } => vec![6, *node, through[0], through[1]],
             Edit::BuildRoundabout { node, radius_m } => vec![8, *node, u32::from(*radius_m)],
-            Edit::UndoFlyover(_) | Edit::UndoRoundabout(_) => Vec::new(),
+            Edit::UndoFlyover(_)
+            | Edit::UndoRoundabout(_)
+            | Edit::AddRoad(_)
+            | Edit::UndoAddRoad(_) => Vec::new(),
         };
         for word in words {
             hasher.write_u32(word);
@@ -184,6 +210,49 @@ fn hash_roundabout_undo(undo: &RoundaboutUndo, hasher: &mut Fnv64) {
         hasher.write_f64(arm.old_length);
         hasher.write_u32(u32::from(arm.arrived));
         hasher.write_f64(arm.cut);
+    }
+    hasher.write_u32(undo.road_len_before);
+    hasher.write_u32(undo.node_len_before);
+}
+
+fn hash_endpoint(endpoint: Endpoint, hasher: &mut Fnv64) {
+    match endpoint {
+        Endpoint::Node { node } => {
+            hasher.write_u32(0);
+            hasher.write_u32(node);
+        }
+        Endpoint::OnRoad { road, at_m } => {
+            hasher.write_u32(1);
+            hasher.write_u32(road);
+            hasher.write_f64(at_m);
+        }
+    }
+}
+
+fn hash_add_road_spec(spec: &AddRoadSpec, hasher: &mut Fnv64) {
+    hash_endpoint(spec.from, hasher);
+    hash_endpoint(spec.to, hasher);
+    let via = spec.via.unwrap_or([f64::NAN; 2]);
+    hasher.write_u32(u32::from(spec.via.is_some()));
+    hasher.write_f64(via[0]);
+    hasher.write_f64(via[1]);
+    hasher.write_u32(u32::from(spec.lanes.0));
+    hasher.write_u32(u32::from(spec.lanes.1));
+    hasher.write_u32(spec.layer as u32);
+}
+
+fn hash_add_road_undo(undo: &AddRoadUndo, hasher: &mut Fnv64) {
+    hasher.write_u32(11);
+    hash_add_road_spec(&undo.spec, hasher);
+    hasher.write_u32(undo.splits.len() as u32);
+    for split in &undo.splits {
+        hasher.write_u32(split.road);
+        hasher.write_u32(split.r2);
+        hasher.write_u32(split.old_range.0);
+        hasher.write_u32(split.old_range.1);
+        hasher.write_f64(split.old_length);
+        hasher.write_u32(split.old_to);
+        hasher.write_f64(split.cut);
     }
     hasher.write_u32(undo.road_len_before);
     hasher.write_u32(undo.node_len_before);

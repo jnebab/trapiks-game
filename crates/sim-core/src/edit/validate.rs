@@ -2,6 +2,7 @@ use crate::consts::TICKS_PER_SECOND;
 use crate::map::{Control, TurnBan};
 use crate::network::{Network, Timing, cycle_ticks, road_of};
 
+use super::add_road::{self, AddRoadSpec};
 use super::apply::Edit;
 use super::{EditCommand, EditError, cost, flyover_rules, roundabout};
 
@@ -51,16 +52,40 @@ pub fn prepare(network: &Network, command: &EditCommand, can_undo: bool) -> Plan
             },
             allowed,
         ),
+        _ => prepare_structural(network, command, can_undo),
+    }
+}
+
+fn prepare_structural(network: &Network, command: &EditCommand, can_undo: bool) -> Planned {
+    match *command {
         EditCommand::BuildFlyover { node, through } => {
             flyover_rules::build_flyover(network, node, through)
         }
         EditCommand::BuildRoundabout { node, radius_m } => {
             roundabout::build_roundabout(network, node, radius_m)
         }
+        EditCommand::AddRoad {
+            from,
+            to,
+            via,
+            lanes_forward,
+            lanes_backward,
+            layer,
+        } => add_road::add_road(
+            network,
+            &AddRoadSpec {
+                from,
+                to,
+                via,
+                lanes: (lanes_forward, lanes_backward),
+                layer,
+            },
+        ),
         EditCommand::Undo => can_undo
             .then_some(Prepared::Undo)
             .ok_or(EditError::NothingToUndo),
         EditCommand::SetDemand { vehicles_per_hour } => set_demand(network, vehicles_per_hour),
+        _ => Err(EditError::NoChange),
     }
 }
 

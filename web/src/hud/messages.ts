@@ -24,6 +24,13 @@ const MESSAGES: Record<EditError, string> = {
   RoundaboutTooLarge: 'Roads too short for this size',
   LayerMismatch: 'Roads are on different levels',
   RoundaboutTooTight: 'Roads too close together',
+  InvalidLayer: 'Elevation out of range',
+  EndpointIsolated: 'Junction has no roads',
+  TooCloseToEnd: 'Too close to the end of the road',
+  SameEndpoint: 'Both ends are the same',
+  InvalidLength: 'Road too short or too long',
+  AngleTooSharp: 'Angle too sharp',
+  CrossesRoad: 'Crosses another road',
 };
 
 export function errorMessage(error: EditError): string {

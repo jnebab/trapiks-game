@@ -13,6 +13,7 @@ const COMMAND_KEYS = new Set([
   'SetTurnAllowed',
   'BuildFlyover',
   'BuildRoundabout',
+  'AddRoad',
   'SetDemand',
 ]);
 

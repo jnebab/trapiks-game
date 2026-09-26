@@ -162,6 +162,14 @@ impl VehicleStore {
     }
 
     pub fn rewrite_route(&mut self, slot: u32, route: &[LinkId], cursor: usize) -> bool {
+        if !self.splice_route(slot, route, cursor) {
+            return false;
+        }
+        self.reset_junction_state(slot);
+        true
+    }
+
+    pub fn splice_route(&mut self, slot: u32, route: &[LinkId], cursor: usize) -> bool {
         if route.len() > MAX_ROUTE_LEN || cursor >= route.len() {
             return false;
         }
@@ -173,7 +181,6 @@ impl VehicleStore {
         self.route_cursor[index] = cursor as u16;
         self.checked_cursor[index] = UNCHECKED;
         self.ahead[index] = Ahead::STALE;
-        self.reset_junction_state(slot);
         true
     }
 

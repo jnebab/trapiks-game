@@ -16,6 +16,17 @@ describe('edit messages', () => {
     expect(isMainMessage({ type: 'command', command: 'Undo' })).toBe(true);
     const roundabout = { BuildRoundabout: { node: 2, radius_m: 18 } };
     expect(isMainMessage({ type: 'command', command: roundabout })).toBe(true);
+    const road = {
+      AddRoad: {
+        from: { Node: { node: 1 } },
+        to: { OnRoad: { road: 4, at_m: 20 } },
+        via: null,
+        lanes_forward: 1,
+        lanes_backward: 1,
+        layer: 0,
+      },
+    };
+    expect(isMainMessage({ type: 'command', command: road })).toBe(true);
     expect(isMainMessage({ type: 'quote', id: 1, command })).toBe(true);
     expect(isMainMessage({ type: 'command', command: { Explode: {} } })).toBe(false);
     expect(isMainMessage({ type: 'command', command: 'Redo' })).toBe(false);

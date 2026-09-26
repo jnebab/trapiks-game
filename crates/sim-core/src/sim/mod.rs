@@ -1,3 +1,5 @@
+mod add_road;
+mod add_road_undo;
 mod advance;
 mod conflict;
 mod demand;
@@ -14,6 +16,7 @@ mod routes;
 mod rules;
 mod snapshot;
 mod spawn;
+mod split_routes;
 mod stats;
 
 use crate::config::{SimConfig, SimMode};

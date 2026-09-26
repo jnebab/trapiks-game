@@ -41,10 +41,25 @@ pub enum EditCommand {
         node: u32,
         radius_m: u8,
     },
+    AddRoad {
+        from: Endpoint,
+        to: Endpoint,
+        via: Option<[f64; 2]>,
+        lanes_forward: u8,
+        lanes_backward: u8,
+        layer: i8,
+    },
     Undo,
     SetDemand {
         vehicles_per_hour: f64,
     },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum Endpoint {
+    Node { node: u32 },
+    OnRoad { road: u32, at_m: f64 },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -73,6 +88,13 @@ pub enum EditError {
     RoundaboutTooLarge,
     LayerMismatch,
     RoundaboutTooTight,
+    InvalidLayer,
+    EndpointIsolated,
+    TooCloseToEnd,
+    SameEndpoint,
+    InvalidLength,
+    AngleTooSharp,
+    CrossesRoad,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
