@@ -5,25 +5,32 @@ use crate::network::{LinkId, Network};
 use super::costs::LinkCosts;
 use super::dijkstra::{Search, Sweep};
 use super::graph::RouteGraph;
+use super::target::{Target, to_point};
 
 const MAX_SEEDS: usize = 4;
+
+pub type Row = [f32; LANDMARK_COUNT];
+
+pub const UNREACHED_FROM: f32 = f32::INFINITY;
+pub const UNREACHED_TO: f32 = f32::NEG_INFINITY;
+
+#[derive(Clone, Copy, Debug)]
+pub struct LinkRow {
+    pub from_l: Row,
+    pub to_l: Row,
+    pub end: Vec2,
+}
+
+const EMPTY_LINK_ROW: LinkRow = LinkRow {
+    from_l: [UNREACHED_FROM; LANDMARK_COUNT],
+    to_l: [UNREACHED_TO; LANDMARK_COUNT],
+    end: Vec2::new(0.0, 0.0),
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct Landmarks {
     links: Vec<LinkId>,
-    from_l: Vec<Row>,
-    to_l: Vec<Row>,
-}
-
-type Row = [f32; LANDMARK_COUNT];
-
-const EMPTY_ROW: Row = [f32::INFINITY; LANDMARK_COUNT];
-
-pub struct Target {
-    link: LinkId,
-    point: Vec2,
-    from_t: Row,
-    to_t: Row,
+    rows: Vec<LinkRow>,
 }
 
 struct Builder<'a> {
@@ -40,7 +47,9 @@ impl Landmarks {
             search: Search::new(),
         };
         let reach = builder.best_seed(network);
-        builder.select(&reach)
+        let mut landmarks = builder.select(&reach);
+        landmarks.fill_ends(network);
+        landmarks
     }
 
     pub fn count(&self) -> usize {
@@ -48,76 +57,38 @@ impl Landmarks {
     }
 
     pub fn target(&self, network: &Network, link: LinkId) -> Target {
-        Target {
-            link,
-            point: from_point(network, link),
-            from_t: row(&self.from_l, link),
-            to_t: row(&self.to_l, link),
+        match self.rows.get(link as usize) {
+            Some(row) => Target::with_landmarks(network, link, row),
+            None => Target::euclid_only(network, link),
         }
     }
 
     pub fn estimate(&self, network: &Network, costs: &LinkCosts, v: LinkId, t: &Target) -> f64 {
-        let mut best = t.euclid(network, costs, v).max(0.0);
-        let from_v = row(&self.from_l, v);
-        let to_v = row(&self.to_l, v);
-        for i in 0..self.links.len() {
-            best = best.max(difference(t.from_t[i], from_v[i]));
-            best = best.max(difference(to_v[i], t.to_t[i]));
+        match self.rows.get(v as usize) {
+            Some(row) => t.bound(row, costs),
+            None => t.euclid(network, costs, v),
         }
-        best
+    }
+
+    fn fill_ends(&mut self, network: &Network) {
+        for (link, row) in self.rows.iter_mut().enumerate() {
+            row.end = to_point(network, link as LinkId);
+        }
     }
 
     fn push(&mut self, link: LinkId, forward: &[f64], backward: &[f64]) {
         let column = self.links.len();
         self.links.push(link);
-        fill_column(&mut self.from_l, column, forward);
-        fill_column(&mut self.to_l, column, backward);
-    }
-}
-
-impl Target {
-    pub fn is_goal(&self, link: LinkId) -> bool {
-        self.link == link
-    }
-
-    pub fn euclid_only(network: &Network, link: LinkId) -> Target {
-        Target {
-            link,
-            point: from_point(network, link),
-            from_t: EMPTY_ROW,
-            to_t: EMPTY_ROW,
+        self.rows.resize(forward.len(), EMPTY_LINK_ROW);
+        for ((row, &f), &b) in self.rows.iter_mut().zip(forward).zip(backward) {
+            row.from_l[column] = distance_or(f, UNREACHED_FROM);
+            row.to_l[column] = distance_or(b, UNREACHED_TO);
         }
     }
-
-    pub fn euclid(&self, network: &Network, costs: &LinkCosts, v: LinkId) -> f64 {
-        to_point(network, v).distance(self.point) / costs.heuristic_speed()
-    }
 }
 
-fn row(table: &[Row], link: LinkId) -> Row {
-    table.get(link as usize).copied().unwrap_or(EMPTY_ROW)
-}
-
-fn fill_column(table: &mut Vec<Row>, column: usize, dist: &[f64]) {
-    table.resize(dist.len(), EMPTY_ROW);
-    for (row, &d) in table.iter_mut().zip(dist) {
-        row[column] = d as f32;
-    }
-}
-
-fn difference(a: f32, b: f32) -> f64 {
-    if a.is_infinite() || b.is_infinite() {
-        return 0.0;
-    }
-    f64::from(a) - f64::from(b)
-}
-
-fn to_point(network: &Network, link: LinkId) -> Vec2 {
-    network.nodes.pos[network.link_to(link) as usize]
-}
-
-fn from_point(network: &Network, link: LinkId) -> Vec2 {
-    network.nodes.pos[network.link_from(link) as usize]
+fn distance_or(d: f64, unreached: f32) -> f32 {
+    if d.is_finite() { d as f32 } else { unreached }
 }
 
 impl Builder<'_> {

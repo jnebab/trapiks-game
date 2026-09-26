@@ -44,9 +44,7 @@ fn reroute_on_invalid() {
     while slot_of(&sim, id).is_some() && sim.tick() < 5_000 {
         let vehicles = sim.vehicles();
         let s = vehicles.s[slot as usize];
-        if vehicles.place[slot as usize] == (Place::Link { link: 3, lane: 0 })
-            || matches!(vehicles.place[slot as usize], Place::Link { link: 3, .. })
-        {
+        if matches!(vehicles.place[slot as usize], Place::Link { link: 3, .. }) {
             reached_end |= s >= sim.network().link_span(3).1 - 5.0;
         }
         sim.step();

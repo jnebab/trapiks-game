@@ -79,6 +79,17 @@ impl RoadClass {
         }
     }
 
+    pub fn demand_weight(self) -> f64 {
+        match self {
+            Self::Motorway | Self::MotorwayLink => 8.0,
+            Self::Trunk | Self::TrunkLink => 6.0,
+            Self::Primary | Self::PrimaryLink => 4.0,
+            Self::Secondary | Self::SecondaryLink => 3.0,
+            Self::Tertiary | Self::TertiaryLink => 2.0,
+            _ => 1.0,
+        }
+    }
+
     pub fn default_lanes(self) -> u8 {
         match self {
             Self::Motorway | Self::Trunk | Self::Primary => 2,

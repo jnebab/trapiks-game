@@ -32,6 +32,7 @@ pub struct Network {
     signals: Signals,
     region: Option<RegionMask>,
     junctions: Vec<Option<Junction>>,
+    spans: Vec<(f64, f64)>,
     version: u64,
 }
 
@@ -41,7 +42,7 @@ impl Network {
         let nodes = NodeStore::from_map(map);
         let spatial = SpatialGrid::build(&roads, &nodes);
         let signals = Signals::build(&roads, &nodes, &spatial, |road| roads.is_live(road));
-        Network {
+        let mut network = Network {
             junctions: vec![None; nodes.count()],
             bans: map.turn_bans.iter().copied().collect(),
             roads,
@@ -49,7 +50,32 @@ impl Network {
             spatial,
             signals,
             region: None,
+            spans: Vec::new(),
             version: 0,
+        };
+        network.compute_spans();
+        network
+    }
+
+    fn compute_spans(&mut self) {
+        self.spans = (0..self.link_count() as LinkId)
+            .map(|link| self.measure_span(link))
+            .collect();
+    }
+
+    fn refresh_spans_at(&mut self, node: u32) {
+        let Some(incident) = self.nodes.roads.get(node as usize) else {
+            return;
+        };
+        let links: Vec<LinkId> = incident
+            .iter()
+            .flat_map(|&road| [Direction::Forward, Direction::Backward].map(|d| link_id(road, d)))
+            .collect();
+        for link in links {
+            let span = self.measure_span(link);
+            if let Some(slot) = self.spans.get_mut(link as usize) {
+                *slot = span;
+            }
         }
     }
 
@@ -59,6 +85,7 @@ impl Network {
             self.is_road_active(road)
         });
         self.junctions.iter_mut().for_each(|slot| *slot = None);
+        self.compute_spans();
         self.version += 1;
     }
 
@@ -129,6 +156,13 @@ impl Network {
     }
 
     pub fn link_span(&self, link: LinkId) -> (f64, f64) {
+        match self.spans.get(link as usize) {
+            Some(&span) => span,
+            None => self.measure_span(link),
+        }
+    }
+
+    fn measure_span(&self, link: LinkId) -> (f64, f64) {
         let road = road_of(link);
         let start = self.setback_at(self.link_from(link), road);
         let end = self.link_length(link) - self.setback_at(self.link_to(link), road);
@@ -192,6 +226,7 @@ impl Network {
         if let Some(slot) = self.junctions.get_mut(node as usize) {
             *slot = None;
         }
+        self.refresh_spans_at(node);
     }
 
     pub fn build_all_junctions(&mut self) {

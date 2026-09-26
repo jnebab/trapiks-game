@@ -2,6 +2,7 @@ use std::io::Read;
 use std::time::Instant;
 
 use flate2::read::GzDecoder;
+use trapiks_sim_core::consts::LANDMARK_COUNT;
 use trapiks_sim_core::map::{MapData, from_bytes};
 use trapiks_sim_core::network::{LinkId, Network};
 use trapiks_sim_core::rng::Pcg32;
@@ -37,6 +38,7 @@ fn landmark_build_ms(map: &MapData) -> f64 {
     let started = Instant::now();
     let landmarks = Landmarks::build(&network, &graph, &costs);
     let millis = started.elapsed().as_secs_f64() * 1000.0;
+    assert!(network.link_count() < LANDMARK_COUNT || landmarks.count() == LANDMARK_COUNT);
     println!("landmarks: {}", landmarks.count());
     millis
 }

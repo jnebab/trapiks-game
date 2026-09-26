@@ -15,7 +15,21 @@ impl Sim {
         for slot in self.vehicles.live_slots() {
             self.hash_vehicle(&mut hasher, slot);
         }
+        self.hash_demand(&mut hasher);
+        for speed in &self.costs.ema_speed {
+            hasher.write_u64(speed.to_bits());
+        }
         hasher.finish()
+    }
+
+    fn hash_demand(&self, hasher: &mut Fnv64) {
+        hasher.write_u64(self.demand.clock.next_s().to_bits());
+        let queued = self.demand.trips.trips.iter();
+        for trip in queued.chain(self.demand.queues.trips()) {
+            hasher.write_u32(trip.from);
+            hasher.write_u32(trip.to);
+            hasher.write_u64(trip.created_tick);
+        }
     }
 
     fn hash_vehicle(&self, hasher: &mut Fnv64, slot: u32) {

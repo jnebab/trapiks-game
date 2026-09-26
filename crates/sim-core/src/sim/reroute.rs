@@ -5,15 +5,24 @@ use super::Sim;
 
 impl Sim {
     pub(super) fn prefetch_and_reroute(&mut self) {
+        let every = self.checked_version != self.network.version();
         for slot in 0..self.vehicles.slot_count() as u32 {
             if !self.vehicles.alive[slot as usize] {
                 continue;
             }
-            self.ensure_route_junctions(slot);
-            if self.route_broken(slot) {
-                self.reroute(slot);
+            if every || self.vehicles.needs_check(slot) {
+                self.check_route(slot);
             }
         }
+        self.checked_version = self.network.version();
+    }
+
+    fn check_route(&mut self, slot: u32) {
+        self.ensure_route_junctions(slot);
+        if self.route_broken(slot) {
+            return self.reroute(slot);
+        }
+        self.vehicles.mark_checked(slot);
     }
 
     fn route_broken(&self, slot: u32) -> bool {
@@ -51,8 +60,9 @@ impl Sim {
         self.vehicles.replace_route(slot, prefix, &self.route_buf);
         self.ensure_route_junctions(slot);
         if !self.first_transition_exists() {
-            self.strand(slot);
+            return self.strand(slot);
         }
+        self.refresh_free_flow(slot);
     }
 
     fn reroute_ends(&self, slot: u32) -> Option<(Option<LinkId>, LinkId, LinkId)> {
@@ -78,5 +88,6 @@ impl Sim {
         self.vehicles.release(slot);
         self.occupancy.forget(slot);
         self.stranded += 1;
+        self.stats.stranded += 1;
     }
 }

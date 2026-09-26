@@ -37,13 +37,12 @@ pub struct Junction {
     pub node: u32,
     pub movements: Vec<Movement>,
     pub conflicts: Vec<Vec<Conflict>>,
+    pairs: Vec<(LinkId, LinkId)>,
 }
 
 impl Junction {
     pub fn movement_index(&self, from: LinkId, to: LinkId) -> Option<usize> {
-        self.movements
-            .binary_search_by_key(&(from, to), |m| (m.from_link, m.to_link))
-            .ok()
+        self.pairs.binary_search(&(from, to)).ok()
     }
 }
 
@@ -76,6 +75,7 @@ pub fn build_junction(network: &Network, node: u32) -> Junction {
     let conflicts = conflicts::find(&movements);
     Junction {
         node,
+        pairs: movements.iter().map(|m| (m.from_link, m.to_link)).collect(),
         movements,
         conflicts,
     }

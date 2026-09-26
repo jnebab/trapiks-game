@@ -1,4 +1,6 @@
+pub mod config;
 pub mod consts;
+pub mod demand;
 #[cfg(feature = "fixtures")]
 pub mod fixtures;
 pub mod fnv;
@@ -10,6 +12,7 @@ pub mod render;
 pub mod rng;
 pub mod routing;
 pub mod sim;
+pub mod stats;
 pub mod vehicle;
 
 pub use meta::{MapMeta, map_meta};

@@ -23,6 +23,7 @@ impl Sim {
         match self.advance(slot) {
             Outcome::Alive => {}
             Outcome::Arrived => {
+                self.record_arrival(slot);
                 self.vehicles.release(slot);
                 self.occupancy.forget(slot);
                 return;

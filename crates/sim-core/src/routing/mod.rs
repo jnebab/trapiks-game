@@ -4,6 +4,7 @@ mod dijkstra;
 mod graph;
 mod heap;
 mod landmarks;
+mod target;
 
 pub use astar::{RouteContext, RouteStats, Router};
 pub use costs::LinkCosts;

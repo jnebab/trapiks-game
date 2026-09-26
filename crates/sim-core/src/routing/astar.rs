@@ -5,9 +5,11 @@ use crate::network::{LinkId, Network};
 use super::costs::LinkCosts;
 use super::graph::RouteGraph;
 use super::heap::HeapItem;
-use super::landmarks::{Landmarks, Target};
+use super::landmarks::Landmarks;
+use super::target::Target;
 
 const NO_PARENT: u32 = u32::MAX;
+const QUANTUM_PER_SECOND: f64 = 1e3;
 
 #[derive(Clone, Copy)]
 pub struct RouteContext<'a> {
@@ -23,11 +25,22 @@ pub struct RouteStats {
     pub expanded: u64,
 }
 
+#[derive(Clone, Copy)]
+struct Slot {
+    g: f64,
+    parent: u32,
+    stamp: u32,
+}
+
+const EMPTY_SLOT: Slot = Slot {
+    g: f64::INFINITY,
+    parent: NO_PARENT,
+    stamp: 0,
+};
+
 #[derive(Default)]
 pub struct Router {
-    g: Vec<f64>,
-    parent: Vec<u32>,
-    stamp: Vec<u32>,
+    slots: Vec<Slot>,
     epoch: u32,
     heap: BinaryHeap<HeapItem>,
     stats: RouteStats,
@@ -81,7 +94,7 @@ impl Router {
         let target = ctx.target(to);
         self.open(from, 0.0, NO_PARENT, ctx.estimate(from, &target));
         while let Some(top) = self.heap.pop() {
-            if top.g > self.g[top.link as usize] {
+            if top.g > self.slots[top.link as usize].g {
                 continue;
             }
             self.stats.expanded += 1;
@@ -95,13 +108,11 @@ impl Router {
     }
 
     fn begin(&mut self, n: usize) {
-        self.g.resize(n, f64::INFINITY);
-        self.parent.resize(n, NO_PARENT);
-        self.stamp.resize(n, 0);
+        self.slots.resize(n, EMPTY_SLOT);
         self.heap.clear();
         self.epoch = self.epoch.wrapping_add(1);
         if self.epoch == 0 {
-            self.stamp.iter_mut().for_each(|stamp| *stamp = 0);
+            self.slots.iter_mut().for_each(|slot| slot.stamp = 0);
             self.epoch = 1;
         }
     }
@@ -116,15 +127,16 @@ impl Router {
     }
 
     fn improves(&self, link: LinkId, g: f64) -> bool {
-        let index = link as usize;
-        self.stamp[index] != self.epoch || g < self.g[index]
+        let slot = &self.slots[link as usize];
+        slot.stamp != self.epoch || g < slot.g
     }
 
     fn open(&mut self, link: LinkId, g: f64, parent: u32, h: f64) {
-        let index = link as usize;
-        self.stamp[index] = self.epoch;
-        self.g[index] = g;
-        self.parent[index] = parent;
+        self.slots[link as usize] = Slot {
+            g,
+            parent,
+            stamp: self.epoch,
+        };
         self.heap.push(HeapItem {
             f: quantise(g + h),
             g,
@@ -135,8 +147,8 @@ impl Router {
     fn trace(&self, to: LinkId, out: &mut Vec<LinkId>) {
         let mut link = to;
         out.push(link);
-        while self.parent[link as usize] != NO_PARENT {
-            link = self.parent[link as usize];
+        while self.slots[link as usize].parent != NO_PARENT {
+            link = self.slots[link as usize].parent;
             out.push(link);
         }
         out.reverse();
@@ -151,5 +163,5 @@ fn endpoints_ok(network: &Network, n: usize, from: LinkId, to: LinkId) -> bool {
 }
 
 fn quantise(f: f64) -> f64 {
-    (f * 1e3).round() / 1e3
+    ((f * QUANTUM_PER_SECOND + 0.5) as u64) as f64
 }

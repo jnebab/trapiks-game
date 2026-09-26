@@ -2,7 +2,7 @@ use crate::consts::{CAR_LENGTH, COLOR_COUNT, IDM_MIN_GAP};
 use crate::network::LinkId;
 use crate::vehicle::lanes::entry_lane;
 use crate::vehicle::{
-    NewVehicle, Place, SpawnError, VehicleStore, entry_of, movement_of, place_key,
+    NewVehicle, Place, SpawnError, VehicleStore, entry_of, movement_key, place_key,
 };
 
 use super::Sim;
@@ -35,7 +35,9 @@ impl Sim {
             tick: self.tick,
         };
         let (slot, id) = self.vehicles.insert(&vehicle, len);
+        self.vehicles.free_flow[slot as usize] = self.route_free_time(route);
         self.occupancy.push_pending(entry_of(&self.vehicles, slot));
+        self.stats.spawned += 1;
         Ok(id)
     }
 
@@ -71,19 +73,32 @@ impl Sim {
     }
 
     fn landing_onto(&self, link: LinkId, lane: u8) -> bool {
-        self.vehicles.live_slots().any(|slot| {
-            let Place::Movement {
-                node,
-                movement,
-                to_lane,
-                ..
-            } = self.vehicles.place[slot as usize]
-            else {
-                return false;
-            };
-            to_lane == lane
-                && movement_of(&self.network, node, movement).is_some_and(|m| m.to_link == link)
-        })
+        let node = self.network.link_from(link);
+        let Some(junction) = self.network.junction(node) else {
+            return false;
+        };
+        junction
+            .movements
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m.to_link == link)
+            .any(|(index, _)| self.lands_via(node, index as u16, lane))
+    }
+
+    fn lands_via(&self, node: u32, movement: u16, lane: u8) -> bool {
+        self.occupancy
+            .slots_on(movement_key(node, movement))
+            .any(|slot| self.is_landing(slot, node, movement, lane))
+    }
+
+    fn is_landing(&self, slot: u32, node: u32, movement: u16, lane: u8) -> bool {
+        let index = slot as usize;
+        self.vehicles.alive[index]
+            && matches!(
+                self.vehicles.place[index],
+                Place::Movement { node: n, movement: m, to_lane, .. }
+                    if n == node && m == movement && to_lane == lane
+            )
     }
 
     fn entry_speed(&self, link: LinkId, place: Place, start: f64) -> Result<f64, SpawnError> {

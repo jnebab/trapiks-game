@@ -27,6 +27,10 @@ impl Sim {
         self.router.stats()
     }
 
+    pub fn landmark_count(&self) -> usize {
+        self.landmarks.count()
+    }
+
     pub fn stranded(&self) -> u64 {
         self.stranded
     }
@@ -37,6 +41,8 @@ impl Sim {
         }
         self.graph = RouteGraph::build(&self.network);
         self.costs.grow(&self.network);
+        self.extend_reference_speeds();
+        self.rebuild_demand_tables();
     }
 
     pub(super) fn route_to_buffer(&mut self, from: LinkId, to: LinkId) -> bool {

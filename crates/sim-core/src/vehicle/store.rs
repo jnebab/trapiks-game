@@ -1,8 +1,10 @@
 use crate::network::LinkId;
 
+use super::ahead::Ahead;
 use super::{Place, SpawnError};
 
 const MAX_ROUTE_LEN: usize = u16::MAX as usize;
+const UNCHECKED: u16 = u16::MAX;
 
 pub struct NewVehicle<'a> {
     pub place: Place,
@@ -28,6 +30,9 @@ pub struct VehicleStore {
     pub arrival_tick: Vec<u64>,
     pub wait_ticks: Vec<u32>,
     pub stopped_at_line: Vec<bool>,
+    pub free_flow: Vec<f64>,
+    pub checked_cursor: Vec<u16>,
+    pub ahead: Vec<Ahead>,
     pub routes: Vec<LinkId>,
     free: Vec<u32>,
     scratch: Vec<LinkId>,
@@ -54,6 +59,9 @@ impl VehicleStore {
             arrival_tick: Vec::with_capacity(capacity),
             wait_ticks: Vec::with_capacity(capacity),
             stopped_at_line: Vec::with_capacity(capacity),
+            free_flow: Vec::with_capacity(capacity),
+            checked_cursor: Vec::with_capacity(capacity),
+            ahead: Vec::with_capacity(capacity),
             routes: Vec::new(),
             free: Vec::with_capacity(capacity),
             scratch: Vec::new(),
@@ -123,6 +131,8 @@ impl VehicleStore {
         self.route_start[index] = start;
         self.route_len[index] = len;
         self.route_cursor[index] = 0;
+        self.checked_cursor[index] = UNCHECKED;
+        self.ahead[index] = Ahead::STALE;
         self.spawn_tick[index] = vehicle.tick;
         self.reset_junction_state(slot);
         (slot, id)
@@ -137,7 +147,19 @@ impl VehicleStore {
         self.route_start[index] = start as u32;
         self.route_len[index] = (self.routes.len() - start) as u16;
         self.route_cursor[index] = 0;
+        self.checked_cursor[index] = UNCHECKED;
+        self.ahead[index] = Ahead::STALE;
         self.reset_junction_state(slot);
+    }
+
+    pub fn needs_check(&self, slot: u32) -> bool {
+        let index = slot as usize;
+        self.checked_cursor[index] != self.route_cursor[index]
+    }
+
+    pub fn mark_checked(&mut self, slot: u32) {
+        let index = slot as usize;
+        self.checked_cursor[index] = self.route_cursor[index];
     }
 
     pub fn reset_junction_state(&mut self, slot: u32) {
@@ -167,6 +189,9 @@ impl VehicleStore {
         self.arrival_tick.push(u64::MAX);
         self.wait_ticks.push(0);
         self.stopped_at_line.push(false);
+        self.free_flow.push(0.0);
+        self.checked_cursor.push(UNCHECKED);
+        self.ahead.push(Ahead::STALE);
         slot
     }
 

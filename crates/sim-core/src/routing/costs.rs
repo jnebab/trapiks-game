@@ -8,8 +8,10 @@ pub struct LinkCosts {
     pub free_speed: Vec<f64>,
     pub ema_speed: Vec<f64>,
     pub drive_len: Vec<f64>,
+    travel: Vec<f64>,
     window: Vec<(f64, u32)>,
     heuristic_speed: f64,
+    inverse_heuristic_speed: f64,
 }
 
 impl LinkCosts {
@@ -29,23 +31,28 @@ impl LinkCosts {
             let (start, end) = network.link_span(link);
             self.free_speed.push(speed);
             self.ema_speed.push(speed);
-            self.drive_len.push((end - start).max(MIN_DRIVE_LEN));
+            let len = (end - start).max(MIN_DRIVE_LEN);
+            self.drive_len.push(len);
+            self.travel.push(len / speed.max(MIN_LINK_SPEED));
             self.window.push((0.0, 0));
             self.heuristic_speed = self.heuristic_speed.max(speed);
         }
+        self.inverse_heuristic_speed = 1.0 / self.heuristic_speed;
     }
 
     pub fn heuristic_speed(&self) -> f64 {
         self.heuristic_speed
     }
 
+    pub fn inverse_heuristic_speed(&self) -> f64 {
+        self.inverse_heuristic_speed
+    }
+
     pub fn travel_time(&self, link: LinkId) -> f64 {
-        let index = link as usize;
-        let Some(&len) = self.drive_len.get(index) else {
-            return f64::INFINITY;
-        };
-        let speed = self.ema_speed.get(index).copied().unwrap_or(MIN_LINK_SPEED);
-        len / speed.max(MIN_LINK_SPEED)
+        self.travel
+            .get(link as usize)
+            .copied()
+            .unwrap_or(f64::INFINITY)
     }
 
     pub fn free_time(&self, link: LinkId) -> f64 {
@@ -72,7 +79,9 @@ impl LinkCosts {
             } else {
                 (sum / f64::from(count)).min(free)
             };
-            self.ema_speed[index] = (1.0 - EMA_ALPHA) * self.ema_speed[index] + EMA_ALPHA * sample;
+            let ema = (1.0 - EMA_ALPHA) * self.ema_speed[index] + EMA_ALPHA * sample;
+            self.ema_speed[index] = ema;
+            self.travel[index] = self.drive_len[index] / ema.max(MIN_LINK_SPEED);
             self.window[index] = (0.0, 0);
         }
     }

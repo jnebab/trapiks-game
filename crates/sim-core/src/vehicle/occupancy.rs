@@ -19,6 +19,8 @@ pub struct Occupancy {
     entries: Vec<Entry>,
     index: Vec<u32>,
     pending: Vec<Entry>,
+    link_first: Vec<u32>,
+    node_first: Vec<u32>,
 }
 
 pub fn place_key(place: Place) -> u64 {
@@ -56,6 +58,10 @@ impl Occupancy {
         for (i, entry) in self.entries.iter().enumerate() {
             self.index[entry.slot as usize] = i as u32;
         }
+        let links_end = self.entries.partition_point(|e| e.key & MOVEMENT_BIT == 0);
+        let (links, movements) = self.entries.split_at(links_end);
+        fill_offsets(&mut self.link_first, links, 0);
+        fill_offsets(&mut self.node_first, movements, links_end);
     }
 
     pub fn push_pending(&mut self, entry: Entry) {
@@ -97,6 +103,14 @@ impl Occupancy {
         Some((best.slot, best.s))
     }
 
+    pub fn slots_on(&self, key: u64) -> impl Iterator<Item = u32> + '_ {
+        let pending = self.pending.iter().filter(move |entry| entry.key == key);
+        self.range(key)
+            .iter()
+            .chain(pending)
+            .map(|entry| entry.slot)
+    }
+
     pub fn range(&self, key: u64) -> &[Entry] {
         &self.entries[self.bounds(key)]
     }
@@ -115,9 +129,19 @@ impl Occupancy {
     }
 
     fn bounds(&self, key: u64) -> std::ops::Range<usize> {
-        let start = self.entries.partition_point(|entry| entry.key < key);
-        let end = self.entries.partition_point(|entry| entry.key <= key);
-        start..end
+        let first = if key & MOVEMENT_BIT == 0 {
+            &self.link_first
+        } else {
+            &self.node_first
+        };
+        let group = group_of(key);
+        let (Some(&a), Some(&b)) = (first.get(group), first.get(group + 1)) else {
+            return 0..0;
+        };
+        let (a, b) = (a as usize, b as usize);
+        let run = &self.entries[a..b];
+        a + run.partition_point(|entry| entry.key < key)
+            ..a + run.partition_point(|entry| entry.key <= key)
     }
 
     fn last_sorted(&self, key: u64) -> Option<Entry> {
@@ -125,6 +149,27 @@ impl Occupancy {
             .rev()
             .find(|&i| self.index_of(self.entries[i].slot) == Some(i))
             .map(|i| self.entries[i])
+    }
+}
+
+fn group_of(key: u64) -> usize {
+    if key & MOVEMENT_BIT == 0 {
+        return (key >> 8) as usize;
+    }
+    ((key & !MOVEMENT_BIT) >> 16) as usize
+}
+
+fn fill_offsets(first: &mut Vec<u32>, entries: &[Entry], base: usize) {
+    let groups = entries.last().map_or(0, |entry| group_of(entry.key) + 1);
+    first.clear();
+    first.resize(groups + 1, 0);
+    for entry in entries {
+        first[group_of(entry.key) + 1] += 1;
+    }
+    let mut total = base as u32;
+    for offset in first.iter_mut() {
+        total += *offset;
+        *offset = total;
     }
 }
 
