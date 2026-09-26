@@ -11,6 +11,7 @@ import type { ReadyMessage, SnapshotMessage } from '../sim/protocol';
 import { startSim, type SimClient } from '../sim/client';
 import { SnapshotHistory, createFrame } from '../sim/interpolation';
 import { demandFromQuery } from './demand-query';
+import { startEditing, type ResultsHandler } from './edit-session';
 
 const SEED = 1;
 
@@ -74,12 +75,17 @@ export async function runDebugScene(root: HTMLElement, mapName: string): Promise
   };
   const history = new SnapshotHistory();
   let pills: SignalPillLayer | undefined;
+  let onResults: ResultsHandler | undefined;
   const client: SimClient = startSim(url, config, {
     onReady: (ready) => {
       const view = showMap(scene, overlay, ready);
       showVehicles(scene, view, history);
       pills = showSignalPills(scene, view, ready);
-      overlay.setSignalPills(pills.count);
+      overlay.setSignalPills(pills.count());
+      onResults = startEditing(scene, root, { view, client, pills });
+    },
+    onCommandResults: (message) => {
+      onResults?.(message);
     },
     onSnapshot: (message) => {
       receiveSnapshot(client, history, overlay, message);

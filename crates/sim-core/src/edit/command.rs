@@ -87,3 +87,10 @@ pub struct CommandResult {
     pub seq: u32,
     pub outcome: Outcome,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum QuoteOutcome {
+    Ok(i64),
+    Err(EditError),
+}

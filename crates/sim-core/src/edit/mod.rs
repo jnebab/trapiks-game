@@ -8,8 +8,8 @@ mod validate;
 pub mod vehicles;
 
 pub use apply::{Edit, Scope};
-pub use budget::Budget;
-pub use command::{CommandResult, EditCommand, EditError, EditOutcome, Outcome};
+pub use budget::{Budget, BudgetState};
+pub use command::{CommandResult, EditCommand, EditError, EditOutcome, Outcome, QuoteOutcome};
 pub use flyover::{FlyoverUndo, restore_through, truncate as truncate_flyover};
 pub use validate::{MAX_VPH, Prepared, prepare};
 

@@ -25,6 +25,8 @@ function readyMessage(): Record<string, unknown> {
       lanesBackward: new Uint8Array(1),
       layer: new Int8Array(1),
       name: new Uint32Array(1),
+      from: new Uint32Array(1),
+      to: new Uint32Array(1),
     },
     nodes: { x: new Float32Array(2), y: new Float32Array(2), controlCode: new Uint8Array(2) },
     areas: {

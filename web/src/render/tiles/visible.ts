@@ -1,5 +1,5 @@
 import { expand, intersects, type Rect } from '../rect';
-import type { TileIndex } from './tile-index';
+import type { TileEntries } from './tile-index';
 
 interface Candidate {
   key: string;
@@ -13,7 +13,7 @@ function byDistanceThenKey(a: Candidate, b: Candidate): number {
   return a.key < b.key ? -1 : Number(a.key > b.key);
 }
 
-export function visibleTiles(index: TileIndex, view: Rect, margin: number): string[] {
+export function visibleTiles(index: TileEntries, view: Rect, margin: number): string[] {
   const area = expand(view, margin);
   const centerX = (view.minX + view.maxX) / 2;
   const centerY = (view.minY + view.maxY) / 2;

@@ -28,6 +28,16 @@ pub fn approach_markers(network: &Network) -> ApproachMarkers {
     markers
 }
 
+pub fn markers_at(network: &Network, nodes: &[u32]) -> ApproachMarkers {
+    let mut markers = ApproachMarkers::default();
+    for &node in nodes {
+        for link in network.incoming(node) {
+            add_marker(network, link, &mut markers);
+        }
+    }
+    markers
+}
+
 fn add_marker(network: &Network, link: LinkId, markers: &mut ApproachMarkers) {
     if !network.is_link_active(link) {
         return;

@@ -76,6 +76,18 @@ function setSpeed(speed: Speed): void {
   }
 }
 
+function withSession(action: (active: EngineSession) => void): void {
+  if (session === undefined) {
+    postError(new Error('Sim is not loaded'));
+    return;
+  }
+  try {
+    action(session);
+  } catch (error) {
+    postError(error);
+  }
+}
+
 function route(message: MainMessage): void {
   switch (message.type) {
     case 'load':
@@ -86,6 +98,16 @@ function route(message: MainMessage): void {
       return;
     case 'buffers':
       session?.returnBuffers(message.buffers);
+      return;
+    case 'command':
+      withSession((active) => {
+        active.enqueue(message.command);
+      });
+      return;
+    case 'quote':
+      withSession((active) => {
+        active.quote(message.id, message.command);
+      });
   }
 }
 

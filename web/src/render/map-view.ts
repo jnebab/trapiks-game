@@ -4,7 +4,10 @@ import { drawAreas } from './areas';
 import { fitBounds } from './camera';
 import { applyCamera, wireCameraInput, type CameraState } from './camera-input';
 import { cameraFromQuery } from './camera-query';
+import { DetailStore } from './detail-store';
 import { createLayers, type Layers } from './layers';
+import { NodeStore } from './node-store';
+import { RoadStore } from './road-store';
 import { TileManager } from './tiles/tile-manager';
 
 const FIT_MARGIN = 24;
@@ -13,6 +16,9 @@ export interface MapView {
   state: CameraState;
   layers: Layers;
   tiles: TileManager;
+  roads: RoadStore;
+  nodes: NodeStore;
+  detail: DetailStore;
 }
 
 function initialState(scene: DebugApp, ready: ReadyMessage): CameraState {
@@ -26,17 +32,15 @@ export function createMapView(scene: DebugApp, ready: ReadyMessage): MapView {
   const { app, world } = scene;
   const layers = createLayers(world);
   drawAreas(ready.areas, ready.meta.area_kind_names, layers.areas);
-  const tiles = new TileManager(ready.roads, ready.meta, layers, {
-    setbacks: ready.roadSetbacks,
-    junctions: ready.junctions,
-    markers: ready.markers,
-    nodes: ready.nodes,
-  });
+  const roads = RoadStore.fromArrays(ready.roads);
+  const nodes = NodeStore.fromArrays(ready.nodes);
+  const detail = DetailStore.fromArrays(ready.roadSetbacks, ready.junctions, ready.markers);
+  const tiles = new TileManager(roads, ready.meta, layers, { detail, nodes });
   const state = initialState(scene, ready);
   applyCamera(world, state.camera);
   wireCameraInput(app.canvas, state, world, app.ticker);
   app.ticker.add(() => {
     tiles.update(state.camera, app.screen.width, app.screen.height);
   });
-  return { state, layers, tiles };
+  return { state, layers, tiles, roads, nodes, detail };
 }

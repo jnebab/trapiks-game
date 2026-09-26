@@ -9,6 +9,7 @@ const TUNNEL_ALPHA = 0.4;
 
 export interface Layers {
   areas: Container;
+  selection: Container;
   vehicles: Container;
   overlay: Container;
   road: (layer: number, pass: RoadPass) => Container;
@@ -75,6 +76,7 @@ export function createLayers(world: Container): Layers {
   for (let layer = MIN_LAYER; layer <= MAX_LAYER; layer += 1) {
     pairs.push(addRoadPair(world, layer));
   }
+  const selection = addChild(world);
   const vehicles = addChild(world);
   const overlay = addChild(world);
   const road = (layer: number, pass: RoadPass): Container => {
@@ -94,5 +96,5 @@ export function createLayers(world: Container): Layers {
       pair.shadow?.update(visible, scale);
     }
   };
-  return { areas, vehicles, overlay, road, showMarkings, updateShadows };
+  return { areas, selection, vehicles, overlay, road, showMarkings, updateShadows };
 }

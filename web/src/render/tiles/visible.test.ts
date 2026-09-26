@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import type { Rect } from '../rect';
-import type { TileEntry, TileIndex } from './tile-index';
+import type { TileEntries, TileEntry } from './tile-index';
 import { visibleTiles } from './visible';
 
 function entry(bounds: Rect, cx: number, cy: number): TileEntry {
   return {
-    roads: new Uint32Array(),
-    junctions: new Uint32Array(),
-    markers: new Uint32Array(),
+    roads: [],
+    junctions: [],
+    markers: [],
     bounds,
     cx,
     cy,
   };
 }
 
-const index: TileIndex = new Map([
+const index: TileEntries = new Map([
   ['b', entry({ minX: 0, minY: 0, maxX: 100, maxY: 100 }, 50, 50)],
   ['a', entry({ minX: 100, minY: 0, maxX: 200, maxY: 100 }, 150, 50)],
   ['c', entry({ minX: 250, minY: 0, maxX: 300, maxY: 100 }, 275, 50)],

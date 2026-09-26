@@ -27,20 +27,33 @@ struct Arm {
 pub fn junction_shapes(network: &Network) -> JunctionShapes {
     let mut shapes = JunctionShapes::default();
     for node in 0..network.nodes.count() as u32 {
-        add_shape(network, node, &mut shapes);
+        if let Some(arms) = junction_arms(network, node) {
+            push_shape(network, node, &arms, &mut shapes);
+        }
     }
     shapes.ring_start.push(shapes.x.len() as u32);
     shapes
 }
 
-fn add_shape(network: &Network, node: u32, shapes: &mut JunctionShapes) {
+pub fn node_shapes(network: &Network, nodes: &[u32]) -> JunctionShapes {
+    let mut shapes = JunctionShapes::default();
+    for &node in nodes {
+        let arms = junction_arms(network, node).unwrap_or_default();
+        push_shape(network, node, &arms, &mut shapes);
+    }
+    shapes.ring_start.push(shapes.x.len() as u32);
+    shapes
+}
+
+fn junction_arms(network: &Network, node: u32) -> Option<Vec<Arm>> {
     if network.active_degree(node) < JUNCTION_MIN_DEGREE {
-        return;
+        return None;
     }
     let arms = arms_of(network, node);
-    if arms.len() < 2 {
-        return;
-    }
+    (arms.len() >= 2).then_some(arms)
+}
+
+fn push_shape(network: &Network, node: u32, arms: &[Arm], shapes: &mut JunctionShapes) {
     let layers = arms
         .iter()
         .map(|arm| network.roads.layer[arm.road as usize]);

@@ -71,3 +71,9 @@ canvas {
   content: '';
   pointer-events: none;
 }
+
+#budget {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+}

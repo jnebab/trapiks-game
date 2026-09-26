@@ -9,6 +9,8 @@ pub struct RoadRender {
     pub lanes_backward: Vec<u8>,
     pub layer: Vec<i8>,
     pub name: Vec<u32>,
+    pub from: Vec<u32>,
+    pub to: Vec<u32>,
 }
 
 pub struct NodeRender {
@@ -35,6 +37,8 @@ pub fn road_render(map: &MapData) -> RoadRender {
         lanes_backward: roads.lanes_backward.clone(),
         layer: roads.layer.clone(),
         name: roads.name.clone(),
+        from: roads.from.clone(),
+        to: roads.to.clone(),
     }
 }
 

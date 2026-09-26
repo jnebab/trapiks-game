@@ -29,6 +29,8 @@ function roadArrays(engine: Engine): RoadArrays {
     lanesBackward: g.lanesBackward,
     layer: g.layer,
     name: g.name,
+    from: g.from,
+    to: g.to,
   };
   g.free();
   return roads;

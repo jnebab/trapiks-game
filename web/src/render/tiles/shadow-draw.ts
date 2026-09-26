@@ -1,9 +1,9 @@
 import type { Graphics } from 'pixi.js';
-import type { JunctionShapeArrays, RoadArrays } from '../../sim/protocol';
+import type { JunctionRing } from '../detail-store';
 import { clampLayer } from '../layers';
 import { roadStyle } from '../palette';
+import type { RoadStore } from '../road-store';
 import { SHADOW_OFFSET } from '../shadow-style';
-import { ringPoints } from './junction-draw';
 import type { PieceSet } from './piece-set';
 import { laneWidth } from './road-style';
 import { tracePolyline } from './trace';
@@ -16,9 +16,9 @@ function shadowPiece(pieces: PieceSet, layer: number): Graphics {
   return g;
 }
 
-export function drawRoadShadows(pieces: PieceSet, roads: RoadArrays, ids: Uint32Array): void {
+export function drawRoadShadows(pieces: PieceSet, roads: RoadStore, ids: readonly number[]): void {
   for (const road of ids) {
-    const layer = clampLayer(roads.layer[road] ?? 0);
+    const layer = clampLayer(roads.layer(road));
     if (layer < 1) {
       continue;
     }
@@ -33,16 +33,12 @@ export function drawRoadShadows(pieces: PieceSet, roads: RoadArrays, ids: Uint32
   }
 }
 
-export function drawJunctionShadows(
-  pieces: PieceSet,
-  junctions: JunctionShapeArrays,
-  shapes: Uint32Array,
-): void {
-  for (const shape of shapes) {
-    if ((junctions.minLayer[shape] ?? 0) < 1) {
+export function drawJunctionShadows(pieces: PieceSet, rings: readonly JunctionRing[]): void {
+  for (const ring of rings) {
+    if (ring.minLayer < 1) {
       continue;
     }
-    const layer = clampLayer(junctions.layer[shape] ?? 0);
-    shadowPiece(pieces, layer).poly(ringPoints(junctions, shape), true).fill(SHADOW_COLOR);
+    const layer = clampLayer(ring.layer);
+    shadowPiece(pieces, layer).poly(ring.points, true).fill(SHADOW_COLOR);
   }
 }

@@ -11,7 +11,8 @@ const RESOLUTION = 4;
 
 export interface SignalPillLayer {
   container: ParticleContainer;
-  count: number;
+  count: () => number;
+  rebuild: (pills: SignalPillArrays) => void;
   setStates: (states: Uint8Array) => void;
   setScale: (scale: number) => void;
 }
@@ -47,8 +48,13 @@ export function createSignalPills(renderer: Renderer, pills: SignalPillArrays): 
     texture,
     dynamicProperties: { position: false, rotation: false, color: true },
   });
-  const particles = Array.from(pills.link, (_, i) => createParticle(texture, pills, i));
-  particles.forEach((particle) => container.addParticle(particle));
+  let particles: Particle[] = [];
+  const rebuild = (next: SignalPillArrays): void => {
+    container.removeParticles();
+    particles = Array.from(next.link, (_, i) => createParticle(texture, next, i));
+    particles.forEach((particle) => container.addParticle(particle));
+  };
+  rebuild(pills);
   const setStates = (states: Uint8Array): void => {
     particles.forEach((particle, i) => {
       particle.tint = pillTint(states[i] ?? 2);
@@ -57,5 +63,5 @@ export function createSignalPills(renderer: Renderer, pills: SignalPillArrays): 
   const setScale = (scale: number): void => {
     container.visible = pillsVisible(scale);
   };
-  return { container, count: particles.length, setStates, setScale };
+  return { container, count: () => particles.length, rebuild, setStates, setScale };
 }

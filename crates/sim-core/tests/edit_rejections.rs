@@ -2,7 +2,7 @@ mod support;
 
 use support::{apply_now, grid_10};
 use trapiks_sim_core::config::{SimConfig, SimMode};
-use trapiks_sim_core::edit::{EditCommand, EditError, Outcome};
+use trapiks_sim_core::edit::{EditCommand, EditError, Outcome, QuoteOutcome};
 use trapiks_sim_core::map::Control;
 use trapiks_sim_core::sim::Sim;
 
@@ -30,7 +30,11 @@ fn region() -> Sim {
 }
 
 fn rejects(sim: &mut Sim, command: EditCommand, expected: EditError) {
-    assert_eq!(sim.quote(&command), Err(expected), "{command:?}");
+    assert_eq!(
+        sim.quote(&command),
+        QuoteOutcome::Err(expected),
+        "{command:?}"
+    );
     assert_eq!(
         apply_now(sim, command.clone()),
         Outcome::Err(expected),

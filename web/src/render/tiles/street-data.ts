@@ -1,11 +1,12 @@
-import type { ApproachMarkerArrays, JunctionShapeArrays, NodeArrays } from '../../sim/protocol';
+import type { DetailStore, JunctionRing, Marker } from '../detail-store';
+import type { NodeStore } from '../node-store';
 import type { Rect } from '../rect';
+import type { RoadStore } from '../road-store';
+import { roadBox } from './road-bounds';
 
 export interface StreetData {
-  setbacks: Float32Array;
-  junctions: JunctionShapeArrays;
-  markers: ApproachMarkerArrays;
-  nodes: NodeArrays;
+  detail: DetailStore;
+  nodes: NodeStore;
 }
 
 export interface Owned {
@@ -14,11 +15,9 @@ export interface Owned {
   box: Rect;
 }
 
-function ringBox(junctions: JunctionShapeArrays, shape: number): Rect {
-  const start = junctions.ringStart[shape] ?? 0;
-  const end = junctions.ringStart[shape + 1] ?? start;
-  const xs = Array.from(junctions.x.subarray(start, end));
-  const ys = Array.from(junctions.y.subarray(start, end));
+function ringBox(ring: JunctionRing): Rect {
+  const xs = ring.points.filter((_, i) => i % 2 === 0);
+  const ys = ring.points.filter((_, i) => i % 2 === 1);
   return {
     minX: Math.min(...xs),
     minY: Math.min(...ys),
@@ -27,29 +26,24 @@ function ringBox(junctions: JunctionShapeArrays, shape: number): Rect {
   };
 }
 
-export function junctionOwner(street: StreetData, shape: number): Owned {
-  const node = street.junctions.node[shape] ?? 0;
-  return {
-    x: street.nodes.x[node] ?? 0,
-    y: street.nodes.y[node] ?? 0,
-    box: ringBox(street.junctions, shape),
-  };
+export function roadOwner(roads: RoadStore, road: number): Owned {
+  const box = roadBox(roads, road);
+  return { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2, box };
 }
 
-export function markerOwner(street: StreetData, marker: number): Owned {
-  const m = street.markers;
-  const x1 = m.x1[marker] ?? 0;
-  const y1 = m.y1[marker] ?? 0;
-  const x2 = m.x2[marker] ?? 0;
-  const y2 = m.y2[marker] ?? 0;
+export function junctionOwner(nodes: NodeStore, ring: JunctionRing): Owned {
+  return { x: nodes.x(ring.node), y: nodes.y(ring.node), box: ringBox(ring) };
+}
+
+export function markerOwner(m: Marker): Owned {
   return {
-    x: (x1 + x2) / 2,
-    y: (y1 + y2) / 2,
+    x: (m.x1 + m.x2) / 2,
+    y: (m.y1 + m.y2) / 2,
     box: {
-      minX: Math.min(x1, x2),
-      minY: Math.min(y1, y2),
-      maxX: Math.max(x1, x2),
-      maxY: Math.max(y1, y2),
+      minX: Math.min(m.x1, m.x2),
+      minY: Math.min(m.y1, m.y2),
+      maxX: Math.max(m.x1, m.x2),
+      maxY: Math.max(m.y1, m.y2),
     },
   };
 }

@@ -1,5 +1,6 @@
 import type { Engine } from '../wasm/pkg/trapiks_sim_wasm.js';
 import type {
+  CommandResultsMessage,
   SignalsMessage,
   SnapshotMessage,
   Speed,
@@ -10,6 +11,10 @@ import { statesChanged } from './signal-diff';
 import { isStatsSnapshot, snapshotTransfer, type SnapshotBuffers } from '../sim/values';
 import { BufferPool } from './buffer-pool';
 import { MemoryViews } from './memory-views';
+import { deltaTransfer } from '../sim/delta-arrays';
+import { isBudgetState, isCommandResults, isQuoteOutcome } from '../sim/edit-values';
+import type { EditCommand } from '../generated/EditCommand';
+import { changedIds, collectDelta } from './delta';
 
 const STEP_BUDGET_MS = 90;
 const STATS_EVERY = 10;
@@ -47,7 +52,10 @@ export class EngineSession {
   }
 
   readonly onTick = (): void => {
-    this.runSteps();
+    if (this.runSteps() === 0) {
+      this.engine.flushCommands();
+    }
+    this.postCommandResults();
     this.postSnapshot();
     this.postSignals();
     this.wallTicks += 1;
@@ -70,18 +78,51 @@ export class EngineSession {
     this.pool.give(buffers);
   }
 
-  private runSteps(): void {
+  enqueue(command: EditCommand): void {
+    this.engine.enqueue(command);
+  }
+
+  quote(id: number, command: EditCommand): void {
+    const result: unknown = this.engine.quote(command);
+    if (!isQuoteOutcome(result)) {
+      throw new Error('Invalid quote from wasm');
+    }
+    this.post({ type: 'quoteResult', id, result }, []);
+  }
+
+  private runSteps(): number {
     if (this.speed === 0) {
-      return;
+      return 0;
     }
     const limit = this.speed === 'max' ? Infinity : this.speed;
     const start = performance.now();
-    for (let step = 0; step < limit; step += 1) {
+    let steps = 0;
+    while (steps < limit) {
       this.engine.step();
+      steps += 1;
       if (performance.now() - start >= STEP_BUDGET_MS) {
-        return;
+        break;
       }
     }
+    return steps;
+  }
+
+  private postCommandResults(): void {
+    const results: unknown = this.engine.takeResults();
+    const budget: unknown = this.engine.budget();
+    if (!isCommandResults(results) || !isBudgetState(budget)) {
+      throw new Error('Invalid command results from wasm');
+    }
+    if (results.length === 0) {
+      return;
+    }
+    const ids = changedIds(results);
+    const delta = ids === null ? null : collectDelta(this.engine, ids);
+    if (delta !== null) {
+      this.lastSignals = undefined;
+    }
+    const message: CommandResultsMessage = { type: 'commandResults', results, delta, budget };
+    this.post(message, delta === null ? [] : deltaTransfer(delta));
   }
 
   private postSnapshot(): void {

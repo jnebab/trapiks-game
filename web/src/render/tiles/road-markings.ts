@@ -1,5 +1,6 @@
 import type { Graphics } from 'pixi.js';
-import type { RoadArrays } from '../../sim/protocol';
+import type { DetailStore } from '../detail-store';
+import type { RoadStore } from '../road-store';
 import { laneMarkings } from '../markings';
 import {
   arrowsAlong,
@@ -12,22 +13,12 @@ import {
 } from '../polyline';
 import { ARROW, ARROW_SPACING, ARROW_START, CENTER_LINE, LANE_DIVIDER } from '../style';
 
-function roadPoints(roads: RoadArrays, road: number): Point[] {
-  const start = roads.pointStart[road] ?? 0;
-  const end = roads.pointStart[road + 1] ?? start;
-  const out: Point[] = [];
-  for (let i = start; i < end; i += 1) {
-    out.push({ x: roads.x[i] ?? 0, y: roads.y[i] ?? 0 });
-  }
-  return out;
-}
-
-function trimmed(roads: RoadArrays, setbacks: Float32Array, road: number): Point[] {
-  const points = roadPoints(roads, road);
+function trimmed(roads: RoadStore, detail: DetailStore, road: number): Point[] {
+  const points = roads.pointsOf(road);
   const lengths = cumulative(points);
   const total = lengths[lengths.length - 1] ?? 0;
-  const from = setbacks[road * 2] ?? 0;
-  const to = total - (setbacks[road * 2 + 1] ?? 0);
+  const from = detail.setback(road, 0);
+  const to = total - detail.setback(road, 1);
   return slice(points, from, to);
 }
 
@@ -94,16 +85,16 @@ function drawArrows(g: Graphics, span: readonly Point[], forward: number): void 
 
 export function drawRoadMarkings(
   g: Graphics,
-  roads: RoadArrays,
-  setbacks: Float32Array,
+  roads: RoadStore,
+  detail: DetailStore,
   road: number,
 ): void {
-  const span = trimmed(roads, setbacks, road);
+  const span = trimmed(roads, detail, road);
   if (span.length < 2) {
     return;
   }
-  const forward = roads.lanesForward[road] ?? 0;
-  const backward = roads.lanesBackward[road] ?? 0;
+  const forward = roads.lanesForward(road);
+  const backward = roads.lanesBackward(road);
   const lanes = laneMarkings(forward, backward);
   drawDividers(g, span, lanes.dividers);
   drawCenterLine(g, span, lanes.centerLine);

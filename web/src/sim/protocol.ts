@@ -1,6 +1,20 @@
 import type { MapMeta } from '../generated/MapMeta';
 import type { SimConfig } from '../generated/SimConfig';
 import type { StatsSnapshot } from '../generated/StatsSnapshot';
+import type { BudgetState } from '../generated/BudgetState';
+import type { CommandResult } from '../generated/CommandResult';
+import type { EditCommand } from '../generated/EditCommand';
+import type { QuoteOutcome } from '../generated/QuoteOutcome';
+import { isDeltaArrays, type DeltaArrays } from './delta-arrays';
+import {
+  areaShape,
+  nodeShape,
+  roadShape,
+  type AreaArrays,
+  type NodeArrays,
+  type RoadArrays,
+} from './map-arrays';
+import { isBudgetState, isCommandResults, isEditCommand, isQuoteOutcome } from './edit-values';
 import {
   hasArrays,
   isRecord,
@@ -8,7 +22,6 @@ import {
   isSnapshotBuffers,
   isSpeed,
   isStatsSnapshot,
-  type ArrayCtor,
   type SnapshotBuffers,
   type Speed,
 } from './values';
@@ -23,6 +36,8 @@ import {
 
 export type { SnapshotBuffers, Speed } from './values';
 export type { ApproachMarkerArrays, JunctionShapeArrays, SignalPillArrays } from './street-arrays';
+export type { DeltaArrays } from './delta-arrays';
+export type { AreaArrays, NodeArrays, RoadArrays } from './map-arrays';
 
 export interface LoadMessage {
   type: 'load';
@@ -40,31 +55,19 @@ export interface BuffersMessage {
   buffers: SnapshotBuffers;
 }
 
-export type MainMessage = LoadMessage | SpeedMessage | BuffersMessage;
-
-export interface RoadArrays {
-  pointStart: Uint32Array;
-  x: Float32Array;
-  y: Float32Array;
-  classCode: Uint8Array;
-  lanesForward: Uint8Array;
-  lanesBackward: Uint8Array;
-  layer: Int8Array;
-  name: Uint32Array;
+export interface CommandMessage {
+  type: 'command';
+  command: EditCommand;
 }
 
-export interface NodeArrays {
-  x: Float32Array;
-  y: Float32Array;
-  controlCode: Uint8Array;
+export interface QuoteMessage {
+  type: 'quote';
+  id: number;
+  command: EditCommand;
 }
 
-export interface AreaArrays {
-  kindCode: Uint8Array;
-  ringStart: Uint32Array;
-  x: Float32Array;
-  y: Float32Array;
-}
+export type MainMessage =
+  LoadMessage | SpeedMessage | BuffersMessage | CommandMessage | QuoteMessage;
 
 export interface ReadyMessage {
   type: 'ready';
@@ -102,32 +105,27 @@ export interface SignalsMessage {
   states: Uint8Array<ArrayBuffer>;
 }
 
+export interface QuoteResultMessage {
+  type: 'quoteResult';
+  id: number;
+  result: QuoteOutcome;
+}
+
+export interface CommandResultsMessage {
+  type: 'commandResults';
+  results: CommandResult[];
+  delta: DeltaArrays | null;
+  budget: BudgetState;
+}
+
 export type WorkerMessage =
-  ReadyMessage | ErrorMessage | SnapshotMessage | StatsMessage | SignalsMessage;
-
-const roadShape: Record<keyof RoadArrays, ArrayCtor> = {
-  pointStart: Uint32Array,
-  x: Float32Array,
-  y: Float32Array,
-  classCode: Uint8Array,
-  lanesForward: Uint8Array,
-  lanesBackward: Uint8Array,
-  layer: Int8Array,
-  name: Uint32Array,
-};
-
-const nodeShape: Record<keyof NodeArrays, ArrayCtor> = {
-  x: Float32Array,
-  y: Float32Array,
-  controlCode: Uint8Array,
-};
-
-const areaShape: Record<keyof AreaArrays, ArrayCtor> = {
-  kindCode: Uint8Array,
-  ringStart: Uint32Array,
-  x: Float32Array,
-  y: Float32Array,
-};
+  | ReadyMessage
+  | ErrorMessage
+  | SnapshotMessage
+  | StatsMessage
+  | SignalsMessage
+  | QuoteResultMessage
+  | CommandResultsMessage;
 
 export function isMapMeta(value: unknown): value is MapMeta {
   if (!isRecord(value)) {
@@ -169,18 +167,27 @@ function isStatsMessage(value: Record<string, unknown>): boolean {
   return isStatsSnapshot(value.stats) && value.roadSpeedRatio instanceof Float32Array;
 }
 
+function isCommandResultsMessage(value: Record<string, unknown>): boolean {
+  const deltaOk = value.delta === null || isDeltaArrays(value.delta);
+  return isCommandResults(value.results) && deltaOk && isBudgetState(value.budget);
+}
+
 const workerGuards: Record<WorkerMessage['type'], (value: Record<string, unknown>) => boolean> = {
   ready: isReadyMessage,
   error: (value) => typeof value.message === 'string',
   snapshot: isSnapshotMessage,
   stats: isStatsMessage,
   signals: (value) => value.states instanceof Uint8Array,
+  quoteResult: (value) => typeof value.id === 'number' && isQuoteOutcome(value.result),
+  commandResults: isCommandResultsMessage,
 };
 
 const mainGuards: Record<MainMessage['type'], (value: Record<string, unknown>) => boolean> = {
   load: (value) => typeof value.url === 'string' && isSimConfig(value.config),
   speed: (value) => isSpeed(value.speed),
   buffers: (value) => isSnapshotBuffers(value.buffers),
+  command: (value) => isEditCommand(value.command),
+  quote: (value) => typeof value.id === 'number' && isEditCommand(value.command),
 };
 
 function matches(

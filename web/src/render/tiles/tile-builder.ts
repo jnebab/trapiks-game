@@ -1,5 +1,6 @@
-import type { RoadArrays } from '../../sim/protocol';
+import type { JunctionRing } from '../detail-store';
 import { clampLayer } from '../layers';
+import type { RoadStore } from '../road-store';
 import { drawJunctions } from './junction-draw';
 import { PieceSet, type TilePiece } from './piece-set';
 import type { RoadStyle, Stroke, StrokePass } from './road-style';
@@ -24,10 +25,10 @@ interface StrokeGroup {
 
 const PASSES: readonly StrokePass[] = ['outline', 'fill'];
 
-function groupRoads(entry: TileEntry, roads: RoadArrays, style: RoadStyle): StrokeGroup[] {
+function groupRoads(ids: readonly number[], roads: RoadStore, style: RoadStyle): StrokeGroup[] {
   const groups = new Map<string, StrokeGroup>();
-  for (const road of entry.roads) {
-    const layer = clampLayer(roads.layer[road] ?? 0);
+  for (const road of ids) {
+    const layer = clampLayer(roads.layer(road));
     for (const pass of PASSES) {
       const stroke = style(roads, road, pass);
       const key = `${String(layer)}|${pass}|${String(stroke.width)}|${String(stroke.color)}`;
@@ -39,7 +40,7 @@ function groupRoads(entry: TileEntry, roads: RoadArrays, style: RoadStyle): Stro
   return [...groups.values()];
 }
 
-function drawRoads(pieces: PieceSet, roads: RoadArrays, groups: StrokeGroup[]): void {
+function drawRoads(pieces: PieceSet, roads: RoadStore, groups: StrokeGroup[]): void {
   for (const { layer, pass, stroke, roads: ids } of groups) {
     const g = pieces.get(layer, pass);
     for (const road of ids) {
@@ -49,20 +50,26 @@ function drawRoads(pieces: PieceSet, roads: RoadArrays, groups: StrokeGroup[]): 
   }
 }
 
+function ringsOf(entry: TileEntry, street: StreetData): JunctionRing[] {
+  return entry.junctions
+    .map((node) => street.detail.junctions.get(node))
+    .filter((ring) => ring !== undefined);
+}
+
 export function buildTile(
   entry: TileEntry,
-  roads: RoadArrays,
+  roads: RoadStore,
   style: RoadStyle,
   street?: StreetData,
 ): TileGraphics {
   const pieces = new PieceSet();
+  const live = entry.roads.filter((road) => !roads.isDeleted(road));
+  const rings = street === undefined ? [] : ringsOf(entry, street);
   if (street !== undefined) {
-    drawRoadShadows(pieces, roads, entry.roads);
-    drawJunctionShadows(pieces, street.junctions, entry.junctions);
+    drawRoadShadows(pieces, roads, live);
+    drawJunctionShadows(pieces, rings);
   }
-  drawRoads(pieces, roads, groupRoads(entry, roads, style));
-  if (street !== undefined) {
-    drawJunctions(pieces, street.junctions, entry.junctions);
-  }
+  drawRoads(pieces, roads, groupRoads(live, roads, style));
+  drawJunctions(pieces, rings);
   return { pieces: pieces.list(), markings: false };
 }

@@ -1,4 +1,5 @@
 mod approach_markers;
+mod delta;
 mod junction_shape;
 mod map;
 mod setbacks;
@@ -6,10 +7,14 @@ mod signal_pills;
 
 pub use approach_markers::{
     ApproachMarkers, MARKER_NONE, MARKER_SIGNAL, MARKER_STOP, MARKER_YIELD, approach_markers,
+    markers_at,
 };
-pub use junction_shape::{JunctionShapes, junction_shapes};
+pub use delta::{
+    JunctionRows, MarkerRows, NetworkDelta, NodeRows, RoadRows, SetbackRows, network_delta,
+};
+pub use junction_shape::{JunctionShapes, junction_shapes, node_shapes};
 pub use map::{AreaRender, NodeRender, RoadRender, area_render, node_render, road_render};
-pub use setbacks::road_setbacks;
+pub use setbacks::{road_end_setbacks, road_setbacks};
 pub use signal_pills::{
     PILL_AMBER, PILL_GREEN, PILL_RED, SignalPills, signal_pills, signal_states,
 };

@@ -46,6 +46,15 @@ export class TileCache {
     setVisible(tile, this.shown.has(key));
   }
 
+  drop(key: string): void {
+    const tile = this.tiles.get(key);
+    if (tile === undefined) {
+      return;
+    }
+    this.tiles.delete(key);
+    destroyTile(tile);
+  }
+
   insert(key: string, tile: TileGraphics): void {
     setVisible(tile, false);
     this.tiles.set(key, tile);

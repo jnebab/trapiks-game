@@ -2,8 +2,8 @@ use crate::edit::vehicles::{
     HeldMovement, RouteDamage, record_movements, remap_movements, settle_links,
 };
 use crate::edit::{
-    Budget, CommandResult, Edit, EditCommand, EditError, EditOutcome, Outcome, Prepared, Scope,
-    UndoEntry, prepare,
+    Budget, CommandResult, Edit, EditCommand, EditError, EditOutcome, Outcome, Prepared,
+    QuoteOutcome, Scope, UndoEntry, prepare,
 };
 
 use std::collections::{BTreeSet, VecDeque};
@@ -46,7 +46,14 @@ impl Sim {
         std::mem::take(&mut self.edits.results)
     }
 
-    pub fn quote(&self, command: &EditCommand) -> Result<i64, EditError> {
+    pub fn quote(&self, command: &EditCommand) -> QuoteOutcome {
+        match self.quote_cost(command) {
+            Ok(cost) => QuoteOutcome::Ok(cost),
+            Err(error) => QuoteOutcome::Err(error),
+        }
+    }
+
+    fn quote_cost(&self, command: &EditCommand) -> Result<i64, EditError> {
         match self.prepare(command)? {
             Prepared::Edit { cost, .. } => self.edits.budget.check(cost).map(|()| cost),
             Prepared::Undo => Ok(self.edits.undo.last().map_or(0, |entry| -entry.cost)),
@@ -70,7 +77,7 @@ impl Sim {
         prepare(&self.network, command, !self.edits.undo.is_empty())
     }
 
-    pub(super) fn apply_queued(&mut self) {
+    pub fn apply_queued(&mut self) {
         while let Some((seq, command)) = self.edits.commands.pop_front() {
             let outcome = match self.execute(&command) {
                 Ok(outcome) => Outcome::Ok(outcome),

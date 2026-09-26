@@ -1,14 +1,17 @@
+use serde::Serialize;
 use trapiks_sim_core::config::SimConfig;
 use trapiks_sim_core::consts::MAX_VEHICLES;
+use trapiks_sim_core::edit::{BudgetState, EditCommand};
 use trapiks_sim_core::map::{MapData, from_bytes};
 use trapiks_sim_core::render::{
     ApproachMarkers, JunctionShapes, SignalPills, approach_markers, area_render, junction_shapes,
-    node_render, road_render, road_setbacks, signal_pills, signal_states,
+    network_delta, node_render, road_render, road_setbacks, signal_pills, signal_states,
 };
 use trapiks_sim_core::sim::{Sim, Snapshot};
 use trapiks_sim_core::{MapMeta, map_meta};
 use wasm_bindgen::prelude::*;
 
+use crate::delta::DeltaGeometry;
 use crate::geometry::{AreaGeometry, NodeGeometry, RoadGeometry};
 use crate::signals::SignalPillGeometry;
 use crate::snapshot::SnapshotPointers;
@@ -28,6 +31,15 @@ pub struct Engine {
 
 fn js_error(error: impl ToString) -> JsError {
     JsError::new(&error.to_string())
+}
+
+fn command_of(value: JsValue) -> Result<EditCommand, JsError> {
+    serde_wasm_bindgen::from_value(value).map_err(js_error)
+}
+
+fn to_js(value: &impl Serialize) -> Result<JsValue, JsError> {
+    let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+    value.serialize(&serializer).map_err(js_error)
 }
 
 fn preallocated_snapshot() -> Snapshot {
@@ -139,5 +151,33 @@ impl Engine {
         let mut out = Vec::new();
         self.sim.road_speed_ratio(&mut out);
         out
+    }
+
+    pub fn enqueue(&mut self, command: JsValue) -> Result<u32, JsError> {
+        Ok(self.sim.enqueue(command_of(command)?))
+    }
+
+    pub fn quote(&self, command: JsValue) -> Result<JsValue, JsError> {
+        to_js(&self.sim.quote(&command_of(command)?))
+    }
+
+    #[wasm_bindgen(js_name = flushCommands)]
+    pub fn flush_commands(&mut self) {
+        self.sim.apply_queued();
+    }
+
+    #[wasm_bindgen(js_name = takeResults)]
+    pub fn take_results(&mut self) -> Result<JsValue, JsError> {
+        to_js(&self.sim.take_results())
+    }
+
+    pub fn budget(&self) -> Result<JsValue, JsError> {
+        to_js(&BudgetState::from(self.sim.budget()))
+    }
+
+    pub fn delta(&mut self, roads: Vec<u32>, nodes: Vec<u32>) -> DeltaGeometry {
+        let delta = network_delta(self.sim.network(), &roads, &nodes);
+        self.pills = delta.pills.clone();
+        DeltaGeometry::from(delta)
     }
 }

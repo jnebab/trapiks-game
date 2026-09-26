@@ -1,3 +1,4 @@
+mod delta;
 mod engine;
 mod geometry;
 #[cfg(feature = "fixtures")]
@@ -6,6 +7,7 @@ mod signals;
 mod snapshot;
 mod street;
 
+pub use delta::DeltaGeometry;
 pub use engine::Engine;
 pub use geometry::{AreaGeometry, NodeGeometry, RoadGeometry};
 #[cfg(feature = "fixtures")]

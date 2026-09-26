@@ -69,6 +69,16 @@ impl RoadGeometry {
     pub fn name(&self) -> Vec<u32> {
         self.0.name.clone()
     }
+
+    #[wasm_bindgen(getter, js_name = from)]
+    pub fn from_node(&self) -> Vec<u32> {
+        self.0.from.clone()
+    }
+
+    #[wasm_bindgen(getter, js_name = to)]
+    pub fn to_node(&self) -> Vec<u32> {
+        self.0.to.clone()
+    }
 }
 
 #[wasm_bindgen]

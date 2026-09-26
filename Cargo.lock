@@ -315,6 +315,7 @@ dependencies = [
 name = "trapiks-sim-wasm"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde-wasm-bindgen",
  "trapiks-sim-core",
  "wasm-bindgen",

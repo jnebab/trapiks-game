@@ -1,9 +1,8 @@
 import type { MapMeta } from '../../generated/MapMeta';
-import type { RoadArrays } from '../../sim/protocol';
 import { screenToWorld, type Camera } from '../camera';
 import type { Layers } from '../layers';
 import type { Rect } from '../rect';
-import { roadBounds } from './road-bounds';
+import type { RoadStore } from '../road-store';
 import { cityStyle, detailStyle, type RoadStyle } from './road-style';
 import { STREET_MIN_SCALE } from '../style';
 import { buildMarkings } from './markings-builder';
@@ -11,6 +10,7 @@ import type { StreetData } from './street-data';
 import { buildTile } from './tile-builder';
 import { TileCache } from './tile-cache';
 import { buildTileIndex, type Band, type BandName, type TileIndex } from './tile-index';
+import { moveRoads, moveStreet, truncateIndex, type NetworkChange } from './tile-invalidate';
 import { visibleTiles } from './visible';
 
 export const CITY_MAX_SCALE = 0.35;
@@ -25,6 +25,7 @@ interface BandState {
   cache: TileCache;
   style: RoadStyle;
   street?: StreetData;
+  dirty: Set<string>;
 }
 
 function viewRect(camera: Camera, viewW: number, viewH: number): Rect {
@@ -33,34 +34,44 @@ function viewRect(camera: Camera, viewW: number, viewH: number): Rect {
   return { minX, minY, maxX, maxY };
 }
 
-function cityInclude(roads: RoadArrays, meta: MapMeta): (road: number) => boolean {
+function cityInclude(roads: RoadStore, meta: MapMeta): (road: number) => boolean {
   const primaryRank = meta.class_ranks[meta.class_names.indexOf('Primary')] ?? 0;
-  return (road) => (meta.class_ranks[roads.classCode[road] ?? 0] ?? 0) >= primaryRank;
+  return (road) => (meta.class_ranks[roads.classCode(road)] ?? 0) >= primaryRank;
 }
 
-function createBand(
-  roads: RoadArrays,
-  bounds: Float32Array,
-  band: Band,
-  style: RoadStyle,
-): BandState {
+function createBand(roads: RoadStore, band: Band, style: RoadStyle): BandState {
   return {
     name: band.name,
-    index: buildTileIndex(roads, bounds, band),
+    index: buildTileIndex(roads, band),
     cache: new TileCache(),
     style,
+    dirty: new Set(),
   };
 }
 
-function createDetailBand(roads: RoadArrays, bounds: Float32Array, street: StreetData): BandState {
+function createDetailBand(roads: RoadStore, street: StreetData): BandState {
   const band = { name: 'detail', size: DETAIL_TILE, include: () => true } as const;
   return {
     name: band.name,
-    index: buildTileIndex(roads, bounds, band, street),
+    index: buildTileIndex(roads, band, street),
     cache: new TileCache(),
     style: detailStyle,
     street,
+    dirty: new Set(),
   };
+}
+
+function markDirty(band: BandState, keys: Set<string>): void {
+  for (const key of keys) {
+    band.cache.drop(key);
+    band.dirty.add(key);
+  }
+}
+
+function prioritized(band: BandState, pending: readonly string[]): string[] {
+  const dirty = pending.filter((key) => band.dirty.has(key));
+  const fresh = pending.filter((key) => !band.dirty.has(key));
+  return [...dirty, ...fresh];
 }
 
 function countShadowPieces(band: BandState, keys: readonly string[]): number {
@@ -82,15 +93,29 @@ export class TileManager {
   private readonly detail: BandState;
 
   constructor(
-    private readonly roads: RoadArrays,
+    private readonly roads: RoadStore,
     meta: MapMeta,
     private readonly layers: Layers,
     street: StreetData,
   ) {
-    const bounds = roadBounds(roads);
     const city = { name: 'city', size: CITY_TILE, include: cityInclude(roads, meta) } as const;
-    this.city = createBand(roads, bounds, city, cityStyle(meta.class_ranks));
-    this.detail = createDetailBand(roads, bounds, street);
+    this.city = createBand(roads, city, cityStyle(meta.class_ranks));
+    this.detail = createDetailBand(roads, street);
+  }
+
+  truncate(counts: { roads: number; nodes: number }, markers: readonly number[]): void {
+    for (const band of [this.city, this.detail]) {
+      markDirty(band, truncateIndex(band.index, counts, markers));
+    }
+  }
+
+  invalidate(change: NetworkChange): void {
+    for (const band of [this.city, this.detail]) {
+      markDirty(band, moveRoads(band.index, this.roads, change.roads));
+      if (band.street !== undefined) {
+        markDirty(band, moveStreet(band.index, band.street, change));
+      }
+    }
   }
 
   update(camera: Camera, viewW: number, viewH: number): void {
@@ -98,7 +123,7 @@ export class TileManager {
     const active = cityActive ? this.city : this.detail;
     const inactive = cityActive ? this.detail : this.city;
     this.activeBand = active.name;
-    const keys = visibleTiles(active.index, viewRect(camera, viewW, viewH), VIEW_MARGIN);
+    const keys = visibleTiles(active.index.entries, viewRect(camera, viewW, viewH), VIEW_MARGIN);
     this.buildPending(active, keys);
     active.cache.show(keys);
     const remaining = active.cache.pending(keys).length;
@@ -136,12 +161,13 @@ export class TileManager {
   }
 
   private buildPending(band: BandState, keys: readonly string[]): void {
-    for (const key of band.cache.pending(keys).slice(0, BUILDS_PER_FRAME)) {
+    for (const key of prioritized(band, band.cache.pending(keys)).slice(0, BUILDS_PER_FRAME)) {
       this.buildOne(band, key);
     }
   }
 
   private buildOne(band: BandState, key: string): void {
+    band.dirty.delete(key);
     const entry = band.index.get(key);
     if (entry === undefined) {
       return;

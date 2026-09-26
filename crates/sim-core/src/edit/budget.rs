@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
 use super::EditError;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -13,6 +16,22 @@ impl Budget {
                 Err(EditError::InsufficientBudget)
             }
             _ => Ok(()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct BudgetState {
+    pub limit: Option<i64>,
+    pub spent: i64,
+}
+
+impl From<Budget> for BudgetState {
+    fn from(budget: Budget) -> Self {
+        Self {
+            limit: budget.limit,
+            spent: budget.spent,
         }
     }
 }
