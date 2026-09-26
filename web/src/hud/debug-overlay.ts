@@ -8,6 +8,7 @@ export interface DebugOverlay {
   setRoads: (count: number) => void;
   setVehicles: (count: number, tick: number) => void;
   setTiles: (built: number, visible: number, band: string) => void;
+  setMarkings: (built: number) => void;
 }
 
 interface OverlayState {
@@ -70,6 +71,9 @@ export function createDebugOverlay(ticker: Ticker, mapName: string): DebugOverla
       band,
     });
   };
+  const setMarkings = (built: number): void => {
+    element.dataset.markingsBuilt = String(built);
+  };
   render();
-  return { element, setRoads, setVehicles, setTiles };
+  return { element, setRoads, setVehicles, setTiles, setMarkings };
 }

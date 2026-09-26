@@ -18,6 +18,7 @@ function showMap(scene: DebugApp, overlay: DebugOverlay, ready: ReadyMessage): M
   overlay.setRoads(ready.meta.road_count);
   scene.app.ticker.add(() => {
     overlay.setTiles(view.tiles.builtCount, view.tiles.visibleCount, view.tiles.activeBand);
+    overlay.setMarkings(view.tiles.markingsBuilt);
   });
   return view;
 }

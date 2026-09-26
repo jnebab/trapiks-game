@@ -169,6 +169,10 @@ impl Network {
         (start, end)
     }
 
+    pub fn departing_link(&self, road: u32, node: u32) -> LinkId {
+        departing(&self.roads, road, node)
+    }
+
     pub fn centre_pose(&self, link: LinkId, s: f64) -> (Vec2, Vec2) {
         link::centre_pose(&self.roads, link, s)
     }

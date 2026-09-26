@@ -33,6 +33,30 @@ function readyMessage(): Record<string, unknown> {
       x: new Float32Array(0),
       y: new Float32Array(0),
     },
+    ...streetArrays(),
+  };
+}
+
+function streetArrays(): Record<string, unknown> {
+  return {
+    roadSetbacks: new Float32Array(2),
+    junctions: {
+      node: new Uint32Array(0),
+      layer: new Int8Array(0),
+      minLayer: new Int8Array(0),
+      ringStart: new Uint32Array([0]),
+      x: new Float32Array(0),
+      y: new Float32Array(0),
+    },
+    markers: {
+      link: new Uint32Array(0),
+      node: new Uint32Array(0),
+      kind: new Uint8Array(0),
+      x1: new Float32Array(0),
+      y1: new Float32Array(0),
+      x2: new Float32Array(0),
+      y2: new Float32Array(0),
+    },
   };
 }
 
@@ -48,6 +72,12 @@ describe('isWorkerMessage', () => {
   it('rejects a ready message with a wrong array type', () => {
     const message = readyMessage();
     message.roads = { ...(message.roads as object), layer: new Uint8Array(1) };
+    expect(isWorkerMessage(message)).toBe(false);
+  });
+
+  it('rejects a ready message without junction shapes', () => {
+    const message = readyMessage();
+    delete message.junctions;
     expect(isWorkerMessage(message)).toBe(false);
   });
 

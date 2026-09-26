@@ -1,6 +1,6 @@
 import { Container } from 'pixi.js';
 
-export type RoadPass = 'outline' | 'fill';
+export type RoadPass = 'outline' | 'fill' | 'markings';
 
 export const MIN_LAYER = -3;
 export const MAX_LAYER = 5;
@@ -11,12 +11,10 @@ export interface Layers {
   vehicles: Container;
   overlay: Container;
   road: (layer: number, pass: RoadPass) => Container;
+  showMarkings: (visible: boolean) => void;
 }
 
-interface RoadPair {
-  outline: Container;
-  fill: Container;
-}
+type RoadPair = Record<RoadPass, Container>;
 
 function addChild(world: Container): Container {
   const container = new Container();
@@ -25,11 +23,13 @@ function addChild(world: Container): Container {
 }
 
 function addRoadPair(world: Container, layer: number): RoadPair {
-  const pair = { outline: addChild(world), fill: addChild(world) };
+  const pair = { outline: addChild(world), fill: addChild(world), markings: addChild(world) };
   if (layer < 0) {
     pair.outline.alpha = TUNNEL_ALPHA;
     pair.fill.alpha = TUNNEL_ALPHA;
+    pair.markings.alpha = TUNNEL_ALPHA;
   }
+  pair.markings.visible = false;
   return pair;
 }
 
@@ -52,5 +52,10 @@ export function createLayers(world: Container): Layers {
     }
     return pair[pass];
   };
-  return { areas, vehicles, overlay, road };
+  const showMarkings = (visible: boolean): void => {
+    for (const pair of pairs) {
+      pair.markings.visible = visible;
+    }
+  };
+  return { areas, vehicles, overlay, road, showMarkings };
 }

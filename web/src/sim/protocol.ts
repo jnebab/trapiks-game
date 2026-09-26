@@ -12,8 +12,15 @@ import {
   type SnapshotBuffers,
   type Speed,
 } from './values';
+import {
+  junctionShape,
+  markerShape,
+  type ApproachMarkerArrays,
+  type JunctionShapeArrays,
+} from './street-arrays';
 
 export type { SnapshotBuffers, Speed } from './values';
+export type { ApproachMarkerArrays, JunctionShapeArrays } from './street-arrays';
 
 export interface LoadMessage {
   type: 'load';
@@ -63,6 +70,9 @@ export interface ReadyMessage {
   roads: RoadArrays;
   nodes: NodeArrays;
   areas: AreaArrays;
+  roadSetbacks: Float32Array;
+  junctions: JunctionShapeArrays;
+  markers: ApproachMarkerArrays;
 }
 
 export interface ErrorMessage {
@@ -129,7 +139,10 @@ function isReadyMessage(value: Record<string, unknown>): boolean {
     isMapMeta(value.meta) &&
     hasArrays(value.roads, roadShape) &&
     hasArrays(value.nodes, nodeShape) &&
-    hasArrays(value.areas, areaShape)
+    hasArrays(value.areas, areaShape) &&
+    value.roadSetbacks instanceof Float32Array &&
+    hasArrays(value.junctions, junctionShape) &&
+    hasArrays(value.markers, markerShape)
   );
 }
 

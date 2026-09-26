@@ -26,7 +26,12 @@ export function createMapView(scene: DebugApp, ready: ReadyMessage): MapView {
   const { app, world } = scene;
   const layers = createLayers(world);
   drawAreas(ready.areas, ready.meta.area_kind_names, layers.areas);
-  const tiles = new TileManager(ready.roads, ready.meta, layers);
+  const tiles = new TileManager(ready.roads, ready.meta, layers, {
+    setbacks: ready.roadSetbacks,
+    junctions: ready.junctions,
+    markers: ready.markers,
+    nodes: ready.nodes,
+  });
   const state = initialState(scene, ready);
   applyCamera(world, state.camera);
   wireCameraInput(app.canvas, state, world, app.ticker);

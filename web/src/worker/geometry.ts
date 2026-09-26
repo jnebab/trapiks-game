@@ -1,10 +1,19 @@
 import type { Engine } from '../wasm/pkg/trapiks_sim_wasm.js';
-import type { AreaArrays, NodeArrays, RoadArrays } from '../sim/protocol';
+import type {
+  ApproachMarkerArrays,
+  AreaArrays,
+  JunctionShapeArrays,
+  NodeArrays,
+  RoadArrays,
+} from '../sim/protocol';
 
 export interface Geometry {
   roads: RoadArrays;
   nodes: NodeArrays;
   areas: AreaArrays;
+  roadSetbacks: Float32Array;
+  junctions: JunctionShapeArrays;
+  markers: ApproachMarkerArrays;
 }
 
 function roadArrays(engine: Engine): RoadArrays {
@@ -37,12 +46,56 @@ function areaArrays(engine: Engine): AreaArrays {
   return areas;
 }
 
+function junctionArrays(engine: Engine): JunctionShapeArrays {
+  const g = engine.junctionShapes();
+  const junctions: JunctionShapeArrays = {
+    node: g.node,
+    layer: g.layer,
+    minLayer: g.minLayer,
+    ringStart: g.ringStart,
+    x: g.x,
+    y: g.y,
+  };
+  g.free();
+  return junctions;
+}
+
+function markerArrays(engine: Engine): ApproachMarkerArrays {
+  const g = engine.approachMarkers();
+  const markers: ApproachMarkerArrays = {
+    link: g.link,
+    node: g.node,
+    kind: g.kind,
+    x1: g.x1,
+    y1: g.y1,
+    x2: g.x2,
+    y2: g.y2,
+  };
+  g.free();
+  return markers;
+}
+
 export function collectGeometry(engine: Engine): Geometry {
-  return { roads: roadArrays(engine), nodes: nodeArrays(engine), areas: areaArrays(engine) };
+  return {
+    roads: roadArrays(engine),
+    nodes: nodeArrays(engine),
+    areas: areaArrays(engine),
+    roadSetbacks: engine.roadSetbacks(),
+    junctions: junctionArrays(engine),
+    markers: markerArrays(engine),
+  };
 }
 
 export function transferList(geometry: Geometry): Transferable[] {
-  return [geometry.roads, geometry.nodes, geometry.areas].flatMap((group) =>
+  const groups = [
+    geometry.roads,
+    geometry.nodes,
+    geometry.areas,
+    geometry.junctions,
+    geometry.markers,
+    { roadSetbacks: geometry.roadSetbacks },
+  ];
+  return groups.flatMap((group) =>
     Object.values(group).map((array: ArrayBufferView) => array.buffer as ArrayBuffer),
   );
 }

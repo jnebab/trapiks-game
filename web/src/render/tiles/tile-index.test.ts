@@ -65,3 +65,38 @@ describe('buildTileIndex', () => {
     expect(all.sort((a, b) => a - b)).toEqual([0, 1, 3, 4]);
   });
 });
+
+describe('buildTileIndex street detail', () => {
+  const street = {
+    setbacks: new Float32Array(10),
+    nodes: {
+      x: Float32Array.from([1100, 10]),
+      y: Float32Array.from([60, 10]),
+      controlCode: new Uint8Array(2),
+    },
+    junctions: {
+      node: Uint32Array.from([0]),
+      layer: new Int8Array(1),
+      minLayer: new Int8Array(1),
+      ringStart: Uint32Array.from([0, 2]),
+      x: Float32Array.from([1090, 1110]),
+      y: Float32Array.from([40, 70]),
+    },
+    markers: {
+      link: Uint32Array.from([0]),
+      node: Uint32Array.from([1]),
+      kind: Uint8Array.from([1]),
+      x1: Float32Array.from([-20]),
+      y1: Float32Array.from([5]),
+      x2: Float32Array.from([-4]),
+      y2: Float32Array.from([5]),
+    },
+  };
+  const index = buildTileIndex(roads, bounds, detail, street);
+
+  it('owns junctions by node and markers by midpoint', () => {
+    expect(index.get('detail:1:0')?.junctions).toEqual(Uint32Array.from([0]));
+    expect(index.get('detail:-1:0')?.markers).toEqual(Uint32Array.from([0]));
+    expect(index.get('detail:-1:0')?.bounds.minX).toBe(-20);
+  });
+});

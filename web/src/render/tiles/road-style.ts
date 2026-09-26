@@ -7,7 +7,9 @@ export interface Stroke {
   color: number;
 }
 
-export type RoadStyle = (roads: RoadArrays, road: number, pass: RoadPass) => Stroke;
+export type StrokePass = Exclude<RoadPass, 'markings'>;
+
+export type RoadStyle = (roads: RoadArrays, road: number, pass: StrokePass) => Stroke;
 
 const CITY_OUTLINE_FACTOR = 1.2;
 const MOTORWAY_RANK = 13;

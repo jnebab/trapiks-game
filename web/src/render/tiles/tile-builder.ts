@@ -1,40 +1,27 @@
-import { Graphics } from 'pixi.js';
+import type { Graphics } from 'pixi.js';
 import type { RoadArrays } from '../../sim/protocol';
-import { clampLayer, type RoadPass } from '../layers';
-import type { RoadStyle, Stroke } from './road-style';
+import { clampLayer } from '../layers';
+import { drawJunctions } from './junction-draw';
+import { PieceSet, type TilePiece } from './piece-set';
+import type { RoadStyle, Stroke, StrokePass } from './road-style';
+import type { StreetData } from './street-data';
 import type { TileEntry } from './tile-index';
 
-export interface TilePiece {
-  layer: number;
-  pass: RoadPass;
-  graphics: Graphics;
-}
+export type { TilePiece } from './piece-set';
 
 export interface TileGraphics {
   pieces: TilePiece[];
+  markings: boolean;
 }
 
 interface StrokeGroup {
+  layer: number;
+  pass: StrokePass;
   stroke: Stroke;
   roads: number[];
 }
 
-type PieceGroups = Map<string, Map<string, StrokeGroup>>;
-
-const PASSES: readonly RoadPass[] = ['outline', 'fill'];
-
-function pieceKey(layer: number, pass: RoadPass): string {
-  return `${String(layer)}|${pass}`;
-}
-
-function addToGroup(groups: PieceGroups, piece: string, stroke: Stroke, road: number): void {
-  const strokes = groups.get(piece) ?? new Map<string, StrokeGroup>();
-  groups.set(piece, strokes);
-  const key = `${String(stroke.width)}|${String(stroke.color)}`;
-  const group = strokes.get(key) ?? { stroke, roads: [] };
-  strokes.set(key, group);
-  group.roads.push(road);
-}
+const PASSES: readonly StrokePass[] = ['outline', 'fill'];
 
 function tracePolyline(g: Graphics, roads: RoadArrays, road: number): void {
   const start = roads.pointStart[road] ?? 0;
@@ -45,37 +32,41 @@ function tracePolyline(g: Graphics, roads: RoadArrays, road: number): void {
   }
 }
 
-function drawPiece(roads: RoadArrays, strokes: Map<string, StrokeGroup>): Graphics {
-  const g = new Graphics();
-  for (const { stroke, roads: ids } of strokes.values()) {
+function groupRoads(entry: TileEntry, roads: RoadArrays, style: RoadStyle): StrokeGroup[] {
+  const groups = new Map<string, StrokeGroup>();
+  for (const road of entry.roads) {
+    const layer = clampLayer(roads.layer[road] ?? 0);
+    for (const pass of PASSES) {
+      const stroke = style(roads, road, pass);
+      const key = `${String(layer)}|${pass}|${String(stroke.width)}|${String(stroke.color)}`;
+      const group = groups.get(key) ?? { layer, pass, stroke, roads: [] };
+      groups.set(key, group);
+      group.roads.push(road);
+    }
+  }
+  return [...groups.values()];
+}
+
+function drawRoads(pieces: PieceSet, roads: RoadArrays, groups: StrokeGroup[]): void {
+  for (const { layer, pass, stroke, roads: ids } of groups) {
+    const g = pieces.get(layer, pass);
     for (const road of ids) {
       tracePolyline(g, roads, road);
     }
     g.stroke({ width: stroke.width, color: stroke.color, join: 'round', cap: 'round' });
   }
-  return g;
 }
 
-function groupRoads(entry: TileEntry, roads: RoadArrays, style: RoadStyle): PieceGroups {
-  const groups: PieceGroups = new Map();
-  for (const road of entry.roads) {
-    const layer = clampLayer(roads.layer[road] ?? 0);
-    for (const pass of PASSES) {
-      addToGroup(groups, pieceKey(layer, pass), style(roads, road, pass), road);
-    }
+export function buildTile(
+  entry: TileEntry,
+  roads: RoadArrays,
+  style: RoadStyle,
+  street?: StreetData,
+): TileGraphics {
+  const pieces = new PieceSet();
+  drawRoads(pieces, roads, groupRoads(entry, roads, style));
+  if (street !== undefined) {
+    drawJunctions(pieces, street.junctions, entry.junctions);
   }
-  return groups;
-}
-
-export function buildTile(entry: TileEntry, roads: RoadArrays, style: RoadStyle): TileGraphics {
-  const pieces: TilePiece[] = [];
-  for (const [key, strokes] of groupRoads(entry, roads, style)) {
-    const [layer, pass] = key.split('|');
-    pieces.push({
-      layer: Number(layer),
-      pass: pass === 'outline' ? 'outline' : 'fill',
-      graphics: drawPiece(roads, strokes),
-    });
-  }
-  return { pieces };
+  return { pieces: pieces.list(), markings: false };
 }

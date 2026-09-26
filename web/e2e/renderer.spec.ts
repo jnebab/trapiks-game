@@ -4,6 +4,7 @@ import { PNG } from 'pngjs';
 const debug = '#debug';
 const SCALE = 16;
 const WHITE_MIN = 245;
+const OFF_CENTER_LINE = SCALE;
 
 function collectErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -46,7 +47,7 @@ test('tile borders and junctions are seamless', async ({ page }, testInfo) => {
   await waitForTiles(page);
   const path = testInfo.outputPath('renderer-boundary.png');
   const png = PNG.sync.read(await page.screenshot({ path }));
-  const [cx, cy] = [png.width / 2, png.height / 2];
+  const [cx, cy] = [png.width / 2, png.height / 2 - OFF_CENTER_LINE];
   const samples: [number, number][] = [
     [cx - 3, cy],
     [cx + 3, cy],

@@ -4,7 +4,14 @@ import type { TileEntry, TileIndex } from './tile-index';
 import { visibleTiles } from './visible';
 
 function entry(bounds: Rect, cx: number, cy: number): TileEntry {
-  return { roads: new Uint32Array(), bounds, cx, cy };
+  return {
+    roads: new Uint32Array(),
+    junctions: new Uint32Array(),
+    markers: new Uint32Array(),
+    bounds,
+    cx,
+    cy,
+  };
 }
 
 const index: TileIndex = new Map([

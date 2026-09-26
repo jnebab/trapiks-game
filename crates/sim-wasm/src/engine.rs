@@ -1,13 +1,17 @@
 use trapiks_sim_core::config::SimConfig;
 use trapiks_sim_core::consts::MAX_VEHICLES;
 use trapiks_sim_core::map::{MapData, from_bytes};
-use trapiks_sim_core::render::{area_render, node_render, road_render};
+use trapiks_sim_core::render::{
+    ApproachMarkers, JunctionShapes, approach_markers, area_render, junction_shapes, node_render,
+    road_render, road_setbacks,
+};
 use trapiks_sim_core::sim::{Sim, Snapshot};
 use trapiks_sim_core::{MapMeta, map_meta};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::{AreaGeometry, NodeGeometry, RoadGeometry};
 use crate::snapshot::SnapshotPointers;
+use crate::street::{ApproachMarkerGeometry, JunctionShapeGeometry};
 
 #[wasm_bindgen]
 pub struct Engine {
@@ -15,6 +19,9 @@ pub struct Engine {
     meta: MapMeta,
     sim: Sim,
     snapshot: Snapshot,
+    setbacks: Vec<f32>,
+    shapes: JunctionShapes,
+    markers: ApproachMarkers,
 }
 
 fn js_error(error: impl ToString) -> JsError {
@@ -39,6 +46,9 @@ impl Engine {
         let meta = map_meta(&map, bytes);
         let sim = Sim::from_config(&map, &config);
         Ok(Engine {
+            setbacks: road_setbacks(sim.network()),
+            shapes: junction_shapes(sim.network()),
+            markers: approach_markers(sim.network()),
             map,
             meta,
             sim,
@@ -63,6 +73,21 @@ impl Engine {
     #[wasm_bindgen(js_name = areaGeometry)]
     pub fn area_geometry(&self) -> AreaGeometry {
         AreaGeometry::from(area_render(&self.map))
+    }
+
+    #[wasm_bindgen(js_name = roadSetbacks)]
+    pub fn road_setbacks(&self) -> Vec<f32> {
+        self.setbacks.clone()
+    }
+
+    #[wasm_bindgen(js_name = junctionShapes)]
+    pub fn junction_shapes(&self) -> JunctionShapeGeometry {
+        JunctionShapeGeometry::from(self.shapes.clone())
+    }
+
+    #[wasm_bindgen(js_name = approachMarkers)]
+    pub fn approach_markers(&self) -> ApproachMarkerGeometry {
+        ApproachMarkerGeometry::from(self.markers.clone())
     }
 
     pub fn step(&mut self) {

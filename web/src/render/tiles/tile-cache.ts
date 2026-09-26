@@ -1,4 +1,4 @@
-import type { TileGraphics } from './tile-builder';
+import type { TileGraphics, TilePiece } from './tile-builder';
 
 export const TILE_CACHE_CAPACITY = 256;
 
@@ -30,6 +30,20 @@ export class TileCache {
 
   pending(keys: readonly string[]): string[] {
     return keys.filter((key) => !this.tiles.has(key));
+  }
+
+  get(key: string): TileGraphics | undefined {
+    return this.tiles.get(key);
+  }
+
+  addMarkings(key: string, pieces: TilePiece[]): void {
+    const tile = this.tiles.get(key);
+    if (tile === undefined) {
+      return;
+    }
+    tile.pieces.push(...pieces);
+    tile.markings = true;
+    setVisible(tile, this.shown.has(key));
   }
 
   insert(key: string, tile: TileGraphics): void {

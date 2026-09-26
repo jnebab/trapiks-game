@@ -24,3 +24,17 @@ impl CubicBezier {
             .collect()
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct QuadraticBezier {
+    pub p0: Vec2,
+    pub p1: Vec2,
+    pub p2: Vec2,
+}
+
+impl QuadraticBezier {
+    pub fn point(&self, t: f64) -> Vec2 {
+        let u = 1.0 - t;
+        self.p0 * (u * u) + self.p1 * (2.0 * u * t) + self.p2 * (t * t)
+    }
+}

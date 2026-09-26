@@ -1,0 +1,10 @@
+export const STREET_MIN_SCALE = 4;
+export const ARROW_SPACING = 40;
+export const ARROW_START = 20;
+export const CENTER_LINE = { color: 0xe2c23d, width: 0.18 } as const;
+export const LANE_DIVIDER = { color: 0x8e8e8e, width: 0.15, dash: 3, gap: 3 } as const;
+export const STOP_LINE = { color: 0x3a3a3a, width: 0.3, dash: 1, gap: 0.8 } as const;
+export const STOP_LINE_STOP_WIDTH = 0.5;
+export const SIGNAL_LINE_WIDTH = 0.4;
+export const ARROW = { color: 0x8e8e8e, length: 2.4, width: 1.2 } as const;
+export const FILLET_EDGE = { ground: 0.7, elevated: 1.0 } as const;
