@@ -199,7 +199,7 @@ Lanes on a link are indexed from the right, starting at 0.
 | Several lanes | Rightmost lane: right turns and through. Leftmost lane: left turns, U-turns and through. Middle lanes: through only |
 | No through movement | Split the lanes between the turn movements, right turns taking the right lanes |
 
-- Before M14, a vehicle entering a link takes the lowest lane index within the lane range of its next movement.
+- Before M14, a vehicle entering a link takes the lowest lane index within the lane range of its next movement. From M14, it keeps its lane clamped into that range, and lane changes (mandatory, then MOBIL) move it within the link.
 
 #### Movements
 
