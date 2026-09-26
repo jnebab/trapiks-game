@@ -143,3 +143,15 @@ This replaces M5's despawn. It is checked in step 1 (the junction prefetch pass)
 - `bash scripts/check.sh` passes.
 - Report the `route_bench` output for `120x120@150`. The target is a mean A* time of at most 0.5 ms native.
 - No comments. Do not modify `CLAUDE.md`, `docs/` or `.claude/`.
+
+## Carry-over from the M6 review (do these as part of M7a)
+
+1. **Clearing margin:** raise `CONFLICT_CLEAR_MARGIN` to 7.0. This covers the whole body plus 2.6 m, where 5.0 was 1 m short of the `check_invariants` coverage window.
+2. **Spawn landing check:** `spawn` returns `Blocked` when any vehicle is in a movement whose `to_link == route[0]` and whose landing lane is the spawn lane. A spawn can then never overlap a vehicle about to land.
+3. **Conflict obstacle** (the fallback named in M6's notes), in the acceleration pass:
+   - It applies to a vehicle in a movement, or committed on a link, with a crossing conflict `c` still ahead of it.
+   - It brakes for `c` as a stationary obstacle at `c.s_self − CONFLICT_CLEAR_MARGIN` when a vehicle in the other movement covers the point, meaning `s ∈ [c.s_other − CONFLICT_CLEAR_MARGIN, c.s_other + length + CONFLICT_CLEAR_MARGIN]`, and either beats it or is stopped.
+   - `beats` is a strict total order, so this cannot cycle.
+   - Add a test: a box-stalled left-turner (its exit lane full) makes a crossing through vehicle stop short of the conflict, and `check_invariants` holds.
+4. **Held vehicles:** the step-1 reroute also covers an uncommitted vehicle held at the stop line whose next movement no longer exists.
+5. **Constants:** update `FOUR_WAY_HASH_5000` if it changes.
