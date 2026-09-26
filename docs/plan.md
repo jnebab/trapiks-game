@@ -128,7 +128,7 @@ The fallback is a user-uploaded `.osm.pbf` read with the `osmpbf` crate.
 - **Junction control:** a junction is signalized, stop-controlled or yield-controlled when a matching control node lies on an incident road within 25 m. A stop node tagged `stop=all` gives `AllWayStop`.
 - **Turn restrictions:** converted to banned (from road, via node, to road) triples. `only_*` expands into bans on every other turn.
 - **Areas:**
-  - Outer rings of multipolygons are assembled from member ways. Inner rings are skipped until M15.
+  - Outer rings of multipolygons are assembled from member ways. Inner rings are skipped until M15c.
   - Coastline ways are joined and closed into a sea polygon along the bbox. OSM coastlines have land on the left of the way direction and water on the right. The y-down projection flips the sign of the 2D cross product, so compute the side in lon/lat, or negate it.
   - Rings are simplified with Douglas–Peucker at 1.5 m.
 
@@ -316,8 +316,8 @@ Invariant: the bounded route work per step, (4 + 4) × the average A* time, stay
 | `SetSignalTiming { node, greens, offset }` | Sets green time per phase and the offset |
 | `SetTurnAllowed { node, from, to, allowed }` | Bans or allows a turn |
 | `BuildFlyover { node, through: [road, road] }` | Splits each through road 80 m from the node, appending the new ids. The two inner pieces reconnect at a new node at layer + 1 and bypass the junction |
-| `BuildRoundabout { node, radius }` | Replaces the node with a ring of one-way links (M15) |
-| `AddRoad { from, to, control, lanes, layer }` | Adds a road; an endpoint can be a node or a point on a road, which splits that road (M15) |
+| `BuildRoundabout { node, radius_m }` | Replaces the node with a ring of one-way roads flagged `roundabout`, which have priority over entries (M15a) |
+| `AddRoad { from, to, via, lanes_forward, lanes_backward, layer }` | Adds a straight or curved road; an endpoint can be a node or a point on a road, which splits that road (M15b) |
 | `Undo` | Applies the stored inverse of the last edit |
 | `SetDemand { vehicles_per_hour }` | Changes the demand rate (sandbox only) |
 
@@ -355,7 +355,7 @@ Invariant: the bounded route work per step, (4 + 4) × the average A* time, stay
 | Band | Tiling | Contents |
 |---|---|---|
 | city | 4096 m tiles | Primary-class roads and above, with exaggerated widths, tinted by the traffic layer |
-| detail | 512 m tiles | All roads with outlines. Above the street scale threshold, the same tiles also show markings, one-way arrows, yield lines, signal pills, node dots and (M15) buildings, drawn in extra per-layer containers |
+| detail | 512 m tiles | All roads with outlines. Above the street scale threshold, the same tiles also show markings, one-way arrows, yield lines, signal pills, node dots and (M15c) buildings, drawn in extra per-layer containers |
 
 **Tile ownership:** each road belongs to exactly one tile per band, the one containing the centre of its bbox. A tile's cull bounds are the union of its roads' bboxes, so roads are never drawn twice.
 
@@ -422,7 +422,7 @@ Invariant: the bounded route work per step, (4 + 4) × the average A* time, stay
 - **Palette:** `#E8616F #F28C38 #F2C94C #6FCF97 #56CCF2 #5B8DEF #BB6BD9 #EB7FB5 #4FB3A9`
 - **Other kinds:** jeepney 6.5 × 2.1 m (white body, colour stripe) and bus 12 × 2.5 m `#4A7BD0` (M14).
 
-**Buildings** (M15, procedural along residential roads at street zoom):
+**Buildings** (M15c, procedural along residential roads at street zoom):
 - **Houses:** light green `#8FD16A` with darker green `#62A83E` gable roof faces.
 - **Commercial:** blue `#4F7FD8` along primary and secondary roads.
 - **Warehouses:** dark grey `#5A5A5A`.
@@ -495,7 +495,9 @@ Each milestone ends with `scripts/check.sh` green, an approving review, a commit
 | M12 | Challenges in sim-core: definitions, region metrics, baseline/evaluate phases, scoring | Scoring tests. Replaying a command log reproduces the same hash |
 | M13 | Game screens: title, challenge list, sandbox, result screen, saves, traffic layer, attribution | Playwright plays one challenge end to end, and reload restores the save |
 | M14 | Lane changes (mandatory + MOBIL) and vehicle kinds (car, jeepney, bus) | Lane-change safety (no overlap); mandatory changes reach the turn lane; determinism holds |
-| M15 | Polish: procedural buildings, roundabout, add-road (straight + curved, elevated), inner rings, performance pass, GitHub Pages deploy workflow | Playwright covers the roundabout and add-road flows. `docs/perf.md` records the final numbers |
+| M15a | Roundabouts: map format v3 roundabout flag, ring priority, `BuildRoundabout` with undo, OSM roundabouts yield on entry, inspector buttons | Ring vehicles have priority; build and undo round-trip the content hash; Playwright builds and undoes a roundabout |
+| M15b | Connector roads: `AddRoad` (node or on-road ends that split roads, straight or curved, elevated), crossing and angle validation, build-road tool with preview and quotes | New roads are routed over; splits keep routes valid; undo restores the content hash; Playwright builds and undoes a road |
+| M15c | Polish: procedural buildings, multipolygon inner rings (map format v4), performance pass against §3.9, GitHub Pages deploy workflow | Building and base-path Playwright checks. `docs/perf.md` records the final numbers |
 
 ## 7. Risks
 
