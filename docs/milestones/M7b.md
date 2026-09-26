@@ -52,6 +52,7 @@ pub struct SimConfig { pub seed: u64, pub mode: SimMode, pub vehicles_per_hour: 
 - Origin weight: `drive_len × demand_weight`, multiplied by `BOUNDARY_WEIGHT` when the link is a region source.
 - Destination weight: the same, with `BOUNDARY_WEIGHT` for region sinks.
 - Zero-weight links are omitted.
+- A link with no successor in the route graph is never an origin, and a link with no predecessor is never a destination. This removes structurally unroutable trips, such as dead-end stubs and boundary-cut pieces.
 - `sample(&self, rng) -> Option<LinkId>`: `x = rng.next_f64() × total`, then the first `cumulative > x`, found by binary search. `None` when empty.
 - Rebuilt whenever `network.version()` changes, at the same point as the route graph.
 
@@ -87,7 +88,11 @@ pub struct SimConfig { pub seed: u64, pub mode: SimMode, pub vehicles_per_hour: 
   - In a movement, it is `(length − s) / free_speed(route[cursor+1])`.
 - **`StatsWindow`:** `start_tick`, `created`, `arrivals`, `travel_sum`, `delay_sum`, `accrued_delay`, `spawned`, `unserved`, `stranded`, with `reset(tick)`.
   - An **arrival** is a despawn at the end of the last link. It adds `travel = (tick − spawn_tick) × DT` and `delay = max(0, travel − free_flow)`.
-  - `accrued_delay` grows every step by `Σ DT × max(0, 1 − v/v0)` over live vehicles.
+  - `accrued_delay` grows every step by `Σ DT × max(0, 1 − v/v_ref)` over live vehicles.
+    - `v_ref` is a per-road reference speed frozen when the `Sim` is constructed: the map's speed limit.
+    - Roads appended later use their speed at creation.
+    - Edits to speed limits never change `v_ref`, so lowering limits cannot shrink the measured delay.
+  - Spawning a queued trip adds its wait, `(spawn_tick − created_tick) × DT`, to `accrued_delay`.
   - Stranded vehicles and unserved trips are only counted here. `UNSERVED_DELAY` is applied in M12 scoring.
 - **`StatsSnapshot`** (ts-rs exported): `tick`, `sim_time_s`, `active`, `created`, `spawned`, `arrivals`, `unserved`, `stranded`, `mean_travel_s`, `mean_delay_s`, `accrued_delay_s`, `throughput_per_hour`, `mean_speed`, `stopped_share`.
   - Means over zero arrivals are 0.
