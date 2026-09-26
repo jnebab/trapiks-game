@@ -108,9 +108,8 @@ pnpm --dir web dev
 ## Working agreements
 
 - **Roles:**
-  - The main session orchestrates.
+  - The main session orchestrates, and it reviews every plan and every diff itself.
   - `.claude/agents/implementer.md` implements.
-  - `.claude/agents/reviewer.md` reviews every plan and every diff.
 - Propose a plan before large changes.
 - Keep commits small and logical.
 - Push each reviewed milestone to the working branch.

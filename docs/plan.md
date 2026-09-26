@@ -13,11 +13,11 @@ A browser game titled **Trapiks**, written in Rust→WASM (simulation) and TypeS
 
 ## 2. Roles and process
 
-- **Orchestrator** (main session): writes the plans, runs checks, commits, and pushes to `claude/brave-pasteur-hlfvly` after each approved milestone.
+- **Orchestrator** (main session): writes the plans, reviews every plan and every diff, runs checks, commits, and pushes to `claude/brave-pasteur-hlfvly` after each approved milestone.
 - **Implementer** (`.claude/agents/implementer.md`, Opus 5.5, low effort): implements one milestone spec. It never commits.
-- **Reviewer** (`.claude/agents/reviewer.md`, Fable 5.1, high effort): reviews every plan before implementation and every diff after it. Work loops until the verdict is `APPROVE`.
+- **Review:** the orchestrator reviews every diff against its spec by reading the code, running the checks and probing edge cases. Findings go back to the implementer until the orchestrator approves. Specs M0–M15c were also reviewed by Fable 5.1 before this change.
 - Each milestone gets its own spec file, `docs/milestones/Mx.md`, which is reviewed before any code is written. Specs copy the fixed decisions in §3 verbatim instead of re-deciding them.
-- `scripts/check.sh` runs every gate. CI, the implementer and the reviewer all run this same script.
+- `scripts/check.sh` runs every gate. CI, the implementer and the orchestrator all run this same script.
 
 ## 3. Architecture
 
@@ -436,7 +436,7 @@ Invariant: the bounded route work per step, (4 + 4) × the average A* time, stay
 - **Tooltip chips** look like `$60`, `Add lane` and `Elevation: 1`, and appear next to the cursor.
 - An optional light screen-space darkening toward the bottom edge.
 
-## 5. Quality gates (`scripts/check.sh`, CI, reviewer)
+## 5. Quality gates (`scripts/check.sh`, CI, review)
 
 **Rust:**
 - `cargo fmt --check`
