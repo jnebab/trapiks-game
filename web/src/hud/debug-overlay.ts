@@ -9,6 +9,9 @@ export interface DebugOverlay {
   setVehicles: (count: number, tick: number) => void;
   setTiles: (built: number, visible: number, band: string) => void;
   setMarkings: (built: number) => void;
+  setShadowPieces: (count: number) => void;
+  setSignalPills: (count: number) => void;
+  countSignalUpdate: () => void;
 }
 
 interface OverlayState {
@@ -40,6 +43,24 @@ function everyRefresh(ticker: Ticker, render: () => void): void {
     elapsed = 0;
     render();
   });
+}
+
+type DepthSetters = Pick<DebugOverlay, 'setShadowPieces' | 'setSignalPills' | 'countSignalUpdate'>;
+
+function depthSetters(element: HTMLElement): DepthSetters {
+  let signalUpdates = 0;
+  return {
+    setShadowPieces: (count) => {
+      element.dataset.shadowPieces = String(count);
+    },
+    setSignalPills: (count) => {
+      element.dataset.signalPills = String(count);
+    },
+    countSignalUpdate: () => {
+      signalUpdates += 1;
+      element.dataset.signalUpdates = String(signalUpdates);
+    },
+  };
 }
 
 export function createDebugOverlay(ticker: Ticker, mapName: string): DebugOverlay {
@@ -75,5 +96,5 @@ export function createDebugOverlay(ticker: Ticker, mapName: string): DebugOverla
     element.dataset.markingsBuilt = String(built);
   };
   render();
-  return { element, setRoads, setVehicles, setTiles, setMarkings };
+  return { element, setRoads, setVehicles, setTiles, setMarkings, ...depthSetters(element) };
 }

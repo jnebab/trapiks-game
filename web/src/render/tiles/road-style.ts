@@ -16,7 +16,7 @@ const MOTORWAY_RANK = 13;
 const TRUNK_RANK = 11;
 const CITY_WIDTHS = { motorway: 24, trunk: 18, other: 14 } as const;
 
-function laneWidth(roads: RoadArrays, road: number): number {
+export function laneWidth(roads: RoadArrays, road: number): number {
   const lanes = (roads.lanesForward[road] ?? 0) + (roads.lanesBackward[road] ?? 0);
   return Math.max(lanes, 1) * roadStyle.laneWidth;
 }

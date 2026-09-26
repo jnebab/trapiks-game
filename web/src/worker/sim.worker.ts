@@ -57,6 +57,7 @@ async function load(request: LoadMessage): Promise<void> {
   const started = new EngineSession(engine, wasm.memory, post);
   started.speed = pendingSpeed ?? started.speed;
   session = started;
+  started.postSignals();
   startWallTicks(guarded(started.onTick), WALL_TICK_MS);
 }
 

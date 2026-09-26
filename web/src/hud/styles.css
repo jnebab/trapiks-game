@@ -16,6 +16,8 @@ body {
 }
 
 .chip {
+  position: relative;
+  z-index: 1;
   display: inline-block;
   background: var(--chip-bg);
   border: 1px solid var(--chip-border);
@@ -42,6 +44,7 @@ canvas {
 
 .speed-control {
   position: fixed;
+  z-index: 1;
   bottom: 12px;
   left: 50%;
   display: flex;
@@ -58,4 +61,13 @@ canvas {
 .speed-control .chip.active {
   background: var(--ink);
   color: var(--chip-bg);
+}
+
+#app::after {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(to bottom, transparent 65%, rgba(0, 0, 0, 0.07));
+  content: '';
+  pointer-events: none;
 }

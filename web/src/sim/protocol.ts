@@ -15,12 +15,14 @@ import {
 import {
   junctionShape,
   markerShape,
+  signalPillShape,
   type ApproachMarkerArrays,
   type JunctionShapeArrays,
+  type SignalPillArrays,
 } from './street-arrays';
 
 export type { SnapshotBuffers, Speed } from './values';
-export type { ApproachMarkerArrays, JunctionShapeArrays } from './street-arrays';
+export type { ApproachMarkerArrays, JunctionShapeArrays, SignalPillArrays } from './street-arrays';
 
 export interface LoadMessage {
   type: 'load';
@@ -73,6 +75,7 @@ export interface ReadyMessage {
   roadSetbacks: Float32Array;
   junctions: JunctionShapeArrays;
   markers: ApproachMarkerArrays;
+  signalPills: SignalPillArrays;
 }
 
 export interface ErrorMessage {
@@ -94,7 +97,13 @@ export interface StatsMessage {
   roadSpeedRatio: Float32Array<ArrayBuffer>;
 }
 
-export type WorkerMessage = ReadyMessage | ErrorMessage | SnapshotMessage | StatsMessage;
+export interface SignalsMessage {
+  type: 'signals';
+  states: Uint8Array<ArrayBuffer>;
+}
+
+export type WorkerMessage =
+  ReadyMessage | ErrorMessage | SnapshotMessage | StatsMessage | SignalsMessage;
 
 const roadShape: Record<keyof RoadArrays, ArrayCtor> = {
   pointStart: Uint32Array,
@@ -142,7 +151,8 @@ function isReadyMessage(value: Record<string, unknown>): boolean {
     hasArrays(value.areas, areaShape) &&
     value.roadSetbacks instanceof Float32Array &&
     hasArrays(value.junctions, junctionShape) &&
-    hasArrays(value.markers, markerShape)
+    hasArrays(value.markers, markerShape) &&
+    hasArrays(value.signalPills, signalPillShape)
   );
 }
 
@@ -164,6 +174,7 @@ const workerGuards: Record<WorkerMessage['type'], (value: Record<string, unknown
   error: (value) => typeof value.message === 'string',
   snapshot: isSnapshotMessage,
   stats: isStatsMessage,
+  signals: (value) => value.states instanceof Uint8Array,
 };
 
 const mainGuards: Record<MainMessage['type'], (value: Record<string, unknown>) => boolean> = {

@@ -3,6 +3,7 @@ import {
   type LoadMessage,
   type MainMessage,
   type ReadyMessage,
+  type SignalsMessage,
   type SnapshotBuffers,
   type SnapshotMessage,
   type Speed,
@@ -16,6 +17,7 @@ export interface SimHandlers {
   onReady: (message: ReadyMessage) => void;
   onSnapshot: (message: SnapshotMessage) => void;
   onStats: (message: StatsMessage) => void;
+  onSignals: (message: SignalsMessage) => void;
   onError: (message: string) => void;
 }
 
@@ -34,6 +36,9 @@ function dispatch(message: WorkerMessage, handlers: SimHandlers): void {
       return;
     case 'stats':
       handlers.onStats(message);
+      return;
+    case 'signals':
+      handlers.onSignals(message);
       return;
     case 'error':
       handlers.onError(message.message);

@@ -1,6 +1,7 @@
 import { Container } from 'pixi.js';
+import { createShadowContainer, type ShadowContainer } from './shadow-container';
 
-export type RoadPass = 'outline' | 'fill' | 'markings';
+export type RoadPass = 'shadow' | 'outline' | 'fill' | 'markings';
 
 export const MIN_LAYER = -3;
 export const MAX_LAYER = 5;
@@ -12,9 +13,15 @@ export interface Layers {
   overlay: Container;
   road: (layer: number, pass: RoadPass) => Container;
   showMarkings: (visible: boolean) => void;
+  updateShadows: (visible: boolean, scale: number) => void;
 }
 
-type RoadPair = Record<RoadPass, Container>;
+interface RoadPair {
+  shadow: ShadowContainer | undefined;
+  outline: Container;
+  fill: Container;
+  markings: Container;
+}
 
 function addChild(world: Container): Container {
   const container = new Container();
@@ -22,8 +29,23 @@ function addChild(world: Container): Container {
   return container;
 }
 
+function addShadow(world: Container, layer: number): ShadowContainer | undefined {
+  if (layer < 1) {
+    return undefined;
+  }
+  const shadow = createShadowContainer();
+  world.addChild(shadow.container);
+  return shadow;
+}
+
 function addRoadPair(world: Container, layer: number): RoadPair {
-  const pair = { outline: addChild(world), fill: addChild(world), markings: addChild(world) };
+  const shadow = addShadow(world, layer);
+  const pair = {
+    shadow,
+    outline: addChild(world),
+    fill: addChild(world),
+    markings: addChild(world),
+  };
   if (layer < 0) {
     pair.outline.alpha = TUNNEL_ALPHA;
     pair.fill.alpha = TUNNEL_ALPHA;
@@ -31,6 +53,16 @@ function addRoadPair(world: Container, layer: number): RoadPair {
   }
   pair.markings.visible = false;
   return pair;
+}
+
+function passContainer(pair: RoadPair, pass: RoadPass): Container {
+  if (pass !== 'shadow') {
+    return pair[pass];
+  }
+  if (pair.shadow === undefined) {
+    throw new Error('No shadow container below layer 1');
+  }
+  return pair.shadow.container;
 }
 
 export function clampLayer(layer: number): number {
@@ -50,12 +82,17 @@ export function createLayers(world: Container): Layers {
     if (pair === undefined) {
       throw new Error('Missing road layer');
     }
-    return pair[pass];
+    return passContainer(pair, pass);
   };
   const showMarkings = (visible: boolean): void => {
     for (const pair of pairs) {
       pair.markings.visible = visible;
     }
   };
-  return { areas, vehicles, overlay, road, showMarkings };
+  const updateShadows = (visible: boolean, scale: number): void => {
+    for (const pair of pairs) {
+      pair.shadow?.update(visible, scale);
+    }
+  };
+  return { areas, vehicles, overlay, road, showMarkings, updateShadows };
 }

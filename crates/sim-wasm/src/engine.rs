@@ -2,14 +2,15 @@ use trapiks_sim_core::config::SimConfig;
 use trapiks_sim_core::consts::MAX_VEHICLES;
 use trapiks_sim_core::map::{MapData, from_bytes};
 use trapiks_sim_core::render::{
-    ApproachMarkers, JunctionShapes, approach_markers, area_render, junction_shapes, node_render,
-    road_render, road_setbacks,
+    ApproachMarkers, JunctionShapes, SignalPills, approach_markers, area_render, junction_shapes,
+    node_render, road_render, road_setbacks, signal_pills, signal_states,
 };
 use trapiks_sim_core::sim::{Sim, Snapshot};
 use trapiks_sim_core::{MapMeta, map_meta};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::{AreaGeometry, NodeGeometry, RoadGeometry};
+use crate::signals::SignalPillGeometry;
 use crate::snapshot::SnapshotPointers;
 use crate::street::{ApproachMarkerGeometry, JunctionShapeGeometry};
 
@@ -22,6 +23,7 @@ pub struct Engine {
     setbacks: Vec<f32>,
     shapes: JunctionShapes,
     markers: ApproachMarkers,
+    pills: SignalPills,
 }
 
 fn js_error(error: impl ToString) -> JsError {
@@ -49,6 +51,7 @@ impl Engine {
             setbacks: road_setbacks(sim.network()),
             shapes: junction_shapes(sim.network()),
             markers: approach_markers(sim.network()),
+            pills: signal_pills(sim.network()),
             map,
             meta,
             sim,
@@ -88,6 +91,23 @@ impl Engine {
     #[wasm_bindgen(js_name = approachMarkers)]
     pub fn approach_markers(&self) -> ApproachMarkerGeometry {
         ApproachMarkerGeometry::from(self.markers.clone())
+    }
+
+    #[wasm_bindgen(js_name = signalPills)]
+    pub fn signal_pills(&self) -> SignalPillGeometry {
+        SignalPillGeometry::from(self.pills.clone())
+    }
+
+    #[wasm_bindgen(js_name = signalStates)]
+    pub fn signal_states(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(self.pills.link.len());
+        signal_states(
+            self.sim.network(),
+            &self.pills.link,
+            self.sim.tick(),
+            &mut out,
+        );
+        out
     }
 
     pub fn step(&mut self) {

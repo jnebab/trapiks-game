@@ -2,6 +2,7 @@ import { createApp, type DebugApp } from '../render/app';
 import { createMapView, type MapView } from '../render/map-view';
 import { createVehicleLayer } from '../render/vehicle-layer';
 import { createVehicleTexture } from '../render/vehicle-texture';
+import { createSignalPills, type SignalPillLayer } from '../render/signal-pills';
 import { createDebugOverlay, type DebugOverlay } from '../hud/debug-overlay';
 import { el } from '../hud/dom';
 import { createSpeedControl } from '../hud/speed-control';
@@ -19,8 +20,18 @@ function showMap(scene: DebugApp, overlay: DebugOverlay, ready: ReadyMessage): M
   scene.app.ticker.add(() => {
     overlay.setTiles(view.tiles.builtCount, view.tiles.visibleCount, view.tiles.activeBand);
     overlay.setMarkings(view.tiles.markingsBuilt);
+    overlay.setShadowPieces(view.tiles.shadowPieces);
   });
   return view;
+}
+
+function showSignalPills(scene: DebugApp, view: MapView, ready: ReadyMessage): SignalPillLayer {
+  const pills = createSignalPills(scene.app.renderer, ready.signalPills);
+  view.layers.overlay.addChild(pills.container);
+  scene.app.ticker.add(() => {
+    pills.setScale(view.state.camera.scale);
+  });
+  return pills;
 }
 
 function showVehicles(scene: DebugApp, view: MapView, history: SnapshotHistory): void {
@@ -62,15 +73,22 @@ export async function runDebugScene(root: HTMLElement, mapName: string): Promise
     vehicles_per_hour: demandFromQuery(window.location.search),
   };
   const history = new SnapshotHistory();
+  let pills: SignalPillLayer | undefined;
   const client: SimClient = startSim(url, config, {
     onReady: (ready) => {
       const view = showMap(scene, overlay, ready);
       showVehicles(scene, view, history);
+      pills = showSignalPills(scene, view, ready);
+      overlay.setSignalPills(pills.count);
     },
     onSnapshot: (message) => {
       receiveSnapshot(client, history, overlay, message);
     },
     onStats: () => undefined,
+    onSignals: (message) => {
+      pills?.setStates(message.states);
+      overlay.countSignalUpdate();
+    },
     onError: (message) => {
       showError(root, message);
     },

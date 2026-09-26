@@ -63,10 +63,20 @@ function createDetailBand(roads: RoadArrays, bounds: Float32Array, street: Stree
   };
 }
 
+function countShadowPieces(band: BandState, keys: readonly string[]): number {
+  let count = 0;
+  for (const key of keys) {
+    const pieces = band.cache.get(key)?.pieces ?? [];
+    count += pieces.filter((piece) => piece.pass === 'shadow').length;
+  }
+  return count;
+}
+
 export class TileManager {
   visibleCount = 0;
   builtCount = 0;
   markingsBuilt = 0;
+  shadowPieces = 0;
   activeBand: BandName = 'city';
   private readonly city: BandState;
   private readonly detail: BandState;
@@ -98,6 +108,8 @@ export class TileManager {
     this.visibleCount = keys.length;
     this.builtCount = keys.length - remaining;
     this.updateMarkings(active, keys, camera.scale >= STREET_MIN_SCALE);
+    this.layers.updateShadows(!cityActive, camera.scale);
+    this.shadowPieces = countShadowPieces(active, keys);
   }
 
   private updateMarkings(band: BandState, keys: readonly string[], street: boolean): void {

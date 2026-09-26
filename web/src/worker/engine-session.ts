@@ -1,5 +1,12 @@
 import type { Engine } from '../wasm/pkg/trapiks_sim_wasm.js';
-import type { SnapshotMessage, Speed, StatsMessage, WorkerMessage } from '../sim/protocol';
+import type {
+  SignalsMessage,
+  SnapshotMessage,
+  Speed,
+  StatsMessage,
+  WorkerMessage,
+} from '../sim/protocol';
+import { statesChanged } from './signal-diff';
 import { isStatsSnapshot, snapshotTransfer, type SnapshotBuffers } from '../sim/values';
 import { BufferPool } from './buffer-pool';
 import { MemoryViews } from './memory-views';
@@ -29,6 +36,7 @@ export class EngineSession {
   private readonly views: MemoryViews;
   private readonly pool = new BufferPool();
   private wallTicks = 0;
+  private lastSignals: Uint8Array | undefined;
 
   constructor(
     private readonly engine: Engine,
@@ -41,11 +49,22 @@ export class EngineSession {
   readonly onTick = (): void => {
     this.runSteps();
     this.postSnapshot();
+    this.postSignals();
     this.wallTicks += 1;
     if (this.wallTicks % STATS_EVERY === 0) {
       this.postStats();
     }
   };
+
+  postSignals(): void {
+    const states = new Uint8Array(this.engine.signalStates());
+    if (!statesChanged(this.lastSignals, states)) {
+      return;
+    }
+    this.lastSignals = states.slice();
+    const message: SignalsMessage = { type: 'signals', states };
+    this.post(message, [states.buffer]);
+  }
 
   returnBuffers(buffers: SnapshotBuffers): void {
     this.pool.give(buffers);

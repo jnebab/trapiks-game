@@ -39,7 +39,7 @@ test('signalized arterial junction shows markings and fillets', async ({ page },
     expect(g).toBeGreaterThan(170);
     expect(b).toBeLessThan(120);
   }
-  for (const channel of pixelAt(png, 727, 272)) {
+  for (const channel of pixelAt(png, 727, 278)) {
     expect(channel).toBeGreaterThanOrEqual(WHITE_MIN);
   }
 });

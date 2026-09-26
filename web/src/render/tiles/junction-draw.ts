@@ -12,7 +12,7 @@ function ringRange(junctions: JunctionShapeArrays, shape: number): [number, numb
   return [start, junctions.ringStart[shape + 1] ?? start];
 }
 
-function ringPoints(junctions: JunctionShapeArrays, shape: number): number[] {
+export function ringPoints(junctions: JunctionShapeArrays, shape: number): number[] {
   const [start, end] = ringRange(junctions, shape);
   const out: number[] = [];
   for (let i = start; i < end; i += 1) {

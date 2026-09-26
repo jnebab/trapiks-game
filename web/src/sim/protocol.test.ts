@@ -57,6 +57,12 @@ function streetArrays(): Record<string, unknown> {
       x2: new Float32Array(0),
       y2: new Float32Array(0),
     },
+    signalPills: {
+      link: new Uint32Array(0),
+      x: new Float32Array(0),
+      y: new Float32Array(0),
+      angle: new Float32Array(0),
+    },
   };
 }
 
@@ -145,6 +151,14 @@ describe('snapshot and stats messages', () => {
     expect(isWorkerMessage({ type: 'stats', stats: { tick: 1 }, roadSpeedRatio: ratio })).toBe(
       false,
     );
+  });
+});
+
+describe('signals message', () => {
+  it('accepts a byte array of states and rejects anything else', () => {
+    expect(isWorkerMessage({ type: 'signals', states: new Uint8Array([0, 1, 2]) })).toBe(true);
+    expect(isWorkerMessage({ type: 'signals', states: [0, 1, 2] })).toBe(false);
+    expect(isWorkerMessage({ type: 'signals' })).toBe(false);
   });
 });
 

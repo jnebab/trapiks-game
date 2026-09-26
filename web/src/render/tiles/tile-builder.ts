@@ -1,4 +1,3 @@
-import type { Graphics } from 'pixi.js';
 import type { RoadArrays } from '../../sim/protocol';
 import { clampLayer } from '../layers';
 import { drawJunctions } from './junction-draw';
@@ -6,6 +5,8 @@ import { PieceSet, type TilePiece } from './piece-set';
 import type { RoadStyle, Stroke, StrokePass } from './road-style';
 import type { StreetData } from './street-data';
 import type { TileEntry } from './tile-index';
+import { drawJunctionShadows, drawRoadShadows } from './shadow-draw';
+import { tracePolyline } from './trace';
 
 export type { TilePiece } from './piece-set';
 
@@ -22,15 +23,6 @@ interface StrokeGroup {
 }
 
 const PASSES: readonly StrokePass[] = ['outline', 'fill'];
-
-function tracePolyline(g: Graphics, roads: RoadArrays, road: number): void {
-  const start = roads.pointStart[road] ?? 0;
-  const end = roads.pointStart[road + 1] ?? start;
-  g.moveTo(roads.x[start] ?? 0, roads.y[start] ?? 0);
-  for (let i = start + 1; i < end; i += 1) {
-    g.lineTo(roads.x[i] ?? 0, roads.y[i] ?? 0);
-  }
-}
 
 function groupRoads(entry: TileEntry, roads: RoadArrays, style: RoadStyle): StrokeGroup[] {
   const groups = new Map<string, StrokeGroup>();
@@ -64,6 +56,10 @@ export function buildTile(
   street?: StreetData,
 ): TileGraphics {
   const pieces = new PieceSet();
+  if (street !== undefined) {
+    drawRoadShadows(pieces, roads, entry.roads);
+    drawJunctionShadows(pieces, street.junctions, entry.junctions);
+  }
   drawRoads(pieces, roads, groupRoads(entry, roads, style));
   if (street !== undefined) {
     drawJunctions(pieces, street.junctions, entry.junctions);

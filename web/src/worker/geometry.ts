@@ -5,6 +5,7 @@ import type {
   JunctionShapeArrays,
   NodeArrays,
   RoadArrays,
+  SignalPillArrays,
 } from '../sim/protocol';
 
 export interface Geometry {
@@ -14,6 +15,7 @@ export interface Geometry {
   roadSetbacks: Float32Array;
   junctions: JunctionShapeArrays;
   markers: ApproachMarkerArrays;
+  signalPills: SignalPillArrays;
 }
 
 function roadArrays(engine: Engine): RoadArrays {
@@ -75,6 +77,13 @@ function markerArrays(engine: Engine): ApproachMarkerArrays {
   return markers;
 }
 
+function signalPillArrays(engine: Engine): SignalPillArrays {
+  const g = engine.signalPills();
+  const pills: SignalPillArrays = { link: g.link, x: g.x, y: g.y, angle: g.angle };
+  g.free();
+  return pills;
+}
+
 export function collectGeometry(engine: Engine): Geometry {
   return {
     roads: roadArrays(engine),
@@ -83,6 +92,7 @@ export function collectGeometry(engine: Engine): Geometry {
     roadSetbacks: engine.roadSetbacks(),
     junctions: junctionArrays(engine),
     markers: markerArrays(engine),
+    signalPills: signalPillArrays(engine),
   };
 }
 
@@ -93,6 +103,7 @@ export function transferList(geometry: Geometry): Transferable[] {
     geometry.areas,
     geometry.junctions,
     geometry.markers,
+    geometry.signalPills,
     { roadSetbacks: geometry.roadSetbacks },
   ];
   return groups.flatMap((group) =>

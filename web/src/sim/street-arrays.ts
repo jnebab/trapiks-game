@@ -19,6 +19,20 @@ export interface ApproachMarkerArrays {
   y2: Float32Array;
 }
 
+export interface SignalPillArrays {
+  link: Uint32Array;
+  x: Float32Array;
+  y: Float32Array;
+  angle: Float32Array;
+}
+
+export const signalPillShape: Record<keyof SignalPillArrays, ArrayCtor> = {
+  link: Uint32Array,
+  x: Float32Array,
+  y: Float32Array,
+  angle: Float32Array,
+};
+
 export const junctionShape: Record<keyof JunctionShapeArrays, ArrayCtor> = {
   node: Uint32Array,
   layer: Int8Array,
