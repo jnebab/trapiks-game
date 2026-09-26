@@ -2,7 +2,7 @@ use crate::consts::{CAR_LENGTH, IDM_MIN_GAP};
 use crate::network::LinkId;
 
 use super::approach::{Approach, RuleContext, heads_to};
-use super::lanes::landing_lane;
+use super::leader::current_ahead;
 use super::occupancy::{link_key, movement_key};
 
 const SLOT_LENGTH: f64 = CAR_LENGTH + IDM_MIN_GAP;
@@ -29,9 +29,8 @@ pub fn predecessor_committed(ctx: &RuleContext, approach: &Approach) -> bool {
 }
 
 fn target_has_room(ctx: &RuleContext, approach: &Approach) -> bool {
-    let route = ctx.vehicles.route(approach.slot);
-    let cursor = ctx.vehicles.cursor(approach.slot);
-    let Some(lane) = landing_lane(ctx.network, approach.movement, route, cursor + 1) else {
+    let ahead = current_ahead(ctx.network, ctx.vehicles, approach.slot);
+    let Some(lane) = ahead.landing() else {
         return false;
     };
     let target = approach.movement.to_link;

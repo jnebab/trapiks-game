@@ -2,8 +2,9 @@ use trapiks_sim_core::consts::LANDMARK_COUNT;
 use trapiks_sim_core::fixtures::{
     GridCity, MapBuilder, RoadSpec, four_way, grid_city, one_way_pair,
 };
+use trapiks_sim_core::geom::Vec2;
 use trapiks_sim_core::map::{MapData, RoadClass, TurnBan};
-use trapiks_sim_core::network::{LinkId, Network};
+use trapiks_sim_core::network::{LinkId, Network, Region};
 use trapiks_sim_core::rng::Pcg32;
 use trapiks_sim_core::routing::{
     Landmarks, LinkCosts, RouteContext, RouteGraph, Router, dijkstra_cost,
@@ -20,7 +21,10 @@ struct Routing {
 
 impl Routing {
     fn new(map: &MapData) -> Self {
-        let network = Network::from_map(map);
+        Routing::from_network(Network::from_map(map))
+    }
+
+    fn from_network(network: Network) -> Self {
         let graph = RouteGraph::build(&network);
         let costs = LinkCosts::build(&network);
         let landmarks = Landmarks::build(&network, &graph, &costs);
@@ -33,11 +37,22 @@ impl Routing {
     }
 
     fn route(&self, with_landmarks: bool, from: LinkId, to: LinkId) -> Option<Vec<LinkId>> {
+        self.route_weighted(with_landmarks, 1.0, from, to)
+    }
+
+    fn route_weighted(
+        &self,
+        with_landmarks: bool,
+        heuristic_weight: f64,
+        from: LinkId,
+        to: LinkId,
+    ) -> Option<Vec<LinkId>> {
         let ctx = RouteContext {
             graph: &self.graph,
             costs: &self.costs,
             landmarks: with_landmarks.then_some(&self.landmarks),
             network: &self.network,
+            heuristic_weight,
         };
         let mut out = Vec::new();
         Router::new()
@@ -80,7 +95,56 @@ fn grid(size: u32) -> MapData {
 
 #[test]
 fn astar_optimal() {
-    let routing = Routing::new(&grid(10));
+    assert_optimal(&Routing::new(&grid(10)));
+}
+
+#[test]
+fn region_landmarks() {
+    let mut network = Network::from_map(&grid(20));
+    network.set_region(Some(Region {
+        center: Vec2::new(1_500.0, 1_500.0),
+        radius: 600.0,
+    }));
+    let routing = Routing::from_network(network);
+    assert_eq!(routing.landmarks.count(), LANDMARK_COUNT);
+    assert_optimal(&routing);
+}
+
+#[test]
+fn weighted_astar_bound() {
+    let mut routing = Routing::new(&grid(20));
+    let mut rng = Pcg32::new(21, 4);
+    randomize_costs(&mut routing.costs, &mut rng);
+    for _ in 0..100 {
+        let from = routing.random_active(&mut rng);
+        let to = routing.random_active(&mut rng);
+        let Some(optimum) = dijkstra_cost(&routing.graph, &routing.costs, from, to) else {
+            continue;
+        };
+        for weight in [1.25, 1.5, 2.0] {
+            let route = routing
+                .route_weighted(true, weight, from, to)
+                .expect("route");
+            let cost = routing.cost(&route);
+            assert!(
+                cost <= weight * optimum + 1e-6,
+                "{from}->{to}: {cost} {optimum}"
+            );
+        }
+    }
+}
+
+fn randomize_costs(costs: &mut LinkCosts, rng: &mut Pcg32) {
+    for _ in 0..5 {
+        for link in 0..costs.free_speed.len() {
+            let v = costs.free_speed[link] * (0.1 + 0.9 * rng.next_f64());
+            costs.accumulate(link as LinkId, v);
+        }
+        costs.refresh();
+    }
+}
+
+fn assert_optimal(routing: &Routing) {
     let mut rng = Pcg32::new(11, 3);
     for _ in 0..50 {
         let from = routing.random_active(&mut rng);

@@ -37,6 +37,7 @@ pub struct Junction {
     pub node: u32,
     pub movements: Vec<Movement>,
     pub conflicts: Vec<Vec<Conflict>>,
+    pub has_crossing: Vec<bool>,
     pairs: Vec<(LinkId, LinkId)>,
 }
 
@@ -77,6 +78,10 @@ pub fn build_junction(network: &Network, node: u32) -> Junction {
         node,
         pairs: movements.iter().map(|m| (m.from_link, m.to_link)).collect(),
         movements,
+        has_crossing: conflicts
+            .iter()
+            .map(|list| list.iter().any(|c| !c.merge))
+            .collect(),
         conflicts,
     }
 }

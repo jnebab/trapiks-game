@@ -78,3 +78,15 @@ Every optimization in this section must leave both hashes, and `FOUR_WAY_HASH_50
   - region median ≤ 2 ms, 8 landmarks
 - If the city median is still above 12 ms after sections 2 and 3, stop and report the splits. Don't change behaviour beyond section 3.
 - No comments. Do not modify `CLAUDE.md`, `docs/` or `.claude/`. Do not stage files.
+
+## Outcome (orchestrator review)
+
+- The golden hashes were equal before and after section 2 (city `0xc1944ec7b9ddca51`, region `0x74eb985cbd10c699`).
+- **Weighted A\*:**
+  - No weight met both criteria of section 3.
+  - The orchestrator chose `ROUTE_HEURISTIC_WEIGHT = 2.0`. Its mean cost ratio is 1.07 on the congested city and 1.04 in the region, which is within the realism of human route choice.
+  - City route work is 2.1 ms/step.
+- **City median:**
+  - 14.7–15.2 ms native, down from 28.2 ms. The remaining ~3 ms is structural and moves to the M15c performance pass.
+  - Region: 1.02 ms median, with 8 landmarks.
+

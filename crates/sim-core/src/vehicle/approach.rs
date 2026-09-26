@@ -4,6 +4,7 @@ use crate::consts::{DECISION_MARGIN, IDM_COMFORT_DECEL, IDM_MAX_ACCEL};
 use crate::map::Control;
 use crate::network::{Junction, LinkId, Movement, Network, SignalState};
 
+use super::leader::current_ahead;
 use super::{Occupancy, Place, VehicleStore};
 
 pub type PriorityKey = (Reverse<(u8, u8, u8)>, u64, u32);
@@ -34,21 +35,20 @@ pub fn approach<'a>(ctx: &RuleContext<'a>, slot: u32) -> Option<Approach<'a>> {
     let Place::Link { link, lane } = ctx.vehicles.place[index] else {
         return None;
     };
-    let next = ctx.vehicles.route_link(slot, 1)?;
-    let node = ctx.network.link_to(link);
+    let ahead = current_ahead(ctx.network, ctx.vehicles, slot);
+    let (node, movement_index) = ahead.movement()?;
     let junction = ctx.network.junction(node)?;
-    let movement_index = junction.movement_index(link, next)?;
     Some(Approach {
         slot,
         link,
         lane,
         node,
-        index: u16::try_from(movement_index).ok()?,
+        index: movement_index,
         junction,
-        movement: &junction.movements[movement_index],
+        movement: junction.movements.get(usize::from(movement_index))?,
         s: ctx.vehicles.s[index],
         v: ctx.vehicles.v[index],
-        span_end: ctx.network.link_span(link).1,
+        span_end: ahead.end()?,
     })
 }
 
@@ -65,7 +65,11 @@ pub fn in_zone(network: &Network, vehicles: &VehicleStore, slot: u32) -> bool {
         return false;
     }
     let remaining = network.link_span(link).1 - vehicles.s[index];
-    remaining <= stopping_distance(vehicles.v[index]) + DECISION_MARGIN
+    within_zone(remaining, vehicles.v[index])
+}
+
+pub fn within_zone(remaining: f64, v: f64) -> bool {
+    remaining <= stopping_distance(v) + DECISION_MARGIN
 }
 
 pub fn heads_to(vehicles: &VehicleStore, slot: u32, target: LinkId) -> bool {

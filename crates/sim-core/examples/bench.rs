@@ -44,8 +44,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let before = sim.route_stats();
     let run = measure(&mut sim, args.ticks);
     let routing = sim.route_stats();
+    let state_hash = sim.state_hash();
     let route_us = mean_route_us(&mut sim);
     report(&sim, &run, delta(before, routing), route_us, args.ticks);
+    println!("state_hash: {state_hash:#018x}");
     Ok(())
 }
 

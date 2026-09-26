@@ -19,7 +19,7 @@ use crate::network::{LinkId, Network, Region};
 use crate::rng::Pcg32;
 use crate::routing::{Landmarks, LinkCosts, RouteGraph, Router};
 use crate::stats::StatsWindow;
-use crate::vehicle::approach::PriorityKey;
+use crate::vehicle::approach::{PriorityKey, RuleContext};
 use crate::vehicle::idm::acceleration;
 use crate::vehicle::{Occupancy, Place, VehicleStore, leader};
 
@@ -35,6 +35,7 @@ pub struct Sim {
     occupancy: Occupancy,
     accel: Vec<f64>,
     candidates: Vec<(PriorityKey, u32)>,
+    zone: Vec<bool>,
     rng: Pcg32,
     tick: u64,
     graph: RouteGraph,
@@ -90,6 +91,7 @@ impl Sim {
             occupancy: Occupancy::default(),
             accel: Vec::with_capacity(capacity),
             candidates: Vec::new(),
+            zone: Vec::new(),
             rng,
             tick: 0,
             graph,
@@ -132,9 +134,9 @@ impl Sim {
         self.route_trips();
         self.occupancy.rebuild(&self.vehicles);
         self.spawn_queued();
+        self.refresh_ahead();
         self.update_zones();
         self.decide();
-        self.refresh_ahead();
         self.compute_accelerations();
         self.integrate();
         self.advance_all();
@@ -157,25 +159,28 @@ impl Sim {
     }
 
     fn compute_accelerations(&mut self) {
-        self.accel.clear();
-        self.accel.resize(self.vehicles.slot_count(), 0.0);
+        let mut accel = std::mem::take(&mut self.accel);
+        accel.clear();
+        accel.resize(self.vehicles.slot_count(), 0.0);
+        let ctx = self.rule_context();
         for slot in self.vehicles.live_slots() {
-            self.accel[slot as usize] = self.acceleration_of(slot);
+            accel[slot as usize] = self.acceleration_of(&ctx, slot);
         }
+        self.accel = accel;
     }
 
-    fn acceleration_of(&self, slot: u32) -> f64 {
+    fn acceleration_of(&self, ctx: &RuleContext, slot: u32) -> f64 {
         let v = self.vehicles.v[slot as usize];
         let v0 = self.desired_speed(slot);
-        match self.obstacle(slot) {
+        match self.obstacle(ctx, slot) {
             Some((gap, leader_v)) => acceleration(v, v0, gap, v - leader_v),
             None => acceleration(v, v0, f64::INFINITY, 0.0),
         }
     }
 
-    fn obstacle(&self, slot: u32) -> Option<(f64, f64)> {
+    fn obstacle(&self, ctx: &RuleContext, slot: u32) -> Option<(f64, f64)> {
         let vehicle = leader(&self.network, &self.vehicles, &self.occupancy, slot);
-        let fixed = [self.stop_line_gap(slot), self.conflict_gap(slot)]
+        let fixed = [self.stop_line_gap(slot), self.conflict_gap(ctx, slot)]
             .into_iter()
             .flatten()
             .map(|gap| (gap, 0.0));
@@ -188,7 +193,7 @@ impl Sim {
     fn desired_speed(&self, slot: u32) -> f64 {
         let link = match self.vehicles.place[slot as usize] {
             Place::Link { link, .. } => Some(link),
-            Place::Movement { .. } => self.vehicles.route_link(slot, 1),
+            Place::Movement { .. } => self.ahead_of(slot).next(),
         };
         link.map_or(0.0, |link| self.network.link_speed(link))
     }

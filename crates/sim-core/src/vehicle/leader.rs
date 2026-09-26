@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::consts::CAR_LENGTH;
 use crate::network::{LinkId, Network};
 
@@ -18,38 +20,31 @@ pub fn leader(
     if let Some(entry) = occupancy.same_place_leader(slot, place_key(place)) {
         return Some((entry.s - s - CAR_LENGTH, vehicles.v[entry.slot as usize]));
     }
-    let acc = place_end(network, place)? - s;
-    let view = View {
-        network,
-        vehicles,
-        occupancy,
-    };
-    look_ahead(&view, slot, place, acc)
-}
-
-struct View<'a> {
-    network: &'a Network,
-    vehicles: &'a VehicleStore,
-    occupancy: &'a Occupancy,
-}
-
-fn look_ahead(view: &View, slot: u32, start: Place, mut acc: f64) -> Option<(f64, f64)> {
-    let (network, vehicles) = (view.network, view.vehicles);
-    let cursor = vehicles.cursor(slot);
-    let cached = vehicles.ahead[slot as usize];
-    let ahead = if cached.is_fresh(network, start, cursor) {
-        cached
-    } else {
-        Ahead::compute(network, vehicles.route(slot), start, cursor)
-    };
+    let ahead = current_ahead(network, vehicles, slot);
+    let mut acc = ahead.end()? - s;
     for place in ahead.places() {
-        if let Some((leader, leader_s)) = view.occupancy.last_on(place.key) {
+        if let Some((leader, leader_s)) = occupancy.last_on(place.key) {
             let gap = acc + leader_s - place.start - CAR_LENGTH;
             return Some((gap, vehicles.v[leader as usize]));
         }
         acc += place.end - place.start;
     }
     None
+}
+
+pub fn current_ahead<'a>(
+    network: &Network,
+    vehicles: &'a VehicleStore,
+    slot: u32,
+) -> Cow<'a, Ahead> {
+    let index = slot as usize;
+    let place = vehicles.place[index];
+    let cursor = vehicles.cursor(slot);
+    let cached = &vehicles.ahead[index];
+    if cached.is_fresh(network, place, cursor) {
+        return Cow::Borrowed(cached);
+    }
+    Cow::Owned(Ahead::compute(network, vehicles.route(slot), place, cursor))
 }
 
 pub fn extent(network: &Network, place: Place) -> Option<(f64, f64)> {

@@ -1,4 +1,4 @@
-use crate::consts::EMA_REFRESH_TICKS;
+use crate::consts::{EMA_REFRESH_TICKS, ROUTE_HEURISTIC_WEIGHT};
 use crate::network::LinkId;
 use crate::routing::{RouteContext, RouteGraph, RouteStats};
 use crate::vehicle::{Place, SpawnError};
@@ -7,8 +7,17 @@ use super::Sim;
 
 impl Sim {
     pub fn route(&mut self, from: LinkId, to: LinkId) -> Option<Vec<LinkId>> {
+        self.route_with_weight(from, to, ROUTE_HEURISTIC_WEIGHT)
+    }
+
+    pub fn route_with_weight(
+        &mut self,
+        from: LinkId,
+        to: LinkId,
+        heuristic_weight: f64,
+    ) -> Option<Vec<LinkId>> {
         self.ensure_graph();
-        self.route_to_buffer(from, to)
+        self.weighted_route_to_buffer(from, to, heuristic_weight)
             .then(|| self.route_buf.clone())
     }
 
@@ -46,11 +55,16 @@ impl Sim {
     }
 
     pub(super) fn route_to_buffer(&mut self, from: LinkId, to: LinkId) -> bool {
+        self.weighted_route_to_buffer(from, to, ROUTE_HEURISTIC_WEIGHT)
+    }
+
+    fn weighted_route_to_buffer(&mut self, from: LinkId, to: LinkId, weight: f64) -> bool {
         let ctx = RouteContext {
             graph: &self.graph,
             costs: &self.costs,
             landmarks: Some(&self.landmarks),
             network: &self.network,
+            heuristic_weight: weight,
         };
         self.router.route_into(ctx, from, to, &mut self.route_buf)
     }

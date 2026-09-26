@@ -17,6 +17,7 @@ pub struct RouteContext<'a> {
     pub costs: &'a LinkCosts,
     pub landmarks: Option<&'a Landmarks>,
     pub network: &'a Network,
+    pub heuristic_weight: f64,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -58,10 +59,11 @@ impl RouteContext<'_> {
         if target.is_goal(v) {
             return 0.0;
         }
-        match self.landmarks {
+        let h = match self.landmarks {
             Some(landmarks) => landmarks.estimate(self.network, self.costs, v, target),
             None => target.euclid(self.network, self.costs, v),
-        }
+        };
+        self.heuristic_weight * h
     }
 }
 

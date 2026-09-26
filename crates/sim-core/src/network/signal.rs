@@ -1,8 +1,6 @@
 mod cluster;
 mod phases;
 
-use std::collections::BTreeMap;
-
 use crate::consts::{SIGNAL_ALL_RED_TICKS, SIGNAL_AMBER_TICKS, SIGNAL_GREEN_TICKS};
 
 use super::link::LinkId;
@@ -29,9 +27,9 @@ pub struct SignalCluster {
 #[derive(Clone, Debug, Default)]
 pub struct Signals {
     clusters: Vec<SignalCluster>,
-    node_cluster: BTreeMap<u32, u32>,
+    node_cluster: Vec<Option<u32>>,
     approach_phase: Vec<Option<(u32, u16)>>,
-    internal: Vec<LinkId>,
+    internal: Vec<bool>,
 }
 
 impl Signals {
@@ -44,12 +42,13 @@ impl Signals {
         let groups = cluster::group(nodes, spatial, &is_active);
         let mut signals = Signals {
             approach_phase: vec![None; roads.count() * 2],
+            node_cluster: vec![None; nodes.count()],
+            internal: vec![false; roads.count() * 2],
             ..Signals::default()
         };
         for members in groups {
             signals.add_cluster(roads, nodes, &is_active, members);
         }
-        signals.internal.sort_unstable();
         signals
     }
 
@@ -71,9 +70,15 @@ impl Signals {
             }
         }
         for &node in &members {
-            self.node_cluster.insert(node, index);
+            if let Some(entry) = self.node_cluster.get_mut(node as usize) {
+                *entry = Some(index);
+            }
         }
-        self.internal.extend(links.internal);
+        for link in links.internal {
+            if let Some(entry) = self.internal.get_mut(link as usize) {
+                *entry = true;
+            }
+        }
         self.clusters.push(SignalCluster {
             nodes: members,
             approaches: links.approaches,
@@ -90,11 +95,11 @@ impl Signals {
     }
 
     pub fn cluster_of(&self, node: u32) -> Option<u32> {
-        self.node_cluster.get(&node).copied()
+        self.node_cluster.get(node as usize).copied().flatten()
     }
 
     pub fn is_internal(&self, link: LinkId) -> bool {
-        self.internal.binary_search(&link).is_ok()
+        self.internal.get(link as usize).copied().unwrap_or(false)
     }
 
     pub fn clusters(&self) -> &[SignalCluster] {

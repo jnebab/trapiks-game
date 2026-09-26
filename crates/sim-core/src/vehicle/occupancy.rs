@@ -128,6 +128,14 @@ impl Occupancy {
         }
     }
 
+    pub fn at_node(&self, node: u32) -> &[Entry] {
+        let group = node as usize;
+        match (self.node_first.get(group), self.node_first.get(group + 1)) {
+            (Some(&a), Some(&b)) => &self.entries[a as usize..b as usize],
+            _ => &[],
+        }
+    }
+
     fn bounds(&self, key: u64) -> std::ops::Range<usize> {
         let first = if key & MOVEMENT_BIT == 0 {
             &self.link_first

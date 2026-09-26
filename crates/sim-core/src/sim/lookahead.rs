@@ -1,4 +1,7 @@
+use std::borrow::Cow;
+
 use crate::vehicle::ahead::Ahead;
+use crate::vehicle::leader::current_ahead;
 
 use super::Sim;
 
@@ -9,6 +12,10 @@ impl Sim {
                 self.refresh_ahead_of(slot);
             }
         }
+    }
+
+    pub(super) fn ahead_of(&self, slot: u32) -> Cow<'_, Ahead> {
+        current_ahead(&self.network, &self.vehicles, slot)
     }
 
     fn refresh_ahead_of(&mut self, slot: u32) {

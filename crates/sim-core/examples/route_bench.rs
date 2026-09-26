@@ -63,7 +63,7 @@ fn run_trips(sim: &mut Sim) -> Timings {
         let from = random_active(sim.network(), &mut rng);
         let to = random_active(sim.network(), &mut rng);
         let started = Instant::now();
-        let route = sim.route(from, to);
+        let route = sim.route_with_weight(from, to, 1.0);
         timings.micros.push(started.elapsed().as_secs_f64() * 1e6);
         if let Some(route) = route {
             timings.links += route.len();

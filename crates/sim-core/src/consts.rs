@@ -35,6 +35,7 @@ pub const EMA_REFRESH_TICKS: u64 = 600;
 pub const EMA_ALPHA: f64 = 0.3;
 pub const MIN_LINK_SPEED: f64 = 1.0;
 pub const LANDMARK_COUNT: usize = 8;
+pub const ROUTE_HEURISTIC_WEIGHT: f64 = 2.0;
 pub const SPAWN_ROUTE_BUDGET: usize = 4;
 pub const TRIP_EXPIRY_TICKS: u64 = 600;
 pub const DESTINATION_DRAWS: u32 = 8;

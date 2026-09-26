@@ -135,27 +135,42 @@ impl Builder<'_> {
 
     fn select(mut self, reach: &[f64]) -> Landmarks {
         let mut landmarks = Landmarks::default();
+        let candidate = self.candidates(reach);
         let mut nearest: Vec<f64> = reach.to_vec();
         while landmarks.count() < LANDMARK_COUNT {
-            let Some(next) = farthest(reach, &nearest, &landmarks.links) else {
+            let Some(next) = farthest(&candidate, &nearest, &landmarks.links) else {
                 break;
             };
             let forward = self.forward(next);
-            tighten(&mut nearest, &forward, landmarks.links.is_empty());
             let backward = self.backward(next);
+            tighten(
+                &mut nearest,
+                &forward,
+                &backward,
+                landmarks.links.is_empty(),
+            );
             landmarks.push(next, &forward, &backward);
         }
         landmarks
     }
+
+    fn candidates(&self, reach: &[f64]) -> Vec<bool> {
+        reach
+            .iter()
+            .enumerate()
+            .map(|(i, r)| r.is_finite() && self.connected(i as LinkId))
+            .collect()
+    }
+
+    fn connected(&self, link: LinkId) -> bool {
+        !self.graph.successors(link).is_empty() && !self.graph.predecessors(link).is_empty()
+    }
 }
 
-fn tighten(nearest: &mut [f64], forward: &[f64], first: bool) {
-    if first {
-        nearest.clone_from_slice(forward);
-        return;
-    }
-    for (near, &d) in nearest.iter_mut().zip(forward) {
-        *near = near.min(d);
+fn tighten(nearest: &mut [f64], forward: &[f64], backward: &[f64], first: bool) {
+    for ((near, &f), &b) in nearest.iter_mut().zip(forward).zip(backward) {
+        let d = f.min(b);
+        *near = if first { d } else { near.min(d) };
     }
 }
 
@@ -170,11 +185,11 @@ fn mark_reached(dist: &[f64], active: &[bool], reached: &mut [bool]) -> usize {
     count
 }
 
-fn farthest(reach: &[f64], nearest: &[f64], chosen: &[LinkId]) -> Option<LinkId> {
+fn farthest(candidate: &[bool], nearest: &[f64], chosen: &[LinkId]) -> Option<LinkId> {
     let mut best: Option<(f64, LinkId)> = None;
-    for (i, (&r, &d)) in reach.iter().zip(nearest).enumerate() {
+    for (i, (&ok, &d)) in candidate.iter().zip(nearest).enumerate() {
         let link = i as LinkId;
-        if !r.is_finite() || !d.is_finite() || chosen.contains(&link) {
+        if !ok || !d.is_finite() || chosen.contains(&link) {
             continue;
         }
         if best.is_none_or(|(top, _)| d > top) {

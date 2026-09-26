@@ -1,80 +1,89 @@
 use crate::consts::{CAR_LENGTH, CONFLICT_CLEAR_MARGIN, STOPPED_SPEED};
-use crate::network::{Conflict, Movement};
-use crate::vehicle::approach::{PriorityKey, movement_priority};
+use crate::network::{Conflict, Junction, Movement};
+use crate::vehicle::approach::{PriorityKey, RuleContext, movement_priority};
 use crate::vehicle::{Place, movement_key};
 
 use super::Sim;
 
 struct InMovement<'a> {
+    slot: u32,
     node: u32,
-    index: usize,
+    junction: &'a Junction,
     movement: &'a Movement,
+    conflicts: &'a [Conflict],
     s: f64,
 }
 
 impl Sim {
-    pub(super) fn conflict_gap(&self, slot: u32) -> Option<f64> {
-        let at = self.movement_position(slot)?;
-        let conflicts = self.network.junction(at.node)?.conflicts.get(at.index)?;
-        let own = movement_priority(&self.rule_context(), slot, at.node, at.movement);
-        conflicts
-            .iter()
-            .map(|c| (c, c.s_self - CONFLICT_CLEAR_MARGIN))
-            .filter(|&(c, stop)| !c.merge && at.s < stop && self.point_held(at.node, c, own))
-            .map(|(_, stop)| stop - at.s)
-            .reduce(f64::min)
+    pub(super) fn conflict_gap(&self, ctx: &RuleContext, slot: u32) -> Option<f64> {
+        let at = self.movement_position(ctx, slot)?;
+        let mut own = None;
+        let mut best: Option<f64> = None;
+        for conflict in at.conflicts {
+            let stop = conflict.s_self - CONFLICT_CLEAR_MARGIN;
+            if conflict.merge || at.s >= stop || !point_held(ctx, &at, conflict, &mut own) {
+                continue;
+            }
+            let gap = stop - at.s;
+            best = Some(best.map_or(gap, |b| b.min(gap)));
+        }
+        best
     }
 
-    fn movement_position(&self, slot: u32) -> Option<InMovement<'_>> {
+    fn movement_position(&self, ctx: &RuleContext, slot: u32) -> Option<InMovement<'_>> {
         let index = slot as usize;
+        let on_link = matches!(self.vehicles.place[index], Place::Link { .. });
+        if on_link && !self.vehicles.committed[index] {
+            return None;
+        }
+        let ahead = self.ahead_of(slot);
+        let (node, movement) = ahead.crossing()?;
+        if !others_at(ctx, node, slot) {
+            return None;
+        }
         let s = self.vehicles.s[index];
-        match self.vehicles.place[index] {
-            Place::Movement { node, movement, .. } => {
-                let junction = self.network.junction(node)?;
-                let movement = usize::from(movement);
-                Some(InMovement {
-                    node,
-                    index: movement,
-                    movement: junction.movements.get(movement)?,
-                    s,
-                })
-            }
-            Place::Link { link, .. } => {
-                if !self.vehicles.committed[index] {
-                    return None;
-                }
-                let next = self.vehicles.route_link(slot, 1)?;
-                let node = self.network.link_to(link);
-                let junction = self.network.junction(node)?;
-                let movement = junction.movement_index(link, next)?;
-                Some(InMovement {
-                    node,
-                    index: movement,
-                    movement: &junction.movements[movement],
-                    s: s - self.network.link_span(link).1,
-                })
-            }
+        let junction = self.network.junction(node)?;
+        let movement = usize::from(movement);
+        Some(InMovement {
+            slot,
+            node,
+            junction,
+            movement: junction.movements.get(movement)?,
+            conflicts: junction.conflicts.get(movement)?,
+            s: if on_link { s - ahead.end()? } else { s },
+        })
+    }
+}
+
+fn others_at(ctx: &RuleContext, node: u32, slot: u32) -> bool {
+    ctx.occupancy
+        .at_node(node)
+        .iter()
+        .any(|entry| entry.slot != slot)
+}
+
+fn point_held(
+    ctx: &RuleContext,
+    at: &InMovement,
+    conflict: &Conflict,
+    own: &mut Option<PriorityKey>,
+) -> bool {
+    let Some(movement) = at.junction.movements.get(usize::from(conflict.other)) else {
+        return false;
+    };
+    let low = conflict.s_other - CONFLICT_CLEAR_MARGIN;
+    let high = conflict.s_other + CAR_LENGTH + CONFLICT_CLEAR_MARGIN;
+    for entry in ctx.occupancy.range(movement_key(at.node, conflict.other)) {
+        if entry.s < low || entry.s > high {
+            continue;
+        }
+        if ctx.vehicles.v[entry.slot as usize] < STOPPED_SPEED {
+            return true;
+        }
+        let own = *own.get_or_insert_with(|| movement_priority(ctx, at.slot, at.node, at.movement));
+        if movement_priority(ctx, entry.slot, at.node, movement) < own {
+            return true;
         }
     }
-
-    fn point_held(&self, node: u32, conflict: &Conflict, own: PriorityKey) -> bool {
-        let low = conflict.s_other - CONFLICT_CLEAR_MARGIN;
-        let high = conflict.s_other + CAR_LENGTH + CONFLICT_CLEAR_MARGIN;
-        let Some(movement) = self
-            .network
-            .junction(node)
-            .and_then(|j| j.movements.get(usize::from(conflict.other)))
-        else {
-            return false;
-        };
-        let ctx = self.rule_context();
-        self.occupancy
-            .range(movement_key(node, conflict.other))
-            .iter()
-            .filter(|entry| entry.s >= low && entry.s <= high)
-            .any(|entry| {
-                self.vehicles.v[entry.slot as usize] < STOPPED_SPEED
-                    || movement_priority(&ctx, entry.slot, node, movement) < own
-            })
-    }
+    false
 }

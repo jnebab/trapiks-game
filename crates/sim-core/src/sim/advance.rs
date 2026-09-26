@@ -39,7 +39,7 @@ impl Sim {
         let index = slot as usize;
         loop {
             let place = self.vehicles.place[index];
-            let Some(end) = place_end(&self.network, place) else {
+            let Some(end) = self.end_of(slot, place) else {
                 return Outcome::Stranded;
             };
             let s = self.vehicles.s[index];
@@ -65,6 +65,14 @@ impl Sim {
             self.vehicles.s[index] = self.place_start(next) + s - end;
             self.vehicles.reset_junction_state(slot);
         }
+    }
+
+    fn end_of(&self, slot: u32, place: Place) -> Option<f64> {
+        let cached = &self.vehicles.ahead[slot as usize];
+        if cached.is_fresh(&self.network, place, self.vehicles.cursor(slot)) {
+            return cached.end();
+        }
+        place_end(&self.network, place)
     }
 
     fn at_destination(&self, slot: u32, place: Place) -> bool {
