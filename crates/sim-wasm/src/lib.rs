@@ -1,5 +1,11 @@
 mod engine;
 mod geometry;
+#[cfg(feature = "fixtures")]
+mod scenario;
+mod snapshot;
 
 pub use engine::Engine;
 pub use geometry::{AreaGeometry, NodeGeometry, RoadGeometry};
+#[cfg(feature = "fixtures")]
+pub use scenario::run_scenario;
+pub use snapshot::SnapshotPointers;

@@ -1,9 +1,37 @@
 import type { MapMeta } from '../generated/MapMeta';
+import type { SimConfig } from '../generated/SimConfig';
+import type { StatsSnapshot } from '../generated/StatsSnapshot';
+import {
+  hasArrays,
+  isRecord,
+  isSimConfig,
+  isSnapshotBuffers,
+  isSpeed,
+  isStatsSnapshot,
+  type ArrayCtor,
+  type SnapshotBuffers,
+  type Speed,
+} from './values';
+
+export type { SnapshotBuffers, Speed } from './values';
 
 export interface LoadMessage {
   type: 'load';
   url: string;
+  config: SimConfig;
 }
+
+export interface SpeedMessage {
+  type: 'speed';
+  speed: Speed;
+}
+
+export interface BuffersMessage {
+  type: 'buffers';
+  buffers: SnapshotBuffers;
+}
+
+export type MainMessage = LoadMessage | SpeedMessage | BuffersMessage;
 
 export interface RoadArrays {
   pointStart: Uint32Array;
@@ -42,10 +70,21 @@ export interface ErrorMessage {
   message: string;
 }
 
-export type WorkerMessage = ReadyMessage | ErrorMessage;
+export interface SnapshotMessage {
+  type: 'snapshot';
+  tick: number;
+  simTime: number;
+  count: number;
+  buffers: SnapshotBuffers;
+}
 
-type ArrayCtor =
-  Uint8ArrayConstructor | Int8ArrayConstructor | Uint32ArrayConstructor | Float32ArrayConstructor;
+export interface StatsMessage {
+  type: 'stats';
+  stats: StatsSnapshot;
+  roadSpeedRatio: Float32Array<ArrayBuffer>;
+}
+
+export type WorkerMessage = ReadyMessage | ErrorMessage | SnapshotMessage | StatsMessage;
 
 const roadShape: Record<keyof RoadArrays, ArrayCtor> = {
   pointStart: Uint32Array,
@@ -71,17 +110,6 @@ const areaShape: Record<keyof AreaArrays, ArrayCtor> = {
   y: Float32Array,
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function hasArrays(value: unknown, shape: Record<string, ArrayCtor>): boolean {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return Object.entries(shape).every(([key, ctor]) => value[key] instanceof ctor);
-}
-
 export function isMapMeta(value: unknown): value is MapMeta {
   if (!isRecord(value)) {
     return false;
@@ -104,16 +132,47 @@ function isReadyMessage(value: Record<string, unknown>): boolean {
   );
 }
 
-export function isWorkerMessage(value: unknown): value is WorkerMessage {
-  if (!isRecord(value)) {
-    return false;
-  }
-  if (value.type === 'error') {
-    return typeof value.message === 'string';
-  }
-  return value.type === 'ready' && isReadyMessage(value);
+function isSnapshotMessage(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.tick === 'number' &&
+    typeof value.simTime === 'number' &&
+    typeof value.count === 'number' &&
+    isSnapshotBuffers(value.buffers)
+  );
 }
 
-export function isLoadMessage(value: unknown): value is LoadMessage {
-  return isRecord(value) && value.type === 'load' && typeof value.url === 'string';
+function isStatsMessage(value: Record<string, unknown>): boolean {
+  return isStatsSnapshot(value.stats) && value.roadSpeedRatio instanceof Float32Array;
+}
+
+const workerGuards: Record<WorkerMessage['type'], (value: Record<string, unknown>) => boolean> = {
+  ready: isReadyMessage,
+  error: (value) => typeof value.message === 'string',
+  snapshot: isSnapshotMessage,
+  stats: isStatsMessage,
+};
+
+const mainGuards: Record<MainMessage['type'], (value: Record<string, unknown>) => boolean> = {
+  load: (value) => typeof value.url === 'string' && isSimConfig(value.config),
+  speed: (value) => isSpeed(value.speed),
+  buffers: (value) => isSnapshotBuffers(value.buffers),
+};
+
+function matches(
+  value: unknown,
+  guards: Record<string, (v: Record<string, unknown>) => boolean>,
+): boolean {
+  if (!isRecord(value) || typeof value.type !== 'string') {
+    return false;
+  }
+  const guard = guards[value.type];
+  return guard !== undefined && Object.hasOwn(guards, value.type) && guard(value);
+}
+
+export function isWorkerMessage(value: unknown): value is WorkerMessage {
+  return matches(value, workerGuards);
+}
+
+export function isMainMessage(value: unknown): value is MainMessage {
+  return matches(value, mainGuards);
 }

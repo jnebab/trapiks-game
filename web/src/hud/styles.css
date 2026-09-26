@@ -39,3 +39,23 @@ canvas {
   top: 48px;
   left: 8px;
 }
+
+.speed-control {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.speed-control .chip {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.speed-control .chip.active {
+  background: var(--ink);
+  color: var(--chip-bg);
+}

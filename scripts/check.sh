@@ -5,6 +5,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+node scripts/check-wasm-determinism.mjs
 pnpm --dir web install --frozen-lockfile
 pnpm --dir web build
 pnpm --dir web typecheck

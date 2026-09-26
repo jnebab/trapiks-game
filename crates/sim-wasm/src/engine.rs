@@ -1,26 +1,53 @@
+use trapiks_sim_core::config::SimConfig;
+use trapiks_sim_core::consts::MAX_VEHICLES;
 use trapiks_sim_core::map::{MapData, from_bytes};
 use trapiks_sim_core::render::{area_render, node_render, road_render};
+use trapiks_sim_core::sim::{Sim, Snapshot};
 use trapiks_sim_core::{MapMeta, map_meta};
 use wasm_bindgen::prelude::*;
 
 use crate::geometry::{AreaGeometry, NodeGeometry, RoadGeometry};
+use crate::snapshot::SnapshotPointers;
 
 #[wasm_bindgen]
 pub struct Engine {
     map: MapData,
     meta: MapMeta,
+    sim: Sim,
+    snapshot: Snapshot,
+}
+
+fn js_error(error: impl ToString) -> JsError {
+    JsError::new(&error.to_string())
+}
+
+fn preallocated_snapshot() -> Snapshot {
+    Snapshot {
+        ids: Vec::with_capacity(MAX_VEHICLES),
+        x: Vec::with_capacity(MAX_VEHICLES),
+        y: Vec::with_capacity(MAX_VEHICLES),
+        heading: Vec::with_capacity(MAX_VEHICLES),
+        style: Vec::with_capacity(MAX_VEHICLES),
+    }
 }
 
 #[wasm_bindgen]
 impl Engine {
-    pub fn load(bytes: &[u8]) -> Result<Engine, JsError> {
-        let map = from_bytes(bytes).map_err(|error| JsError::new(&error.to_string()))?;
+    pub fn load(bytes: &[u8], config: JsValue) -> Result<Engine, JsError> {
+        let config: SimConfig = serde_wasm_bindgen::from_value(config).map_err(js_error)?;
+        let map = from_bytes(bytes).map_err(js_error)?;
         let meta = map_meta(&map, bytes);
-        Ok(Engine { map, meta })
+        let sim = Sim::from_config(&map, &config);
+        Ok(Engine {
+            map,
+            meta,
+            sim,
+            snapshot: preallocated_snapshot(),
+        })
     }
 
     pub fn meta(&self) -> Result<JsValue, JsError> {
-        serde_wasm_bindgen::to_value(&self.meta).map_err(|error| JsError::new(&error.to_string()))
+        serde_wasm_bindgen::to_value(&self.meta).map_err(js_error)
     }
 
     #[wasm_bindgen(js_name = roadGeometry)]
@@ -36,5 +63,36 @@ impl Engine {
     #[wasm_bindgen(js_name = areaGeometry)]
     pub fn area_geometry(&self) -> AreaGeometry {
         AreaGeometry::from(area_render(&self.map))
+    }
+
+    pub fn step(&mut self) {
+        self.sim.step();
+    }
+
+    pub fn tick(&self) -> f64 {
+        self.sim.tick() as f64
+    }
+
+    #[wasm_bindgen(js_name = fillSnapshot)]
+    pub fn fill_snapshot(&mut self) -> u32 {
+        self.sim.fill_snapshot(&mut self.snapshot);
+        debug_assert!(self.snapshot.ids.len() <= self.snapshot.ids.capacity());
+        self.snapshot.ids.len() as u32
+    }
+
+    #[wasm_bindgen(js_name = snapshotPointers)]
+    pub fn snapshot_pointers(&self) -> SnapshotPointers {
+        SnapshotPointers::of(&self.snapshot)
+    }
+
+    pub fn stats(&self) -> Result<JsValue, JsError> {
+        serde_wasm_bindgen::to_value(&self.sim.stats()).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = roadSpeedRatio)]
+    pub fn road_speed_ratio(&self) -> Vec<f32> {
+        let mut out = Vec::new();
+        self.sim.road_speed_ratio(&mut out);
+        out
     }
 }
