@@ -1,43 +1,55 @@
 import type { DebugApp } from '../render/app';
+import type { CameraState } from '../render/camera-input';
 import type { MapView } from '../render/map-view';
 import { applyDelta } from '../render/network-update';
 import { NodeHighlight } from '../render/node-highlight';
 import { SelectionLayer } from '../render/selection';
 import type { SignalPillLayer } from '../render/signal-pills';
-import { EditController } from '../edit/edit-controller';
+import { EditController, type EditContext } from '../edit/edit-controller';
 import { InspectSelection } from '../edit/inspect-selection';
 import { Picking } from '../edit/picking';
 import type { MapMeta } from '../generated/MapMeta';
-import { el } from '../hud/dom';
 import { createInspectorPanel } from '../hud/inspector/panel';
 import { createTooltip } from '../hud/inspector/tooltip';
-import { createUndoChip } from '../hud/inspector/undo-chip';
+import { createUndoChip, type UndoChip } from '../hud/inspector/undo-chip';
 import type { CommandResultsMessage } from '../sim/protocol';
 import type { SimClient } from '../sim/client';
+import type { Lifetime } from './lifetime';
 
-export type ResultsHandler = (message: CommandResultsMessage) => void;
-
-function pillArrays(delta: NonNullable<CommandResultsMessage['delta']>) {
-  return { link: delta.pillLink, x: delta.pillX, y: delta.pillY, angle: delta.pillAngle };
+export interface EditHost {
+  root: HTMLElement;
+  slot: HTMLElement;
 }
 
 export interface EditTargets {
   view: MapView;
+  camera: CameraState;
   client: SimClient;
   pills: SignalPillLayer;
   meta: MapMeta;
 }
 
-function createHud(root: HTMLElement, targets: EditTargets) {
+export interface EditSession {
+  onResults: (message: CommandResultsMessage) => void;
+  setLocked: (locked: boolean) => void;
+}
+
+function pillArrays(delta: NonNullable<CommandResultsMessage['delta']>) {
+  return { link: delta.pillLink, x: delta.pillX, y: delta.pillY, angle: delta.pillAngle };
+}
+
+function createPanel(host: EditHost, targets: EditTargets, lifetime: Lifetime) {
   const { view, client, meta } = targets;
-  const tooltip = createTooltip(root);
+  const layer = document.createElement('div');
+  host.root.appendChild(layer);
+  lifetime.onDispose(() => {
+    layer.remove();
+  });
+  const tooltip = createTooltip(layer);
   const stores = { roads: view.roads, names: meta.names, classNames: meta.class_names };
   const panel = createInspectorPanel({ client, tooltip, stores });
-  const undo = createUndoChip(client, tooltip);
-  const topBar = el('div', 'top-bar');
-  topBar.appendChild(undo.element);
-  root.append(topBar, panel.element);
-  return { panel, undo, topBar };
+  layer.appendChild(panel.element);
+  return { panel, tooltip };
 }
 
 interface ResultTargets {
@@ -46,56 +58,96 @@ interface ResultTargets {
   selection: SelectionLayer;
   controller: EditController;
   pills: SignalPillLayer;
+  undo: UndoChip;
 }
 
-function resultsHandler(targets: ResultTargets, after: () => void): ResultsHandler {
-  const { view, picking, selection, controller, pills } = targets;
-  return ({ results, delta, budget }) => {
+function resultsHandler(targets: ResultTargets) {
+  const { view, picking, selection, controller, pills, undo } = targets;
+  return ({ results, delta, budget }: CommandResultsMessage): void => {
     if (delta !== null) {
       applyDelta(delta, { ...view, picking });
       selection.refresh(new Set(delta.roadIds));
     }
     controller.onResults(results, budget);
-    after();
+    undo.refresh();
     if (delta !== null) {
       pills.rebuild(pillArrays(delta));
     }
   };
 }
 
+function mountChips(host: EditHost, lifetime: Lifetime): HTMLElement {
+  const chips = document.createElement('div');
+  chips.className = 'chip-group';
+  host.slot.appendChild(chips);
+  lifetime.onDispose(() => {
+    chips.remove();
+  });
+  return chips;
+}
+
 export function startEditing(
   scene: DebugApp,
-  root: HTMLElement,
+  host: EditHost,
   targets: EditTargets,
-): ResultsHandler {
-  const { view, client, pills } = targets;
+  lifetime: Lifetime,
+): EditSession {
+  const { view, client, pills, camera } = targets;
   const picking = new Picking(view.roads, view.nodes, view.detail);
   const selection = new SelectionLayer(view.layers.selection, view.roads);
-  scene.app.ticker.add(() => {
-    selection.setScale(view.state.camera.scale);
+  lifetime.onTick(scene.app.ticker, () => {
+    selection.setScale(camera.camera.scale);
   });
-  const hud = createHud(root, targets);
+  const { panel, tooltip } = createPanel(host, targets, lifetime);
+  const node = new NodeHighlight(view.layers.selection, view.detail);
   const inspect = new InspectSelection({
     client,
-    panel: hud.panel,
+    panel,
     roads: selection,
-    node: new NodeHighlight(view.layers.selection, view.detail),
+    node,
     detail: view.detail,
   });
-  const controller = new EditController({
-    root,
-    canvas: scene.app.canvas,
-    state: view.state,
-    tiles: view.tiles,
+  const chips = mountChips(host, lifetime);
+  const controller = createController(scene, host, targets, {
     picking,
     selection,
-    roads: view.roads,
     inspect,
-    topBar: hud.topBar,
-    send: client.sendCommand,
+    topBar: chips,
+    signal: lifetime.signal,
   });
-  const afterResults = (): void => {
-    hud.undo.refresh();
+  const undo = createUndoChip(client, tooltip);
+  chips.appendChild(undo.element);
+  return {
+    onResults: resultsHandler({ view, picking, selection, controller, pills, undo }),
+    setLocked: locker(controller, undo, inspect),
   };
-  return resultsHandler({ view, picking, selection, controller, pills }, afterResults);
+}
+
+type ControllerParts = Pick<EditContext, 'picking' | 'selection' | 'inspect' | 'topBar' | 'signal'>;
+
+function createController(
+  scene: DebugApp,
+  host: EditHost,
+  targets: EditTargets,
+  parts: ControllerParts,
+): EditController {
+  return new EditController({
+    ...parts,
+    root: host.root,
+    canvas: scene.app.canvas,
+    state: targets.camera,
+    tiles: targets.view.tiles,
+    roads: targets.view.roads,
+    send: targets.client.sendCommand,
+  });
+}
+
+function locker(controller: EditController, undo: UndoChip, inspect: InspectSelection) {
+  return (locked: boolean): void => {
+    controller.locked = locked;
+    undo.element.disabled = locked;
+    if (locked) {
+      inspect.select(undefined);
+    }
+  };
 }

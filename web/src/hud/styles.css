@@ -32,12 +32,18 @@ canvas {
 
 #debug {
   position: fixed;
+  z-index: 5;
   top: 8px;
   left: 8px;
+  max-width: 40vw;
+  font-size: 11px;
+  opacity: 0.75;
+  pointer-events: none;
 }
 
 .error {
   position: fixed;
+  z-index: 6;
   top: 48px;
   left: 8px;
 }
@@ -99,7 +105,25 @@ button.chip[aria-pressed='true'] {
   top: 8px;
   right: 12px;
   display: flex;
+  align-items: center;
   gap: 6px;
+}
+
+.top-bar .speed-control {
+  position: static;
+  transform: none;
+}
+
+.chip-group {
+  display: contents;
+}
+
+.screen {
+  display: contents;
+}
+
+.screen-title {
+  font-weight: 500;
 }
 
 .inspector {
@@ -109,8 +133,6 @@ button.chip[aria-pressed='true'] {
   right: 12px;
   box-sizing: border-box;
   width: 300px;
-  max-height: calc(100vh - 60px);
-  overflow-y: auto;
   padding: 14px;
   background: #ffffff;
   border: 1px solid #d6d6d0;
@@ -218,4 +240,329 @@ button.chip.turn-toggle.banned {
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
+}
+
+#inspector {
+  max-height: calc(100vh - 72px);
+  overflow-y: auto;
+}
+
+input[type='range'] {
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  accent-color: #1d1d1d;
+  appearance: none;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  background: #d6d6d0;
+  border-radius: 2px;
+}
+
+input[type='range']::-moz-range-track {
+  height: 4px;
+  background: #d6d6d0;
+  border-radius: 2px;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  background: #1d1d1d;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #d6d6d0;
+  appearance: none;
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #1d1d1d;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #d6d6d0;
+}
+
+input[type='range']:focus-visible {
+  outline: 2px solid #1d1d1d;
+  outline-offset: 2px;
+}
+
+button.chip.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--chip-bg);
+}
+
+button.chip:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.toast {
+  z-index: 6;
+}
+
+.attribution {
+  position: fixed;
+  z-index: 4;
+  right: 12px;
+  bottom: 12px;
+  padding: 2px 8px;
+  color: #555555;
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.bottom-left {
+  position: fixed;
+  z-index: 2;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.objective {
+  padding: 8px 14px;
+  font-weight: 500;
+}
+
+.evaluate {
+  padding: 8px 18px;
+}
+
+.progress-overlay {
+  position: fixed;
+  z-index: 3;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(238, 237, 230, 0.55);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.progress-overlay[hidden],
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.demand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+}
+
+.demand input {
+  width: 200px;
+}
+
+.demand-label {
+  min-width: 150px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-row {
+  display: flex;
+  gap: 6px;
+}
+
+.stat {
+  font-variant-numeric: tabular-nums;
+}
+
+.title-screen,
+.challenges-screen,
+.modal-backdrop {
+  position: fixed;
+  z-index: 3;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title-screen {
+  background: linear-gradient(to bottom, rgba(238, 237, 230, 0.2), rgba(238, 237, 230, 0.75));
+}
+
+.title-card,
+.result-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 48px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--chip-border);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.wordmark {
+  margin: 0;
+  font-size: 72px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.tagline {
+  margin: 0;
+  color: #555555;
+  font-size: 18px;
+}
+
+.title-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.title-button {
+  min-width: 128px;
+  padding: 10px 18px;
+  font-size: 16px;
+}
+
+.credits {
+  margin: 6px 0 0;
+  color: #8e8e8e;
+  font-size: 11px;
+}
+
+.challenges-screen {
+  flex-direction: column;
+  gap: 18px;
+  background: rgba(238, 237, 230, 0.82);
+}
+
+.challenges-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(960px, 92vw);
+}
+
+.challenges-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.challenge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  width: min(960px, 92vw);
+}
+
+.challenge-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--chip-border);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.challenge-card:hover {
+  border-color: #b9b9b2;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.card-name {
+  margin: 0;
+  font-size: 19px;
+}
+
+.card-blurb {
+  margin: 0;
+  color: #555555;
+  font-size: 13px;
+}
+
+.card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.stars {
+  color: #f2b33d;
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+
+.modal-backdrop {
+  z-index: 4;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.result-modal {
+  min-width: 320px;
+  padding: 28px 36px;
+}
+
+.result-title {
+  margin: 0;
+  font-size: 28px;
+}
+
+.result-stars {
+  font-size: 40px;
+}
+
+.result-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.result-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.result-label {
+  color: #555555;
+}
+
+.result-value {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-reasons {
+  margin: 0;
+  padding-left: 18px;
+  color: #c62828;
+  font-size: 13px;
+}
+
+.result-reasons:empty {
+  display: none;
+}
+
+.result-buttons {
+  display: flex;
+  gap: 8px;
 }

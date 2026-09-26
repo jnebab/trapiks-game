@@ -11,6 +11,7 @@ interface Car {
 function snapshot(tick: number, cars: Car[]): SnapshotMessage {
   return {
     type: 'snapshot',
+    session: 0,
     tick,
     simTime: tick / 10,
     count: cars.length,

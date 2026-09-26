@@ -16,31 +16,48 @@ function localPoint(canvas: HTMLCanvasElement, event: PointerEvent): ScreenPosit
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
-export function trackPointer(canvas: HTMLCanvasElement, handlers: PointerHandlers): ScreenPosition {
-  const last: ScreenPosition = { x: NaN, y: NaN };
-  let down: ScreenPosition | undefined;
-  let frame = 0;
-  canvas.addEventListener('pointermove', (event: PointerEvent) => {
-    Object.assign(last, localPoint(canvas, event));
-    if (down !== undefined || frame !== 0) {
+interface PointerState {
+  last: ScreenPosition;
+  down: ScreenPosition | undefined;
+  frame: number;
+}
+
+function onMove(canvas: HTMLCanvasElement, handlers: PointerHandlers, state: PointerState) {
+  return (event: PointerEvent): void => {
+    Object.assign(state.last, localPoint(canvas, event));
+    if (state.down !== undefined || state.frame !== 0) {
       return;
     }
-    frame = requestAnimationFrame(() => {
-      frame = 0;
-      handlers.onHover(last.x, last.y);
+    state.frame = requestAnimationFrame(() => {
+      state.frame = 0;
+      handlers.onHover(state.last.x, state.last.y);
     });
-  });
-  canvas.addEventListener('pointerdown', (event: PointerEvent) => {
-    down = localPoint(canvas, event);
-    handlers.onPress();
-  });
-  canvas.addEventListener('pointerup', (event: PointerEvent) => {
+  };
+}
+
+function onUp(canvas: HTMLCanvasElement, handlers: PointerHandlers, state: PointerState) {
+  return (event: PointerEvent): void => {
     const up = localPoint(canvas, event);
-    const start = down;
-    down = undefined;
+    const start = state.down;
+    state.down = undefined;
     if (start !== undefined && Math.hypot(up.x - start.x, up.y - start.y) <= CLICK_SLOP_PX) {
       handlers.onClick(up.x, up.y);
     }
-  });
-  return last;
+  };
+}
+
+export function trackPointer(
+  canvas: HTMLCanvasElement,
+  handlers: PointerHandlers,
+  signal: AbortSignal,
+): ScreenPosition {
+  const state: PointerState = { last: { x: NaN, y: NaN }, down: undefined, frame: 0 };
+  const onDown = (event: PointerEvent): void => {
+    state.down = localPoint(canvas, event);
+    handlers.onPress();
+  };
+  canvas.addEventListener('pointermove', onMove(canvas, handlers, state), { signal });
+  canvas.addEventListener('pointerdown', onDown, { signal });
+  canvas.addEventListener('pointerup', onUp(canvas, handlers, state), { signal });
+  return state.last;
 }

@@ -34,7 +34,7 @@ async function waitForTiles(page: Page): Promise<void> {
 
 test('skyway over a crossing casts shadows', async ({ page }, testInfo) => {
   const errors = collectErrors(page);
-  await page.goto('/?map=synthetic&vph=0&cx=2250&cy=2250&z=5');
+  await page.goto('/?map=synthetic&vph=0&cx=2250&cy=2250&z=5#/sandbox');
   await waitForTiles(page);
   await expect.poll(async () => numberAttr(page, 'data-shadow-pieces')).toBeGreaterThan(0);
   await page.waitForTimeout(300);
@@ -44,7 +44,7 @@ test('skyway over a crossing casts shadows', async ({ page }, testInfo) => {
 
 test('signal junction shows live pills', async ({ page }, testInfo) => {
   const errors = collectErrors(page);
-  await page.goto('/?map=synthetic&vph=0&cx=750&cy=750&z=12');
+  await page.goto('/?map=synthetic&vph=0&cx=750&cy=750&z=12#/sandbox');
   await waitForTiles(page);
   await expect.poll(async () => numberAttr(page, 'data-signal-pills')).toBeGreaterThanOrEqual(4);
   await page.keyboard.press('5');
@@ -58,7 +58,7 @@ test('signal junction shows live pills', async ({ page }, testInfo) => {
 test('vehicles use the polished sprite', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   const errors = collectErrors(page);
-  await page.goto('/?map=synthetic&vph=6000&cx=750&cy=900&z=10');
+  await page.goto('/?map=synthetic&vph=6000&cx=750&cy=900&z=10#/sandbox');
   await waitForTiles(page);
   await page.keyboard.press('5');
   await expect

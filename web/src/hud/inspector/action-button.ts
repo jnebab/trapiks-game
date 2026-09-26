@@ -48,10 +48,13 @@ function quoter(
   const requote = (): void => {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
-      void quote().then((outcome) => {
-        setDisabled(button, 'Err' in outcome);
-        show(outcome);
-      });
+      quote().then(
+        (outcome) => {
+          setDisabled(button, 'Err' in outcome);
+          show(outcome);
+        },
+        () => undefined,
+      );
     }, QUOTE_DEBOUNCE_MS);
   };
   return { requote };

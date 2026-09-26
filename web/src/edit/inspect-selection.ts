@@ -54,11 +54,14 @@ export class InspectSelection {
   private load(target: InspectTarget): void {
     this.token += 1;
     const token = this.token;
-    void this.deps.client.inspect(target).then((inspection) => {
-      if (token === this.token) {
-        this.show(inspection);
-      }
-    });
+    this.deps.client.inspect(target).then(
+      (inspection) => {
+        if (token === this.token) {
+          this.show(inspection);
+        }
+      },
+      () => undefined,
+    );
   }
 
   private show(inspection: Inspection | null): void {

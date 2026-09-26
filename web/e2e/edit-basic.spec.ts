@@ -63,7 +63,7 @@ async function spent(page: Page): Promise<number> {
 test('hover, delete and undo a residential road', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   const errors = collectErrors(page);
-  await page.goto('/?map=synthetic&vph=0&cx=975&cy=450&z=16');
+  await page.goto('/?map=synthetic&vph=0&cx=975&cy=450&z=16#/sandbox');
   await waitForTiles(page);
   await page.mouse.move(640, 360);
   await expect.poll(async () => isCyan(await samplePixel(page)), { timeout: 10_000 }).toBe(true);

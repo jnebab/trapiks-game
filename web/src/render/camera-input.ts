@@ -49,6 +49,14 @@ function advance(state: CameraState, dtMs: number): void {
   }
 }
 
+export function flyCamera(
+  state: CameraState,
+  target: { x: number; y: number; scale: number },
+  view: { w: number; h: number },
+): void {
+  state.motion = { kind: 'fly', path: flyTo(state.camera, target, view, FLY_MS), elapsed: 0 };
+}
+
 function wireWheel(canvas: HTMLCanvasElement, state: CameraState, world: Container): void {
   canvas.addEventListener(
     'wheel',

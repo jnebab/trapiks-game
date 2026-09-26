@@ -9,11 +9,24 @@ import { buildMarkings } from './markings-builder';
 import type { StreetData } from './street-data';
 import { buildTile } from './tile-builder';
 import { TileCache } from './tile-cache';
-import { buildTileIndex, type Band, type BandName, type TileIndex } from './tile-index';
+import {
+  buildTileIndex,
+  type Band,
+  type BandName,
+  type TileEntry,
+  type TileIndex,
+} from './tile-index';
 import { moveRoads, moveStreet, truncateIndex, type NetworkChange } from './tile-invalidate';
 import { visibleTiles } from './visible';
 
 export const CITY_MAX_SCALE = 0.35;
+
+export interface ActiveTiles {
+  band: BandName;
+  keys: readonly string[];
+  entry: (key: string) => TileEntry | undefined;
+  width: (road: number) => number;
+}
 const CITY_TILE = 4096;
 const DETAIL_TILE = 512;
 const VIEW_MARGIN = 256;
@@ -89,6 +102,7 @@ export class TileManager {
   markingsBuilt = 0;
   shadowPieces = 0;
   activeBand: BandName = 'city';
+  private visibleKeys: readonly string[] = [];
   private readonly city: BandState;
   private readonly detail: BandState;
 
@@ -101,6 +115,16 @@ export class TileManager {
     const city = { name: 'city', size: CITY_TILE, include: cityInclude(roads, meta) } as const;
     this.city = createBand(roads, city, cityStyle(meta.class_ranks));
     this.detail = createDetailBand(roads, street);
+  }
+
+  activeTiles(): ActiveTiles {
+    const band = this.activeBand === 'city' ? this.city : this.detail;
+    return {
+      band: band.name,
+      keys: this.visibleKeys,
+      entry: (key) => band.index.get(key),
+      width: (road) => band.style(this.roads, road, 'fill').width,
+    };
   }
 
   truncate(counts: { roads: number; nodes: number }, markers: readonly number[]): void {
@@ -130,6 +154,7 @@ export class TileManager {
     if (remaining === 0) {
       inactive.cache.show([]);
     }
+    this.visibleKeys = keys;
     this.visibleCount = keys.length;
     this.builtCount = keys.length - remaining;
     this.updateMarkings(active, keys, camera.scale >= STREET_MIN_SCALE);

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isMainMessage, isWorkerMessage } from './protocol';
+import { isWorkerMessage } from './protocol';
 
 function readyMessage(): Record<string, unknown> {
   return {
     type: 'ready',
+    session: 0,
+    mode: 'sandbox',
+    region: null,
     meta: {
       map_hash: '0123456789abcdef',
       road_count: 1,
@@ -74,7 +77,7 @@ describe('isWorkerMessage', () => {
   });
 
   it('accepts an error message', () => {
-    expect(isWorkerMessage({ type: 'error', message: 'boom' })).toBe(true);
+    expect(isWorkerMessage({ type: 'error', session: 0, message: 'boom' })).toBe(true);
   });
 
   it('rejects a ready message with a wrong array type', () => {
@@ -98,7 +101,7 @@ describe('isWorkerMessage', () => {
   it('rejects unknown and non-object values', () => {
     expect(isWorkerMessage(null)).toBe(false);
     expect(isWorkerMessage({ type: 'nope' })).toBe(false);
-    expect(isWorkerMessage({ type: 'error' })).toBe(false);
+    expect(isWorkerMessage({ type: 'error', session: 0 })).toBe(false);
   });
 });
 
@@ -133,66 +136,53 @@ function stats(): Record<string, unknown> {
 
 describe('snapshot and stats messages', () => {
   it('accepts a valid snapshot', () => {
-    const message = { type: 'snapshot', tick: 3, simTime: 0.3, count: 2, buffers: buffers() };
+    const message = {
+      type: 'snapshot',
+      session: 0,
+      tick: 3,
+      simTime: 0.3,
+      count: 2,
+      buffers: buffers(),
+    };
     expect(isWorkerMessage(message)).toBe(true);
   });
 
   it('rejects a snapshot with a wrong buffer type', () => {
     const wrong = { ...buffers(), style: new Float32Array(4) };
-    const message = { type: 'snapshot', tick: 3, simTime: 0.3, count: 2, buffers: wrong };
+    const message = {
+      type: 'snapshot',
+      session: 0,
+      tick: 3,
+      simTime: 0.3,
+      count: 2,
+      buffers: wrong,
+    };
     expect(isWorkerMessage(message)).toBe(false);
-    expect(isWorkerMessage({ type: 'snapshot', tick: 3, simTime: 0.3, buffers: buffers() })).toBe(
-      false,
-    );
+    expect(
+      isWorkerMessage({ type: 'snapshot', session: 0, tick: 3, simTime: 0.3, buffers: buffers() }),
+    ).toBe(false);
   });
 
   it('accepts stats and rejects stats without the ratio array', () => {
     const ratio = new Float32Array(3);
-    expect(isWorkerMessage({ type: 'stats', stats: stats(), roadSpeedRatio: ratio })).toBe(true);
-    expect(isWorkerMessage({ type: 'stats', stats: stats(), roadSpeedRatio: [1] })).toBe(false);
-    expect(isWorkerMessage({ type: 'stats', stats: { tick: 1 }, roadSpeedRatio: ratio })).toBe(
-      false,
-    );
+    expect(
+      isWorkerMessage({ type: 'stats', session: 0, stats: stats(), roadSpeedRatio: ratio }),
+    ).toBe(true);
+    expect(
+      isWorkerMessage({ type: 'stats', session: 0, stats: stats(), roadSpeedRatio: [1] }),
+    ).toBe(false);
+    expect(
+      isWorkerMessage({ type: 'stats', session: 0, stats: { tick: 1 }, roadSpeedRatio: ratio }),
+    ).toBe(false);
   });
 });
 
 describe('signals message', () => {
   it('accepts a byte array of states and rejects anything else', () => {
-    expect(isWorkerMessage({ type: 'signals', states: new Uint8Array([0, 1, 2]) })).toBe(true);
-    expect(isWorkerMessage({ type: 'signals', states: [0, 1, 2] })).toBe(false);
-    expect(isWorkerMessage({ type: 'signals' })).toBe(false);
-  });
-});
-
-describe('isMainMessage', () => {
-  const config = { seed: 1, mode: 'City', vehicles_per_hour: 3000 };
-
-  it('accepts load with a city or region config', () => {
-    expect(isMainMessage({ type: 'load', url: 'a', config })).toBe(true);
-    const region = { ...config, mode: { Region: { center_x: 0, center_y: 0, radius: 5 } } };
-    expect(isMainMessage({ type: 'load', url: 'a', config: region })).toBe(true);
-  });
-
-  it('rejects load with a missing or malformed config', () => {
-    expect(isMainMessage({ type: 'load', url: 'a' })).toBe(false);
-    expect(isMainMessage({ type: 'load', url: 'a', config: { ...config, mode: 'Town' } })).toBe(
-      false,
-    );
-    expect(isMainMessage({ type: 'load', url: 'a', config: { ...config, seed: 1n } })).toBe(false);
-  });
-
-  it('accepts only known speeds', () => {
-    for (const speed of [0, 1, 2, 4, 8, 'max']) {
-      expect(isMainMessage({ type: 'speed', speed })).toBe(true);
-    }
-    expect(isMainMessage({ type: 'speed', speed: 3 })).toBe(false);
-    expect(isMainMessage({ type: 'speed', speed: 'fast' })).toBe(false);
-  });
-
-  it('accepts returned buffers and rejects unknown types', () => {
-    expect(isMainMessage({ type: 'buffers', buffers: buffers() })).toBe(true);
-    expect(isMainMessage({ type: 'buffers', buffers: {} })).toBe(false);
-    expect(isMainMessage({ type: 'toString' })).toBe(false);
-    expect(isMainMessage({ type: 'snapshot' })).toBe(false);
+    expect(
+      isWorkerMessage({ type: 'signals', session: 0, states: new Uint8Array([0, 1, 2]) }),
+    ).toBe(true);
+    expect(isWorkerMessage({ type: 'signals', session: 0, states: [0, 1, 2] })).toBe(false);
+    expect(isWorkerMessage({ type: 'signals', session: 0 })).toBe(false);
   });
 });

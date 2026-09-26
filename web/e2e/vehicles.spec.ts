@@ -23,7 +23,7 @@ test('runs and draws vehicles with speed controls', async ({ page }, testInfo) =
   page.on('pageerror', (error) => {
     errors.push(error.message);
   });
-  await page.goto('/?map=synthetic&vph=6000');
+  await page.goto('/?map=synthetic&vph=6000#/sandbox');
   await expect
     .poll(async () => Number(await page.locator(debug).getAttribute('data-vehicles')), {
       timeout: 10_000,

@@ -31,22 +31,28 @@ describe('inspect messages', () => {
   });
 
   it('accepts road, node and empty inspections', () => {
-    expect(isWorkerMessage({ type: 'inspection', id: 1, target: { road } })).toBe(true);
-    expect(isWorkerMessage({ type: 'inspection', id: 1, target: { node } })).toBe(true);
+    expect(isWorkerMessage({ type: 'inspection', session: 0, id: 1, target: { road } })).toBe(true);
+    expect(isWorkerMessage({ type: 'inspection', session: 0, id: 1, target: { node } })).toBe(true);
     const unsignalized = { ...node, signal: null };
-    expect(isWorkerMessage({ type: 'inspection', id: 1, target: { node: unsignalized } })).toBe(
-      true,
-    );
-    expect(isWorkerMessage({ type: 'inspection', id: 1, target: null })).toBe(true);
+    expect(
+      isWorkerMessage({ type: 'inspection', session: 0, id: 1, target: { node: unsignalized } }),
+    ).toBe(true);
+    expect(isWorkerMessage({ type: 'inspection', session: 0, id: 1, target: null })).toBe(true);
   });
 
   it('rejects malformed inspections', () => {
     const badRoad = { ...road, deleted: 0 };
-    expect(isWorkerMessage({ type: 'inspection', id: 1, target: { road: badRoad } })).toBe(false);
+    expect(
+      isWorkerMessage({ type: 'inspection', session: 0, id: 1, target: { road: badRoad } }),
+    ).toBe(false);
     const badTurns = { ...node, turns: [{ from_road: 1 }] };
-    expect(isWorkerMessage({ type: 'inspection', id: 1, target: { node: badTurns } })).toBe(false);
+    expect(
+      isWorkerMessage({ type: 'inspection', session: 0, id: 1, target: { node: badTurns } }),
+    ).toBe(false);
     const badPairs = { ...node, flyover_pairs: [[1]] };
-    expect(isWorkerMessage({ type: 'inspection', id: 1, target: { node: badPairs } })).toBe(false);
-    expect(isWorkerMessage({ type: 'inspection', target: null })).toBe(false);
+    expect(
+      isWorkerMessage({ type: 'inspection', session: 0, id: 1, target: { node: badPairs } }),
+    ).toBe(false);
+    expect(isWorkerMessage({ type: 'inspection', session: 0, target: null })).toBe(false);
   });
 });

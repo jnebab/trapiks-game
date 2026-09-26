@@ -1,26 +1,26 @@
-use serde::Serialize;
+use std::rc::Rc;
+
 use trapiks_sim_core::config::SimConfig;
 use trapiks_sim_core::consts::MAX_VEHICLES;
-use trapiks_sim_core::edit::{BudgetState, EditCommand};
-use trapiks_sim_core::map::{MapData, from_bytes};
+use trapiks_sim_core::edit::{BudgetState, CommandResult, EditCommand, Outcome};
 use trapiks_sim_core::render::{
     ApproachMarkers, JunctionShapes, SignalPills, approach_markers, area_render, junction_shapes,
     network_delta, node_render, road_render, road_setbacks, signal_pills, signal_states,
 };
 use trapiks_sim_core::sim::{Sim, Snapshot};
-use trapiks_sim_core::{MapMeta, map_meta};
 use wasm_bindgen::prelude::*;
 
 use crate::delta::DeltaGeometry;
 use crate::geometry::{AreaGeometry, NodeGeometry, RoadGeometry};
+use crate::map_handle::{LoadedMap, MapHandle, decode};
+use crate::shared::{from_js, js_error, to_js};
 use crate::signals::SignalPillGeometry;
 use crate::snapshot::SnapshotPointers;
 use crate::street::{ApproachMarkerGeometry, JunctionShapeGeometry};
 
 #[wasm_bindgen]
 pub struct Engine {
-    map: MapData,
-    meta: MapMeta,
+    loaded: Rc<LoadedMap>,
     sim: Sim,
     snapshot: Snapshot,
     setbacks: Vec<f32>,
@@ -29,17 +29,15 @@ pub struct Engine {
     pills: SignalPills,
 }
 
-fn js_error(error: impl ToString) -> JsError {
-    JsError::new(&error.to_string())
-}
-
 fn command_of(value: JsValue) -> Result<EditCommand, JsError> {
-    serde_wasm_bindgen::from_value(value).map_err(js_error)
+    from_js(value)
 }
 
-fn to_js(value: &impl Serialize) -> Result<JsValue, JsError> {
-    let serializer = serde_wasm_bindgen::Serializer::json_compatible();
-    value.serialize(&serializer).map_err(js_error)
+fn first_failure(results: &[CommandResult]) -> Option<String> {
+    results.iter().find_map(|result| match &result.outcome {
+        Outcome::Err(error) => Some(format!("{error:?}")),
+        Outcome::Ok(_) => None,
+    })
 }
 
 fn preallocated_snapshot() -> Snapshot {
@@ -55,39 +53,63 @@ fn preallocated_snapshot() -> Snapshot {
 #[wasm_bindgen]
 impl Engine {
     pub fn load(bytes: &[u8], config: JsValue) -> Result<Engine, JsError> {
-        let config: SimConfig = serde_wasm_bindgen::from_value(config).map_err(js_error)?;
-        let map = from_bytes(bytes).map_err(js_error)?;
-        let meta = map_meta(&map, bytes);
-        let sim = Sim::from_config(&map, &config);
+        Engine::build(Rc::new(decode(bytes)?), config)
+    }
+
+    #[wasm_bindgen(js_name = fromMap)]
+    pub fn from_map(map: &MapHandle, config: JsValue) -> Result<Engine, JsError> {
+        Engine::build(map.loaded(), config)
+    }
+
+    fn build(loaded: Rc<LoadedMap>, config: JsValue) -> Result<Engine, JsError> {
+        let config: SimConfig = from_js(config)?;
+        let sim = Sim::from_config(&loaded.map, &config);
         Ok(Engine {
             setbacks: road_setbacks(sim.network()),
             shapes: junction_shapes(sim.network()),
             markers: approach_markers(sim.network()),
             pills: signal_pills(sim.network()),
-            map,
-            meta,
+            loaded,
             sim,
             snapshot: preallocated_snapshot(),
         })
     }
 
     pub fn meta(&self) -> Result<JsValue, JsError> {
-        serde_wasm_bindgen::to_value(&self.meta).map_err(js_error)
+        serde_wasm_bindgen::to_value(&self.loaded.meta).map_err(js_error)
+    }
+
+    #[wasm_bindgen(js_name = commandLog)]
+    pub fn command_log(&self) -> Result<JsValue, JsError> {
+        to_js(&self.sim.command_log())
+    }
+
+    pub fn replay(&mut self, commands: JsValue) -> Result<JsValue, JsError> {
+        let commands: Vec<EditCommand> = from_js(commands)?;
+        for command in commands {
+            self.sim.enqueue(command);
+        }
+        self.sim.apply_queued();
+        let results = self.sim.take_results();
+        match first_failure(&results) {
+            Some(error) => Err(js_error(error)),
+            None => to_js(&results),
+        }
     }
 
     #[wasm_bindgen(js_name = roadGeometry)]
     pub fn road_geometry(&self) -> RoadGeometry {
-        RoadGeometry::from(road_render(&self.map))
+        RoadGeometry::from(road_render(&self.loaded.map))
     }
 
     #[wasm_bindgen(js_name = nodeGeometry)]
     pub fn node_geometry(&self) -> NodeGeometry {
-        NodeGeometry::from(node_render(&self.map))
+        NodeGeometry::from(node_render(&self.loaded.map))
     }
 
     #[wasm_bindgen(js_name = areaGeometry)]
     pub fn area_geometry(&self) -> AreaGeometry {
-        AreaGeometry::from(area_render(&self.map))
+        AreaGeometry::from(area_render(&self.loaded.map))
     }
 
     #[wasm_bindgen(js_name = roadSetbacks)]

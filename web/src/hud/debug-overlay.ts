@@ -12,6 +12,7 @@ export interface DebugOverlay {
   setShadowPieces: (count: number) => void;
   setSignalPills: (count: number) => void;
   countSignalUpdate: () => void;
+  setTraffic: (visible: boolean) => void;
 }
 
 interface OverlayState {
@@ -45,7 +46,10 @@ function everyRefresh(ticker: Ticker, render: () => void): void {
   });
 }
 
-type DepthSetters = Pick<DebugOverlay, 'setShadowPieces' | 'setSignalPills' | 'countSignalUpdate'>;
+type DepthSetters = Pick<
+  DebugOverlay,
+  'setShadowPieces' | 'setSignalPills' | 'countSignalUpdate' | 'setTraffic'
+>;
 
 function depthSetters(element: HTMLElement): DepthSetters {
   let signalUpdates = 0;
@@ -55,6 +59,9 @@ function depthSetters(element: HTMLElement): DepthSetters {
     },
     setSignalPills: (count) => {
       element.dataset.signalPills = String(count);
+    },
+    setTraffic: (visible) => {
+      element.dataset.traffic = visible ? '1' : '0';
     },
     countSignalUpdate: () => {
       signalUpdates += 1;

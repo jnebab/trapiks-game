@@ -42,7 +42,7 @@ function pixelAt(png: PNG, x: number, y: number): number[] {
 
 test('tile borders and junctions are seamless', async ({ page }, testInfo) => {
   const errors = collectErrors(page);
-  await page.goto('/?map=synthetic&vph=0&cx=1024&cy=450&z=16');
+  await page.goto('/?map=synthetic&vph=0&cx=1024&cy=450&z=16#/sandbox');
   await expect(page.locator(debug)).toHaveAttribute('data-band', 'detail');
   await waitForTiles(page);
   const path = testInfo.outputPath('renderer-boundary.png');
@@ -63,7 +63,7 @@ test('tile borders and junctions are seamless', async ({ page }, testInfo) => {
 
 test('city zoom shows the city band', async ({ page }, testInfo) => {
   const errors = collectErrors(page);
-  await page.goto('/?map=synthetic&vph=0&z=0.1');
+  await page.goto('/?map=synthetic&vph=0&z=0.1#/sandbox');
   await expect(page.locator(debug)).toHaveAttribute('data-band', 'city');
   await waitForTiles(page);
   await page.screenshot({ path: testInfo.outputPath('renderer-city.png') });

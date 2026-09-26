@@ -1,6 +1,7 @@
 import './hud/styles.css';
 import '@fontsource/lexend/500.css';
-import { runDebugScene } from './app/debug-scene';
+import '@fontsource/lexend/700.css';
+import { runGame } from './app/game';
 
 const DEFAULT_MAP = 'synthetic';
 const MAP_NAME = /^[a-z0-9-]+$/;
@@ -15,4 +16,4 @@ if (!root) {
   throw new Error('Missing #app root element');
 }
 
-void runDebugScene(root, mapName());
+void runGame(root, mapName());

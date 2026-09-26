@@ -40,7 +40,7 @@ async function waitForTiles(page: Page): Promise<void> {
 }
 
 async function openAt(page: Page, query: string): Promise<void> {
-  await page.goto(`/?map=synthetic&vph=0&${query}`);
+  await page.goto(`/?map=synthetic&vph=0&${query}#/sandbox`);
   await waitForTiles(page);
   await page.mouse.click(CENTRE.x, CENTRE.y);
   await expect(page.locator(inspector)).toBeVisible({ timeout: 10_000 });

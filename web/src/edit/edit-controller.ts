@@ -29,6 +29,7 @@ export interface EditContext {
   roads: RoadStore;
   inspect: InspectSelection;
   topBar: HTMLElement;
+  signal: AbortSignal;
   send: (command: EditCommand) => void;
 }
 
@@ -37,23 +38,30 @@ function isUndoKey(event: KeyboardEvent): boolean {
 }
 
 export class EditController {
+  locked = false;
   private readonly budget: BudgetChip = createBudgetChip();
   private readonly pointer: ScreenPosition;
 
   constructor(private readonly ctx: EditContext) {
     ctx.topBar.appendChild(this.budget.element);
-    this.pointer = trackPointer(ctx.canvas, {
-      onHover: (sx, sy) => {
-        ctx.selection.setHover(this.pick(sx, sy));
+    this.pointer = trackPointer(
+      ctx.canvas,
+      {
+        onHover: (sx, sy) => {
+          ctx.selection.setHover(this.pick(sx, sy));
+        },
+        onClick: (sx, sy) => {
+          if (!this.locked) {
+            ctx.inspect.select(this.pickTarget(sx, sy));
+          }
+        },
+        onPress: () => {
+          ctx.selection.setHover(undefined);
+        },
       },
-      onClick: (sx, sy) => {
-        ctx.inspect.select(this.pickTarget(sx, sy));
-      },
-      onPress: () => {
-        ctx.selection.setHover(undefined);
-      },
-    });
-    window.addEventListener('keydown', this.onKey);
+      ctx.signal,
+    );
+    window.addEventListener('keydown', this.onKey, { signal: ctx.signal });
   }
 
   onResults(results: readonly CommandResult[], budget: BudgetState): void {
@@ -100,7 +108,7 @@ export class EditController {
   }
 
   private readonly onKey = (event: KeyboardEvent): void => {
-    if (isEditableTarget(event)) {
+    if (this.locked || isEditableTarget(event)) {
       return;
     }
     if (event.key === 'Escape') {

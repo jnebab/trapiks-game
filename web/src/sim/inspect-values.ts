@@ -14,6 +14,7 @@ export interface InspectMessage {
 
 export interface InspectionMessage {
   type: 'inspection';
+  session: number;
   id: number;
   target: Inspection | null;
 }

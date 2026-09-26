@@ -31,7 +31,7 @@ async function capture(page: Page, url: string, path: string): Promise<PNG> {
 }
 
 test('signalized arterial junction shows markings and fillets', async ({ page }, testInfo) => {
-  const url = '/?map=synthetic&vph=0&cx=750&cy=750&z=12';
+  const url = '/?map=synthetic&vph=0&cx=750&cy=750&z=12#/sandbox';
   const png = await capture(page, url, testInfo.outputPath('street-detail.png'));
   for (const row of [359, 360]) {
     const [r, g, b] = pixelAt(png, 1000, row);
@@ -45,6 +45,6 @@ test('signalized arterial junction shows markings and fillets', async ({ page },
 });
 
 test('residential approaches show yield lines', async ({ page }, testInfo) => {
-  const url = '/?map=synthetic&vph=0&cx=150&cy=750&z=12';
+  const url = '/?map=synthetic&vph=0&cx=150&cy=750&z=12#/sandbox';
   await capture(page, url, testInfo.outputPath('street-residential.png'));
 });

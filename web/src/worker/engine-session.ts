@@ -11,8 +11,11 @@ import { statesChanged } from './signal-diff';
 import { isStatsSnapshot, snapshotTransfer, type SnapshotBuffers } from '../sim/values';
 import { BufferPool } from './buffer-pool';
 import { MemoryViews } from './memory-views';
-import { deltaTransfer } from '../sim/delta-arrays';
+import { deltaTransfer, type DeltaArrays } from '../sim/delta-arrays';
 import { isBudgetState, isCommandResults, isQuoteOutcome } from '../sim/edit-values';
+import { isEditCommands } from '../sim/game-values';
+import type { BudgetState } from '../generated/BudgetState';
+import type { CommandResult } from '../generated/CommandResult';
 import type { EditCommand } from '../generated/EditCommand';
 import { changedIds, collectDelta } from './delta';
 import { inspect } from './inspect';
@@ -46,6 +49,7 @@ export class EngineSession {
   private lastSignals: Uint8Array | undefined;
 
   constructor(
+    readonly session: number,
     private readonly engine: Engine,
     memory: WebAssembly.Memory,
     private readonly post: Post,
@@ -53,8 +57,8 @@ export class EngineSession {
     this.views = new MemoryViews(memory, snapshotLayout(engine));
   }
 
-  readonly onTick = (): void => {
-    if (this.runSteps() === 0) {
+  onTick(hold = false): void {
+    if (hold || this.runSteps() === 0) {
       this.engine.flushCommands();
     }
     this.postCommandResults();
@@ -64,7 +68,36 @@ export class EngineSession {
     if (this.wallTicks % STATS_EVERY === 0) {
       this.postStats();
     }
-  };
+  }
+
+  dispose(): void {
+    this.engine.free();
+  }
+
+  commandLog(): EditCommand[] {
+    const log: unknown = this.engine.commandLog();
+    if (!isEditCommands(log)) {
+      throw new Error('Invalid command log from wasm');
+    }
+    return log;
+  }
+
+  budgetState(): BudgetState {
+    const budget: unknown = this.engine.budget();
+    if (!isBudgetState(budget)) {
+      throw new Error('Invalid budget from wasm');
+    }
+    return budget;
+  }
+
+  deltaFor(replayed: readonly CommandResult[]): DeltaArrays | null {
+    const ids = changedIds(replayed);
+    return ids === null ? null : collectDelta(this.engine, ids);
+  }
+
+  announce(delta: DeltaArrays | null): void {
+    this.postResults([], delta);
+  }
 
   postSignals(): void {
     const states = new Uint8Array(this.engine.signalStates());
@@ -72,7 +105,7 @@ export class EngineSession {
       return;
     }
     this.lastSignals = states.slice();
-    const message: SignalsMessage = { type: 'signals', states };
+    const message: SignalsMessage = { type: 'signals', session: this.session, states };
     this.post(message, [states.buffer]);
   }
 
@@ -89,11 +122,12 @@ export class EngineSession {
     if (!isQuoteOutcome(result)) {
       throw new Error('Invalid quote from wasm');
     }
-    this.post({ type: 'quoteResult', id, result }, []);
+    this.post({ type: 'quoteResult', session: this.session, id, result }, []);
   }
 
   inspect(id: number, target: InspectTarget): void {
-    this.post({ type: 'inspection', id, target: inspect(this.engine, target) }, []);
+    const inspection = inspect(this.engine, target);
+    this.post({ type: 'inspection', session: this.session, id, target: inspection }, []);
   }
 
   private runSteps(): number {
@@ -115,19 +149,26 @@ export class EngineSession {
 
   private postCommandResults(): void {
     const results: unknown = this.engine.takeResults();
-    const budget: unknown = this.engine.budget();
-    if (!isCommandResults(results) || !isBudgetState(budget)) {
+    if (!isCommandResults(results)) {
       throw new Error('Invalid command results from wasm');
     }
-    if (results.length === 0) {
-      return;
+    if (results.length > 0) {
+      this.postResults(results, this.deltaFor(results));
     }
-    const ids = changedIds(results);
-    const delta = ids === null ? null : collectDelta(this.engine, ids);
+  }
+
+  private postResults(results: CommandResult[], delta: DeltaArrays | null): void {
     if (delta !== null) {
       this.lastSignals = undefined;
     }
-    const message: CommandResultsMessage = { type: 'commandResults', results, delta, budget };
+    const message: CommandResultsMessage = {
+      type: 'commandResults',
+      session: this.session,
+      results,
+      delta,
+      budget: this.budgetState(),
+      log: this.commandLog(),
+    };
     this.post(message, delta === null ? [] : deltaTransfer(delta));
   }
 
@@ -144,6 +185,7 @@ export class EngineSession {
     const tick = this.engine.tick();
     const message: SnapshotMessage = {
       type: 'snapshot',
+      session: this.session,
       tick,
       simTime: tick * DT,
       count,
@@ -158,7 +200,7 @@ export class EngineSession {
       throw new Error('Invalid stats from wasm');
     }
     const roadSpeedRatio = new Float32Array(this.engine.roadSpeedRatio());
-    const message: StatsMessage = { type: 'stats', stats, roadSpeedRatio };
+    const message: StatsMessage = { type: 'stats', session: this.session, stats, roadSpeedRatio };
     this.post(message, [roadSpeedRatio.buffer]);
   }
 }

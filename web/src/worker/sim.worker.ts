@@ -1,25 +1,29 @@
-import init, { Engine } from '../wasm/pkg/trapiks_sim_wasm.js';
+import init, { MapHandle } from '../wasm/pkg/trapiks_sim_wasm.js';
 import {
   isMainMessage,
-  isMapMeta,
   type ErrorMessage,
   type LoadMessage,
   type MainMessage,
-  type ReadyMessage,
   type Speed,
+  type StartChallengeMessage,
+  type StartSandboxMessage,
   type WorkerMessage,
 } from '../sim/protocol';
-import { EngineSession } from './engine-session';
+import { openChallenge, openInitial, openSandbox, type ActiveSession } from './active';
 import { fetchMap } from './fetch-map';
-import { collectGeometry, transferList } from './geometry';
 import { startWallTicks } from './loop';
+import type { WorkerContext } from './start-engine';
 
 const WALL_TICK_MS = 100;
 const wasmReady = init();
 
+type StartMessage = StartSandboxMessage | StartChallengeMessage;
+
 let loading = false;
-let session: EngineSession | undefined;
-let pendingSpeed: Speed | undefined;
+let context: WorkerContext | undefined;
+let active: ActiveSession | undefined;
+let pendingStart: StartMessage | undefined;
+let speed: Speed = 1;
 
 function post(message: WorkerMessage, transfer: Transferable[]): void {
   self.postMessage(message, { transfer });
@@ -28,37 +32,53 @@ function post(message: WorkerMessage, transfer: Transferable[]): void {
 function postError(error: unknown): void {
   const message: ErrorMessage = {
     type: 'error',
+    session: active?.session ?? 0,
     message: error instanceof Error ? error.message : String(error),
   };
   self.postMessage(message);
 }
 
-function guarded(onTick: () => void): () => void {
-  return () => {
-    try {
-      onTick();
-    } catch (error) {
-      postError(error);
-    }
-  };
+function guarded(action: () => void): void {
+  try {
+    action();
+  } catch (error) {
+    postError(error);
+  }
+}
+
+function replace(open: () => ActiveSession): void {
+  active?.dispose();
+  active = undefined;
+  const next = open();
+  next.live.speed = speed;
+  active = next;
+}
+
+function start(ctx: WorkerContext, message: StartMessage): void {
+  if (message.type === 'startSandbox') {
+    replace(() => openSandbox(ctx, message));
+    return;
+  }
+  replace(() => openChallenge(ctx, message));
 }
 
 async function load(request: LoadMessage): Promise<void> {
   const wasm = await wasmReady;
   const bytes = await fetchMap(request.url);
-  const engine = Engine.load(bytes, request.config);
-  const meta: unknown = engine.meta();
-  if (!isMapMeta(meta)) {
-    throw new Error('Invalid map meta from wasm');
-  }
-  const geometry = collectGeometry(engine);
-  const ready: ReadyMessage = { type: 'ready', meta, ...geometry };
-  post(ready, transferList(geometry));
-  const started = new EngineSession(engine, wasm.memory, post);
-  started.speed = pendingSpeed ?? started.speed;
-  session = started;
-  started.postSignals();
-  startWallTicks(guarded(started.onTick), WALL_TICK_MS);
+  const ctx: WorkerContext = { map: new MapHandle(bytes), memory: wasm.memory, post };
+  context = ctx;
+  const queued = pendingStart;
+  pendingStart = undefined;
+  guarded(() => {
+    if (queued === undefined) {
+      replace(() => openInitial(ctx, request.config));
+    } else {
+      start(ctx, queued);
+    }
+  });
+  startWallTicks(() => {
+    guarded(() => active?.onTick());
+  }, WALL_TICK_MS);
 }
 
 function startLoad(request: LoadMessage): void {
@@ -69,22 +89,52 @@ function startLoad(request: LoadMessage): void {
   load(request).catch(postError);
 }
 
-function setSpeed(speed: Speed): void {
-  pendingSpeed = speed;
-  if (session) {
-    session.speed = speed;
+function requestStart(message: StartMessage): void {
+  if (context === undefined) {
+    pendingStart = message;
+    return;
+  }
+  const ctx = context;
+  guarded(() => {
+    start(ctx, message);
+  });
+}
+
+function setSpeed(next: Speed): void {
+  speed = next;
+  if (active) {
+    active.live.speed = next;
   }
 }
 
-function withSession(action: (active: EngineSession) => void): void {
-  if (session === undefined) {
+function withSession(action: (current: ActiveSession) => void): void {
+  if (active === undefined) {
     postError(new Error('Sim is not loaded'));
     return;
   }
-  try {
-    action(session);
-  } catch (error) {
-    postError(error);
+  const current = active;
+  guarded(() => {
+    action(current);
+  });
+}
+
+function routeGame(message: MainMessage): void {
+  switch (message.type) {
+    case 'startSandbox':
+    case 'startChallenge':
+      requestStart(message);
+      return;
+    case 'evaluate':
+      withSession((current) => {
+        current.evaluate();
+      });
+      return;
+    case 'setDemand':
+      withSession((current) => {
+        if (current.isSandbox) {
+          current.live.enqueue({ SetDemand: { vehicles_per_hour: message.vehiclesPerHour } });
+        }
+      });
   }
 }
 
@@ -97,22 +147,25 @@ function route(message: MainMessage): void {
       setSpeed(message.speed);
       return;
     case 'buffers':
-      session?.returnBuffers(message.buffers);
+      active?.live.returnBuffers(message.buffers);
       return;
     case 'command':
-      withSession((active) => {
-        active.enqueue(message.command);
+      withSession((current) => {
+        current.live.enqueue(message.command);
       });
       return;
     case 'quote':
-      withSession((active) => {
-        active.quote(message.id, message.command);
+      withSession((current) => {
+        current.live.quote(message.id, message.command);
       });
       return;
     case 'inspect':
-      withSession((active) => {
-        active.inspect(message.id, message.target);
+      withSession((current) => {
+        current.live.inspect(message.id, message.target);
       });
+      return;
+    default:
+      routeGame(message);
   }
 }
 
