@@ -124,8 +124,9 @@ The fallback is a user-uploaded `.osm.pbf` read with the `osmpbf` crate.
   | Speed | `maxspeed`, or a class default |
   | Layer | `layer`; defaults to `bridge ⇒ 1` and `tunnel ⇒ -1` |
   | Name | Index into a names table |
+  | Roundabout | `junction=roundabout` or `junction=circular` (map format v3, M15a); never chain-merged with other roads |
 
-- **Junction control:** a junction is signalized, stop-controlled or yield-controlled when a matching control node lies on an incident road within 25 m. A stop node tagged `stop=all` gives `AllWayStop`.
+- **Junction control:** a junction is signalized, stop-controlled or yield-controlled when a matching control node lies on an incident road within 25 m. A stop node tagged `stop=all` gives `AllWayStop`. A node joining a roundabout road to any other road defaults to `Yield` (M15a).
 - **Turn restrictions:** converted to banned (from road, via node, to road) triples. `only_*` expands into bans on every other turn.
 - **Areas:**
   - Outer rings of multipolygons are assembled from member ways. Inner rings are skipped until M15c.
@@ -214,8 +215,8 @@ Lanes on a link are indexed from the right, starting at 0.
 #### Priority rank (higher wins)
 
 1. Signal green.
-2. Class rank of the incoming road.
-3. Movement type: through, then right, then left, then U-turn.
+2. Class rank of the incoming road. A roundabout road ranks 15, above every class (M15a).
+3. Movement type: through, then right, then left, then U-turn. At a ring node, ring → ring is through, and ring ↔ arm is right.
 4. Ties go to the earlier arrival tick, then the lower vehicle id.
 
 #### Entry rule
