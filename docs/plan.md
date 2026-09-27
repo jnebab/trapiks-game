@@ -500,6 +500,8 @@ Each milestone ends with `scripts/check.sh` green, an approving review, a commit
 | M15a | Roundabouts: map format v3 roundabout flag, ring priority, `BuildRoundabout` with undo, OSM roundabouts yield on entry, inspector buttons | Ring vehicles have priority; build and undo round-trip the content hash; Playwright builds and undoes a roundabout |
 | M15b | Connector roads: `AddRoad` (node or on-road ends that split roads, straight or curved, elevated), crossing and angle validation, build-road tool with preview and quotes | New roads are routed over; splits keep routes valid; undo restores the content hash; Playwright builds and undoes a road |
 | M15c | Polish: procedural buildings, multipolygon inner rings (map format v4), performance pass against §3.9, GitHub Pages deploy workflow | Building and base-path Playwright checks. `docs/perf.md` records the final numbers |
+| M16 | Real map: fetch and build Metro Manila, network sanity on it, the seven challenges verified and tuned, default map switched | Real-map tests pass. Each challenge has a baseline delay of 120–400 s and at least one 1-star fix within budget. Screenshots reviewed |
+| M17 | City performance on the real map: shared leader and gap cache across passes, lane-change window, better route bounds | Median city step ≤ 12 ms native and ≤ 25 ms wasm at 20k vehicles on the real map; `docs/perf.md` updated |
 
 ## 7. Risks
 
