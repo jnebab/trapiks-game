@@ -46,7 +46,7 @@ function watchView(deps: SceneDeps, view: MapView, traffic: TrafficLayer, life: 
     view.tiles.update(camera.camera, scene.app.screen.width, scene.app.screen.height);
     traffic.update();
     overlay.setTiles(view.tiles.builtCount, view.tiles.visibleCount, view.tiles.activeBand);
-    overlay.setMarkings(view.tiles.markingsBuilt);
+    overlay.setMarkings(view.tiles.markingsBuilt, view.tiles.buildingsBuilt);
     overlay.setShadowPieces(view.tiles.shadowPieces);
     overlay.setTraffic(traffic.visible);
   });
@@ -128,6 +128,7 @@ export function buildMapScene(deps: SceneDeps, ready: ReadyMessage): MapScene {
     },
     onStats: (message) => {
       traffic.setRatios(message.roadSpeedRatio);
+      deps.overlay.recordSteps(message.stats.tick, message.stepMs);
     },
     onCommandResults: (message) => {
       edit?.onResults(message);

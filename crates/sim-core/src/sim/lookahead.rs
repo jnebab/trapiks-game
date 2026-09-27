@@ -23,6 +23,7 @@ impl Sim {
         let place = self.vehicles.place[index];
         let cursor = self.vehicles.cursor(slot);
         if self.vehicles.ahead[index].is_fresh(&self.network, place, cursor) {
+            self.vehicles.ahead[index].restamp(&self.network);
             return;
         }
         let route = self.vehicles.route(slot);

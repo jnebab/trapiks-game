@@ -113,14 +113,15 @@ fn remap_one(network: &mut Network, vehicles: &mut VehicleStore, entry: &HeldMov
 }
 
 pub struct RouteDamage {
-    dead_links: BTreeSet<LinkId>,
-    invalidated: Vec<u32>,
+    dead_links: Vec<bool>,
+    into_invalidated: Vec<bool>,
+    empty: bool,
     valid_turns: BTreeSet<(LinkId, LinkId)>,
 }
 
 impl RouteDamage {
     pub fn new(network: &Network, roads: &[u32], invalidated: &[u32]) -> RouteDamage {
-        let dead_links = roads
+        let dead: Vec<LinkId> = roads
             .iter()
             .flat_map(|&road| [road * 2, road * 2 + 1])
             .filter(|&link| !network.is_link_active(link))
@@ -131,31 +132,56 @@ impl RouteDamage {
             .map(|(from, to, _)| (from, to))
             .collect();
         RouteDamage {
-            dead_links,
-            invalidated: invalidated.to_vec(),
+            dead_links: mask(network.link_count(), &dead),
+            into_invalidated: mask(network.link_count(), &arriving_links(network, invalidated)),
+            empty: dead.is_empty() && invalidated.is_empty(),
             valid_turns,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.dead_links.is_empty() && self.invalidated.is_empty()
+        self.empty
     }
 
-    pub fn breaks(&self, network: &Network, route: &[LinkId]) -> bool {
-        route.iter().any(|link| self.dead_links.contains(link))
+    pub fn breaks(&self, route: &[LinkId]) -> bool {
+        route.iter().any(|&link| flagged(&self.dead_links, link))
             || route
                 .windows(2)
-                .any(|pair| self.breaks_turn(network, pair[0], pair[1]))
+                .any(|pair| self.breaks_turn(pair[0], pair[1]))
     }
 
-    fn breaks_turn(&self, network: &Network, from: LinkId, to: LinkId) -> bool {
-        let node = network.link_to(from);
-        self.invalidated.binary_search(&node).is_ok() && !self.valid_turns.contains(&(from, to))
+    fn breaks_turn(&self, from: LinkId, to: LinkId) -> bool {
+        flagged(&self.into_invalidated, from) && !self.valid_turns.contains(&(from, to))
     }
 }
 
+fn arriving_links(network: &Network, nodes: &[u32]) -> Vec<LinkId> {
+    nodes
+        .iter()
+        .flat_map(|&node| {
+            network.nodes.roads[node as usize]
+                .iter()
+                .flat_map(|&road| [road * 2, road * 2 + 1])
+                .filter(move |&link| network.link_to(link) == node)
+        })
+        .collect()
+}
+
+fn mask(len: usize, set: &[u32]) -> Vec<bool> {
+    let mut mask = vec![false; len];
+    for &index in set {
+        if let Some(flag) = mask.get_mut(index as usize) {
+            *flag = true;
+        }
+    }
+    mask
+}
+
+fn flagged(mask: &[bool], index: u32) -> bool {
+    mask.get(index as usize).copied().unwrap_or(false)
+}
+
 pub fn flag_routes(
-    network: &Network,
     vehicles: &VehicleStore,
     damage: &RouteDamage,
     flagged: &mut BTreeSet<u32>,
@@ -164,7 +190,7 @@ pub fn flag_routes(
     for slot in vehicles.live_slots() {
         let route = vehicles.route(slot);
         let rest = route.get(vehicles.cursor(slot)..).unwrap_or_default();
-        if damage.breaks(network, rest) && flagged.insert(slot) {
+        if damage.breaks(rest) && flagged.insert(slot) {
             marked += 1;
         }
     }

@@ -1,11 +1,13 @@
 use crate::network::LinkId;
 use crate::vehicle::Place;
+use crate::vehicle::approach::in_zone;
 
 use super::Sim;
 
 impl Sim {
     pub(super) fn prefetch_and_reroute(&mut self) {
-        let every = self.checked_version != self.network.version();
+        let every = self.checked_version == u64::MAX
+            || self.network.global_version() > self.checked_version;
         for slot in 0..self.vehicles.slot_count() as u32 {
             if !self.vehicles.alive[slot as usize] {
                 continue;
@@ -14,7 +16,21 @@ impl Sim {
                 self.check_route(slot);
             }
         }
+        self.reroute_flagged_in_zone();
         self.checked_version = self.network.version();
+    }
+
+    fn reroute_flagged_in_zone(&mut self) {
+        let due: Vec<u32> = self
+            .edits
+            .flagged
+            .iter()
+            .copied()
+            .filter(|&slot| in_zone(&self.network, &self.vehicles, slot))
+            .collect();
+        for slot in due {
+            self.check_route(slot);
+        }
     }
 
     fn check_route(&mut self, slot: u32) {

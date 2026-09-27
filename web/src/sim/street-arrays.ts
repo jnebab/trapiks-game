@@ -4,6 +4,7 @@ export interface JunctionShapeArrays {
   node: Uint32Array;
   layer: Int8Array;
   minLayer: Int8Array;
+  filletLayer: Int8Array;
   ringStart: Uint32Array;
   x: Float32Array;
   y: Float32Array;
@@ -37,6 +38,7 @@ export const junctionShape: Record<keyof JunctionShapeArrays, ArrayCtor> = {
   node: Uint32Array,
   layer: Int8Array,
   minLayer: Int8Array,
+  filletLayer: Int8Array,
   ringStart: Uint32Array,
   x: Float32Array,
   y: Float32Array,

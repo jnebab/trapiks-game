@@ -58,6 +58,7 @@ export function applyDelta(delta: DeltaArrays, target: NetworkTarget): void {
     node: delta.junctionNode,
     layer: delta.junctionLayer,
     minLayer: delta.junctionMinLayer,
+    filletLayer: delta.junctionFilletLayer,
     ringStart: delta.junctionRingStart,
     x: delta.junctionX,
     y: delta.junctionY,

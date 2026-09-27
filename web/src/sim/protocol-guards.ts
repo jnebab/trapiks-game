@@ -17,7 +17,11 @@ function isSnapshotMessage(value: Record<string, unknown>): boolean {
 }
 
 function isStatsMessage(value: Record<string, unknown>): boolean {
-  return isStatsSnapshot(value.stats) && value.roadSpeedRatio instanceof Float32Array;
+  return (
+    isStatsSnapshot(value.stats) &&
+    value.roadSpeedRatio instanceof Float32Array &&
+    value.stepMs instanceof Float64Array
+  );
 }
 
 function isCommandResultsMessage(value: Record<string, unknown>): boolean {

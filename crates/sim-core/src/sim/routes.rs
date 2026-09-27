@@ -1,5 +1,5 @@
 use crate::consts::{EMA_REFRESH_TICKS, ROUTE_HEURISTIC_WEIGHT};
-use crate::network::LinkId;
+use crate::network::{Changes, LinkId};
 use crate::routing::{RouteContext, RouteGraph, RouteStats};
 use crate::vehicle::{Place, SpawnError};
 
@@ -48,11 +48,28 @@ impl Sim {
         if self.network.version() == self.graph.built_version() {
             return;
         }
+        match self.network.changes_since(self.graph.built_version()) {
+            Some(changes) => self.patch_graph(&changes),
+            None => self.rebuild_graph(),
+        }
+        self.extend_reference_speeds();
+    }
+
+    fn rebuild_graph(&mut self) {
         self.graph = RouteGraph::build(&self.network);
         self.costs.rebuild(&self.network);
-        self.extend_reference_speeds();
         if self.network.region().is_none() {
             self.rebuild_demand_tables();
+        }
+    }
+
+    fn patch_graph(&mut self, changes: &Changes) {
+        self.graph.patch(&self.network, &changes.nodes);
+        self.costs.refresh_links(&self.network, &changes.links);
+        if self.network.region().is_none() {
+            self.demand
+                .tables
+                .update(&self.network, &self.graph, &self.costs, &changes.links);
         }
     }
 

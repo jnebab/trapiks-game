@@ -1,3 +1,4 @@
+import type { Graphics } from 'pixi.js';
 import type { JunctionRing } from '../detail-store';
 import { clampLayer } from '../layers';
 import type { RoadStore } from '../road-store';
@@ -7,32 +8,47 @@ import type { RoadStyle, Stroke, StrokePass } from './road-style';
 import type { StreetData } from './street-data';
 import type { TileEntry } from './tile-index';
 import { drawJunctionShadows, drawRoadShadows } from './shadow-draw';
-import { tracePolyline } from './trace';
+import type { DetailStore } from '../detail-store';
+import { isTrimmed, traceRoad } from './trace';
 
 export type { TilePiece } from './piece-set';
 
 export interface TileGraphics {
   pieces: TilePiece[];
   markings: boolean;
+  buildings?: Graphics;
 }
+
+type Cap = 'round' | 'butt';
 
 interface StrokeGroup {
   layer: number;
   pass: StrokePass;
   stroke: Stroke;
+  cap: Cap;
   roads: number[];
 }
 
 const PASSES: readonly StrokePass[] = ['outline', 'fill'];
 
-function groupRoads(ids: readonly number[], roads: RoadStore, style: RoadStyle): StrokeGroup[] {
+function capOf(roads: RoadStore, road: number, street: StreetData | undefined): Cap {
+  return street !== undefined && isTrimmed(roads, road) ? 'butt' : 'round';
+}
+
+function groupRoads(
+  ids: readonly number[],
+  roads: RoadStore,
+  style: RoadStyle,
+  street: StreetData | undefined,
+): StrokeGroup[] {
   const groups = new Map<string, StrokeGroup>();
   for (const road of ids) {
     const layer = clampLayer(roads.layer(road));
+    const cap = capOf(roads, road, street);
     for (const pass of PASSES) {
       const stroke = style(roads, road, pass);
-      const key = `${String(layer)}|${pass}|${String(stroke.width)}|${String(stroke.color)}`;
-      const group = groups.get(key) ?? { layer, pass, stroke, roads: [] };
+      const key = `${String(layer)}|${pass}|${String(stroke.width)}|${String(stroke.color)}|${cap}`;
+      const group = groups.get(key) ?? { layer, pass, stroke, cap, roads: [] };
       groups.set(key, group);
       group.roads.push(road);
     }
@@ -40,13 +56,18 @@ function groupRoads(ids: readonly number[], roads: RoadStore, style: RoadStyle):
   return [...groups.values()];
 }
 
-function drawRoads(pieces: PieceSet, roads: RoadStore, groups: StrokeGroup[]): void {
-  for (const { layer, pass, stroke, roads: ids } of groups) {
+function drawRoads(
+  pieces: PieceSet,
+  roads: RoadStore,
+  groups: StrokeGroup[],
+  detail: DetailStore | undefined,
+): void {
+  for (const { layer, pass, stroke, cap, roads: ids } of groups) {
     const g = pieces.get(layer, pass);
     for (const road of ids) {
-      tracePolyline(g, roads, road);
+      traceRoad(g, roads, road, detail);
     }
-    g.stroke({ width: stroke.width, color: stroke.color, join: 'round', cap: 'round' });
+    g.stroke({ width: stroke.width, color: stroke.color, join: 'round', cap });
   }
 }
 
@@ -69,7 +90,7 @@ export function buildTile(
     drawRoadShadows(pieces, roads, live);
     drawJunctionShadows(pieces, rings);
   }
-  drawRoads(pieces, roads, groupRoads(live, roads, style));
+  drawRoads(pieces, roads, groupRoads(live, roads, style, street), street?.detail);
   drawJunctions(pieces, rings);
   return { pieces: pieces.list(), markings: false };
 }

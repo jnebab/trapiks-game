@@ -22,6 +22,7 @@ export interface NodeArrays {
 
 export interface AreaArrays {
   kindCode: Uint8Array;
+  hole: Uint8Array;
   ringStart: Uint32Array;
   x: Float32Array;
   y: Float32Array;
@@ -49,6 +50,7 @@ export const nodeShape: Record<keyof NodeArrays, ArrayCtor> = {
 
 export const areaShape: Record<keyof AreaArrays, ArrayCtor> = {
   kindCode: Uint8Array,
+  hole: Uint8Array,
   ringStart: Uint32Array,
   x: Float32Array,
   y: Float32Array,

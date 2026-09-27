@@ -5,8 +5,11 @@ export interface JunctionRing {
   node: number;
   layer: number;
   minLayer: number;
+  filletLayers: number[];
   points: number[];
 }
+
+export const FILLET_POINTS = 7;
 
 export interface Marker {
   link: number;
@@ -37,6 +40,11 @@ function ringPoints(shapes: JunctionShapeArrays, shape: number): number[] {
     out.push(shapes.x[i] ?? 0, shapes.y[i] ?? 0);
   }
   return out;
+}
+
+function filletLayers(shapes: JunctionShapeArrays, shape: number, points: number): number[] {
+  const first = (shapes.ringStart[shape] ?? 0) / FILLET_POINTS;
+  return Array.from(shapes.filletLayer.subarray(first, first + points / 2 / FILLET_POINTS));
 }
 
 function markerAt(markers: ApproachMarkerArrays, i: number): Marker {
@@ -93,7 +101,13 @@ export class DetailStore {
         return;
       }
       const layer = shapes.layer[shape] ?? 0;
-      this.junctions.set(node, { node, layer, minLayer: shapes.minLayer[shape] ?? 0, points });
+      this.junctions.set(node, {
+        node,
+        layer,
+        minLayer: shapes.minLayer[shape] ?? 0,
+        filletLayers: filletLayers(shapes, shape, points.length),
+        points,
+      });
     });
   }
 

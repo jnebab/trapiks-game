@@ -47,6 +47,7 @@ export class EngineSession {
   private readonly pool = new BufferPool();
   private wallTicks = 0;
   private lastSignals: Uint8Array | undefined;
+  private stepMs: number[] = [];
 
   constructor(
     readonly session: number,
@@ -138,9 +139,12 @@ export class EngineSession {
     const start = performance.now();
     let steps = 0;
     while (steps < limit) {
+      const before = performance.now();
       this.engine.step();
+      const after = performance.now();
+      this.stepMs.push(after - before);
       steps += 1;
-      if (performance.now() - start >= STEP_BUDGET_MS) {
+      if (after - start >= STEP_BUDGET_MS) {
         break;
       }
     }
@@ -200,7 +204,15 @@ export class EngineSession {
       throw new Error('Invalid stats from wasm');
     }
     const roadSpeedRatio = new Float32Array(this.engine.roadSpeedRatio());
-    const message: StatsMessage = { type: 'stats', session: this.session, stats, roadSpeedRatio };
-    this.post(message, [roadSpeedRatio.buffer]);
+    const stepMs = Float64Array.from(this.stepMs);
+    this.stepMs = [];
+    const message: StatsMessage = {
+      type: 'stats',
+      session: this.session,
+      stats,
+      roadSpeedRatio,
+      stepMs,
+    };
+    this.post(message, [roadSpeedRatio.buffer, stepMs.buffer]);
   }
 }

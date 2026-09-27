@@ -35,6 +35,15 @@ fn fill_corridor(sim: &mut Sim) {
     panic!("corridor never filled");
 }
 
+fn drain_flagged(sim: &mut Sim) {
+    for _ in 0..10 {
+        if sim.flagged_slots().count() == 0 {
+            return;
+        }
+        sim.step();
+    }
+}
+
 #[test]
 fn delete_road_vehicles() {
     let mut sim = Sim::new(&corridor(), 1);
@@ -44,6 +53,7 @@ fn delete_road_vehicles() {
     let stranded_before = sim.stranded();
     let outcome = apply_now(&mut sim, EditCommand::DeleteRoad { road: 1 });
     assert!(matches!(outcome, Outcome::Ok(_)), "{outcome:?}");
+    drain_flagged(&mut sim);
     for &id in on_deleted.iter().chain(&behind) {
         assert!(slot_of(&sim, id).is_none(), "vehicle {id} survived");
     }

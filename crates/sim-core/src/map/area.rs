@@ -22,6 +22,7 @@ impl AreaKind {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct AreaTable {
     pub kind: Vec<AreaKind>,
+    pub hole: Vec<bool>,
     pub ring_start: Vec<u32>,
     pub x: Vec<f32>,
     pub y: Vec<f32>,

@@ -46,7 +46,13 @@ function nodeArrays(engine: Engine): NodeArrays {
 
 function areaArrays(engine: Engine): AreaArrays {
   const g = engine.areaGeometry();
-  const areas: AreaArrays = { kindCode: g.kindCode, ringStart: g.ringStart, x: g.x, y: g.y };
+  const areas: AreaArrays = {
+    kindCode: g.kindCode,
+    hole: g.hole,
+    ringStart: g.ringStart,
+    x: g.x,
+    y: g.y,
+  };
   g.free();
   return areas;
 }
@@ -57,6 +63,7 @@ function junctionArrays(engine: Engine): JunctionShapeArrays {
     node: g.node,
     layer: g.layer,
     minLayer: g.minLayer,
+    filletLayer: g.filletLayer,
     ringStart: g.ringStart,
     x: g.x,
     y: g.y,

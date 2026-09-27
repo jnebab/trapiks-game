@@ -39,10 +39,11 @@ fn sample_map() -> MapData {
             to_road: 1,
         }],
         areas: AreaTable {
-            kind: vec![AreaKind::Water],
-            ring_start: vec![0, 3],
-            x: vec![0.0, 10.0, 0.0],
-            y: vec![0.0, 0.0, 10.0],
+            kind: vec![AreaKind::Water, AreaKind::Water],
+            hole: vec![false, true],
+            ring_start: vec![0, 3, 6],
+            x: vec![0.0, 10.0, 0.0, 1.0, 3.0, 1.0],
+            y: vec![0.0, 0.0, 10.0, 1.0, 1.0, 3.0],
         },
     }
 }
@@ -70,6 +71,41 @@ fn rejects_unsupported_version() {
     bytes[4..8].copy_from_slice(&99u32.to_le_bytes());
     assert_eq!(from_bytes(&bytes), Err(MapError::UnsupportedVersion(99)));
     assert_ne!(MAP_FORMAT_VERSION, 99);
+}
+
+#[test]
+fn round_trips_v4_with_a_hole() {
+    let map = sample_map();
+    assert_eq!(MAP_FORMAT_VERSION, 4);
+    let decoded = from_bytes(&encode(&map)).map(|m| m.areas.hole);
+    assert_eq!(decoded, Ok(vec![false, true]));
+}
+
+#[test]
+fn rejects_v3_maps() {
+    let mut bytes = encode(&sample_map());
+    bytes[4..8].copy_from_slice(&3u32.to_le_bytes());
+    assert_eq!(from_bytes(&bytes), Err(MapError::UnsupportedVersion(3)));
+}
+
+#[test]
+fn rejects_leading_hole() {
+    let mut map = sample_map();
+    map.areas.hole = vec![true, false];
+    assert!(matches!(
+        from_bytes(&encode(&map)),
+        Err(MapError::Invalid(_))
+    ));
+}
+
+#[test]
+fn rejects_hole_after_other_kind() {
+    let mut map = sample_map();
+    map.areas.kind[1] = AreaKind::Park;
+    assert!(matches!(
+        from_bytes(&encode(&map)),
+        Err(MapError::Invalid(_))
+    ));
 }
 
 #[test]
@@ -103,6 +139,8 @@ fn fnv1a64_matches_reference_vectors() {
 #[test]
 fn rejects_area_ring_with_two_points() {
     let mut map = sample_map();
+    map.areas.kind.truncate(1);
+    map.areas.hole.truncate(1);
     map.areas.ring_start = vec![0, 2];
     map.areas.x.truncate(2);
     map.areas.y.truncate(2);
@@ -115,7 +153,7 @@ fn rejects_area_ring_with_two_points() {
 #[test]
 fn rejects_bad_ring_start() {
     let mut map = sample_map();
-    map.areas.ring_start = vec![1, 3];
+    map.areas.ring_start = vec![1, 3, 6];
     assert!(matches!(
         from_bytes(&encode(&map)),
         Err(MapError::Invalid(_))

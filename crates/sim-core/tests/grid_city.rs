@@ -16,7 +16,14 @@ fn grid_city_is_valid_and_deterministic() {
     assert_eq!(map.road_count(), 11 * 10 + 11 * 10 + 4);
     assert_eq!(map.node_count(), 124);
     assert_eq!(map.road_count(), 224);
-    assert_eq!(map.areas.kind, vec![AreaKind::Water, AreaKind::Park]);
+    let kinds = [
+        AreaKind::Water,
+        AreaKind::Water,
+        AreaKind::Park,
+        AreaKind::Park,
+    ];
+    assert_eq!(map.areas.kind, kinds.to_vec());
+    assert_eq!(map.areas.hole, vec![false, false, false, true]);
     let bytes = to_bytes(&map).unwrap_or_default();
     assert_eq!(from_bytes(&bytes), Ok(map));
 }

@@ -38,6 +38,8 @@ export class RoadStore {
   private toNodes = new Uint32Array(0);
   private starts = new Uint32Array(0);
   private lens = new Uint32Array(0);
+  private nodeLayers: Map<number, [number, number]> | undefined;
+  private ringNodes: Set<number> | undefined;
 
   static fromArrays(roads: RoadArrays): RoadStore {
     const store = new RoadStore();
@@ -109,11 +111,24 @@ export class RoadStore {
     return out;
   }
 
+  isRingNode(node: number): boolean {
+    this.ringNodes ??= this.collectRingNodes();
+    return this.ringNodes.has(node);
+  }
+
+  isMixedNode(node: number): boolean {
+    this.nodeLayers ??= this.collectNodeLayers();
+    const [low, high] = this.nodeLayers.get(node) ?? [0, 0];
+    return low !== high;
+  }
+
   truncate(count: number): void {
     this.count = Math.min(this.count, count);
+    this.forgetNodeTraits();
   }
 
   applyRoads(rows: RoadRows): void {
+    this.forgetNodeTraits();
     const maxId = rows.ids.reduce((max, id) => Math.max(max, id), -1);
     this.reserve(maxId + 1);
     let offset = 0;
@@ -145,6 +160,37 @@ export class RoadStore {
     this.starts[road] = start;
     this.lens[road] = len;
     return offset + len;
+  }
+
+  private forgetNodeTraits(): void {
+    this.ringNodes = undefined;
+    this.nodeLayers = undefined;
+  }
+
+  private collectNodeLayers(): Map<number, [number, number]> {
+    const layers = new Map<number, [number, number]>();
+    for (let road = 0; road < this.count; road += 1) {
+      if (this.isDeleted(road)) {
+        continue;
+      }
+      const layer = this.layer(road);
+      for (const node of [this.from(road), this.to(road)]) {
+        const [low, high] = layers.get(node) ?? [layer, layer];
+        layers.set(node, [Math.min(low, layer), Math.max(high, layer)]);
+      }
+    }
+    return layers;
+  }
+
+  private collectRingNodes(): Set<number> {
+    const nodes = new Set<number>();
+    for (let road = 0; road < this.count; road += 1) {
+      if (this.isRoundabout(road) && !this.isDeleted(road)) {
+        nodes.add(this.from(road));
+        nodes.add(this.to(road));
+      }
+    }
+    return nodes;
   }
 
   private reserve(count: number): void {

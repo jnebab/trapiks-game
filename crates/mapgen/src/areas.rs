@@ -42,20 +42,42 @@ pub fn closed_way_ring(
     Some((kind, ring))
 }
 
-pub fn relation_rings(relation: &OsmRelation) -> Option<(AreaKind, Vec<Vec<LatLon>>, u32)> {
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AreaRings {
+    pub outers: Vec<Vec<LatLon>>,
+    pub inners: Vec<Vec<LatLon>>,
+}
+
+pub struct RelationRings {
+    pub kind: AreaKind,
+    pub rings: AreaRings,
+    pub dropped: u32,
+}
+
+pub fn relation_rings(relation: &OsmRelation) -> Option<RelationRings> {
     if tag(&relation.tags, "type") != Some("multipolygon") {
         return None;
     }
     let kind = area_kind(&relation.tags)?;
-    let chains = relation
+    let (outers, dropped_outer) = join_rings(member_chains(relation, |role| {
+        role == "outer" || role.is_empty()
+    }));
+    let (inners, dropped_inner) = join_rings(member_chains(relation, |role| role == "inner"));
+    Some(RelationRings {
+        kind,
+        rings: AreaRings { outers, inners },
+        dropped: dropped_outer + dropped_inner,
+    })
+}
+
+fn member_chains(relation: &OsmRelation, keep: impl Fn(&str) -> bool) -> Vec<Vec<LatLon>> {
+    relation
         .members
         .iter()
-        .filter(|m| m.role == "outer" || m.role.is_empty())
+        .filter(|m| keep(&m.role))
         .filter_map(|m| m.geometry.clone())
         .filter(|geometry| geometry.len() >= 2)
-        .collect();
-    let (rings, dropped) = join_rings(chains);
-    Some((kind, rings, dropped))
+        .collect()
 }
 
 fn join_rings(chains: Vec<Vec<LatLon>>) -> (Vec<Vec<LatLon>>, u32) {
@@ -96,12 +118,12 @@ fn extend(chain: &mut Vec<LatLon>, pending: &mut Vec<Vec<LatLon>>) -> bool {
 
 pub fn finish(rings: Vec<Vec<LatLon>>, projection: &Projection) -> Vec<Vec<(f32, f32)>> {
     rings
-        .into_iter()
-        .filter_map(|ring| finish_ring(&ring, projection))
+        .iter()
+        .filter_map(|ring| finish_ring(&project_ring(ring, projection)))
         .collect()
 }
 
-fn finish_ring(ring: &[LatLon], projection: &Projection) -> Option<Vec<(f32, f32)>> {
+pub fn project_ring(ring: &[LatLon], projection: &Projection) -> Vec<(f64, f64)> {
     let mut points: Vec<(f64, f64)> = ring
         .iter()
         .map(|p| projection.project(p.lat, p.lon))
@@ -109,7 +131,11 @@ fn finish_ring(ring: &[LatLon], projection: &Projection) -> Option<Vec<(f32, f32
     if points.len() > 1 && points.first() == points.last() {
         points.pop();
     }
-    let simplified = simplify_ring(&points, TOLERANCE_M)?;
+    points
+}
+
+pub fn finish_ring(points: &[(f64, f64)]) -> Option<Vec<(f32, f32)>> {
+    let simplified = simplify_ring(points, TOLERANCE_M)?;
     Some(
         simplified
             .into_iter()

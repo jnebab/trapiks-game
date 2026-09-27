@@ -45,6 +45,47 @@ impl RouteGraph {
         }
     }
 
+    pub fn patch(&mut self, network: &Network, nodes: &[u32]) {
+        let changed = node_mask(network, nodes);
+        let mut edges: Vec<Edge> = nodes
+            .iter()
+            .flat_map(|&node| node_edges(network, node))
+            .collect();
+        edges.sort_unstable_by_key(|&(from, to, _)| (from, to));
+        let (succ_start, succ) = splice(&self.succ_start, &self.succ, |link| {
+            changed[network.link_to(link) as usize].then(|| {
+                edges_matching(
+                    &edges,
+                    |e| e.0 == link,
+                    |e| Succ {
+                        to: e.1,
+                        penalty: e.2,
+                    },
+                )
+            })
+        });
+        edges.sort_unstable_by_key(|&(from, to, _)| (to, from));
+        let (pred_start, pred) = splice(&self.pred_start, &self.pred, |link| {
+            changed[network.link_from(link) as usize].then(|| {
+                edges_matching(
+                    &edges,
+                    |e| e.1 == link,
+                    |e| Pred {
+                        from: e.0,
+                        penalty: e.2,
+                    },
+                )
+            })
+        });
+        *self = RouteGraph {
+            succ_start,
+            succ,
+            pred_start,
+            pred,
+            built_version: network.version(),
+        };
+    }
+
     pub fn built_version(&self) -> u64 {
         self.built_version
     }
@@ -70,17 +111,53 @@ fn penalty(kind: TurnKind) -> f32 {
     }
 }
 
+fn node_edges(network: &Network, node: u32) -> impl Iterator<Item = Edge> {
+    network
+        .turns(node)
+        .into_iter()
+        .map(|(from, to, kind)| (from, to, penalty(kind)))
+}
+
 fn collect_edges(network: &Network) -> Vec<Edge> {
-    let mut edges = Vec::new();
-    for node in 0..network.nodes.count() as u32 {
-        let turns = network.turns(node);
-        edges.extend(
-            turns
-                .into_iter()
-                .map(|(from, to, kind)| (from, to, penalty(kind))),
-        );
+    (0..network.nodes.count() as u32)
+        .flat_map(|node| node_edges(network, node))
+        .collect()
+}
+
+fn node_mask(network: &Network, nodes: &[u32]) -> Vec<bool> {
+    let mut mask = vec![false; network.nodes.count()];
+    for &node in nodes {
+        if let Some(flag) = mask.get_mut(node as usize) {
+            *flag = true;
+        }
     }
-    edges
+    mask
+}
+
+fn edges_matching<T>(
+    edges: &[Edge],
+    keep: impl Fn(&Edge) -> bool,
+    entry: impl Fn(&Edge) -> T,
+) -> Vec<T> {
+    edges.iter().filter(|e| keep(e)).map(entry).collect()
+}
+
+fn splice<T: Copy>(
+    start: &[u32],
+    items: &[T],
+    replacement: impl Fn(LinkId) -> Option<Vec<T>>,
+) -> (Vec<u32>, Vec<T>) {
+    let mut out_start = Vec::with_capacity(start.len());
+    let mut out = Vec::with_capacity(items.len());
+    out_start.push(0);
+    for link in 0..start.len().saturating_sub(1) as LinkId {
+        match replacement(link) {
+            Some(fresh) => out.extend_from_slice(&fresh),
+            None => out.extend_from_slice(segment(start, items, link)),
+        }
+        out_start.push(out.len() as u32);
+    }
+    (out_start, out)
 }
 
 fn csr<T: Copy + Default>(
@@ -121,5 +198,40 @@ fn segment<'a, T>(start: &[u32], items: &'a [T], link: LinkId) -> &'a [T] {
     match (start.get(index), start.get(index + 1)) {
         (Some(&a), Some(&b)) => &items[a as usize..b as usize],
         _ => &[],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fixtures::{GridCity, grid_city};
+
+    fn assert_same(a: &RouteGraph, b: &RouteGraph) {
+        for link in 0..a.link_count() as LinkId {
+            assert_eq!(a.successors(link), b.successors(link), "succ {link}");
+            assert_eq!(a.predecessors(link), b.predecessors(link), "pred {link}");
+        }
+    }
+
+    #[test]
+    fn patch_matches_full_build_after_delete_and_restore() {
+        let map = grid_city(&GridCity {
+            cols: 4,
+            rows: 4,
+            spacing: 100.0,
+        });
+        let mut network = Network::from_map(&map);
+        let mut graph = RouteGraph::build(&network);
+        for deleted in [true, false] {
+            let built = graph.built_version();
+            network.set_road_deleted(5, deleted);
+            let ends = [network.roads.from[5], network.roads.to[5]];
+            network.commit_edit(&ends, false);
+            let changes = network.changes_since(built);
+            let nodes = changes.map(|c| c.nodes).unwrap_or_default();
+            assert_eq!(nodes, ends.to_vec());
+            graph.patch(&network, &nodes);
+            assert_same(&graph, &RouteGraph::build(&network));
+        }
     }
 }

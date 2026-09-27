@@ -1,5 +1,7 @@
 import type { Ticker } from 'pixi.js';
 import { el } from './dom';
+import { FrameStats, perfEnabled } from './frame-stats';
+import { StepStats, perfFrom } from './step-stats';
 
 const REFRESH_MS = 500;
 
@@ -8,11 +10,12 @@ export interface DebugOverlay {
   setRoads: (count: number) => void;
   setVehicles: (count: number, tick: number) => void;
   setTiles: (built: number, visible: number, band: string) => void;
-  setMarkings: (built: number) => void;
+  setMarkings: (built: number, buildings: number) => void;
   setShadowPieces: (count: number) => void;
   setSignalPills: (count: number) => void;
   countSignalUpdate: () => void;
   setTraffic: (visible: boolean) => void;
+  recordSteps: (tick: number, stepMs: Float64Array) => void;
 }
 
 interface OverlayState {
@@ -48,12 +51,16 @@ function everyRefresh(ticker: Ticker, render: () => void): void {
 
 type DepthSetters = Pick<
   DebugOverlay,
-  'setShadowPieces' | 'setSignalPills' | 'countSignalUpdate' | 'setTraffic'
+  'setMarkings' | 'setShadowPieces' | 'setSignalPills' | 'countSignalUpdate' | 'setTraffic'
 >;
 
 function depthSetters(element: HTMLElement): DepthSetters {
   let signalUpdates = 0;
   return {
+    setMarkings: (built, buildings) => {
+      element.dataset.markingsBuilt = String(built);
+      element.dataset.buildingsBuilt = String(buildings);
+    },
     setShadowPieces: (count) => {
       element.dataset.shadowPieces = String(count);
     },
@@ -70,6 +77,35 @@ function depthSetters(element: HTMLElement): DepthSetters {
   };
 }
 
+function trackFrames(ticker: Ticker, element: HTMLElement): void {
+  if (!perfEnabled(window.location.search)) {
+    return;
+  }
+  const stats = new FrameStats();
+  ticker.add((t) => {
+    stats.record(t.deltaMS);
+  });
+  everyRefresh(ticker, () => {
+    element.dataset.frameP50 = stats.percentile(0.5).toFixed(2);
+    element.dataset.frameP95 = stats.percentile(0.95).toFixed(2);
+  });
+}
+
+function stepRecorder(element: HTMLElement): DebugOverlay['recordSteps'] {
+  if (!perfEnabled(window.location.search)) {
+    return () => undefined;
+  }
+  const steps = new StepStats(perfFrom(window.location.search));
+  return (tick, stepMs) => {
+    steps.record(tick, stepMs);
+    Object.assign(element.dataset, steps.summary());
+  };
+}
+
+function markLoad(element: HTMLElement, key: 'readyMs' | 'firstTilesMs'): void {
+  element.dataset[key] ??= performance.now().toFixed(0);
+}
+
 export function createDebugOverlay(ticker: Ticker, mapName: string): DebugOverlay {
   const element = el('div', 'chip');
   element.id = 'debug';
@@ -80,7 +116,9 @@ export function createDebugOverlay(ticker: Ticker, mapName: string): DebugOverla
     element.dataset.fps = String(fps);
   };
   everyRefresh(ticker, render);
+  trackFrames(ticker, element);
   const setRoads = (count: number): void => {
+    markLoad(element, 'readyMs');
     state.roads = count;
     element.dataset.roads = String(count);
     render();
@@ -93,15 +131,16 @@ export function createDebugOverlay(ticker: Ticker, mapName: string): DebugOverla
   };
   const setTiles = (built: number, visible: number, band: string): void => {
     Object.assign(state, { built, visible });
+    if (built > 0 && built === visible) {
+      markLoad(element, 'firstTilesMs');
+    }
     Object.assign(element.dataset, {
       tilesBuilt: String(built),
       tilesVisible: String(visible),
       band,
     });
   };
-  const setMarkings = (built: number): void => {
-    element.dataset.markingsBuilt = String(built);
-  };
   render();
-  return { element, setRoads, setVehicles, setTiles, setMarkings, ...depthSetters(element) };
+  const recordSteps = stepRecorder(element);
+  return { element, setRoads, setVehicles, setTiles, recordSteps, ...depthSetters(element) };
 }

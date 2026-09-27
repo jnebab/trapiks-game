@@ -54,6 +54,24 @@ function isWhite(pixel: number[]): boolean {
   return pixel.every((channel) => channel >= WHITE_MIN);
 }
 
+const PX_PER_M = 10;
+const ISLAND_SAMPLE_M = 23.5;
+
+async function islandPixels(page: Page): Promise<number[][]> {
+  await page.mouse.move(CORNER.x, CORNER.y);
+  const png = PNG.sync.read(await page.screenshot());
+  const reach = ISLAND_SAMPLE_M * PX_PER_M;
+  const samples = [
+    [CENTRE.x + reach, CENTRE.y],
+    [CENTRE.x - reach, CENTRE.y],
+    [CENTRE.x, CENTRE.y - reach],
+  ];
+  return samples.map(([x = 0, y = 0]) => {
+    const i = (y * png.width + x) * 4;
+    return [png.data[i] ?? 0, png.data[i + 1] ?? 0, png.data[i + 2] ?? 0];
+  });
+}
+
 async function spent(page: Page): Promise<number> {
   return numberAttr(page, '#budget', 'data-spent');
 }
@@ -70,6 +88,8 @@ test('build and undo a roundabout', async ({ page }, testInfo) => {
   await expect.poll(async () => spent(page), { timeout: 10_000 }).toBeGreaterThan(before);
   await expect.poll(async () => isGround(await centrePixel(page)), { timeout: 10_000 }).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('roundabout.png') });
+  const island = await islandPixels(page);
+  expect(island.map(isGround), JSON.stringify(island)).toEqual([true, true, true]);
   await page.locator('#undo').click();
   await expect.poll(async () => isWhite(await centrePixel(page)), { timeout: 10_000 }).toBe(true);
   expect(errors).toEqual([]);

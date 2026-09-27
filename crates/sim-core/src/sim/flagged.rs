@@ -23,12 +23,7 @@ impl Sim {
         if damage.is_empty() {
             return;
         }
-        let marked = flag_routes(
-            &self.network,
-            &self.vehicles,
-            damage,
-            &mut self.edits.flagged,
-        );
+        let marked = flag_routes(&self.vehicles, damage, &mut self.edits.flagged);
         self.edits.reroutes.marked += marked;
     }
 

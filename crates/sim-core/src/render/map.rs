@@ -22,6 +22,7 @@ pub struct NodeRender {
 
 pub struct AreaRender {
     pub kind: Vec<u8>,
+    pub hole: Vec<u8>,
     pub ring_start: Vec<u32>,
     pub x: Vec<f32>,
     pub y: Vec<f32>,
@@ -60,6 +61,7 @@ pub fn area_render(map: &MapData) -> AreaRender {
     let areas = &map.areas;
     AreaRender {
         kind: areas.kind.iter().map(|k| k.code()).collect(),
+        hole: areas.hole.iter().map(|&hole| u8::from(hole)).collect(),
         ring_start: areas.ring_start.clone(),
         x: areas.x.clone(),
         y: areas.y.clone(),

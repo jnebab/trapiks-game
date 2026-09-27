@@ -33,6 +33,7 @@ function setup(): { store: RoadStore; picking: Picking } {
       node: Uint32Array.from([1, 0]),
       layer: new Int8Array(2),
       minLayer: new Int8Array(2),
+      filletLayer: new Int8Array(0),
       ringStart: Uint32Array.from([0, 1, 2]),
       x: Float32Array.from([100, 0]),
       y: Float32Array.from([0, 0]),

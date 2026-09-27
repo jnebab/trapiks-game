@@ -11,6 +11,7 @@ pub struct JunctionShapes {
     pub node: Vec<u32>,
     pub layer: Vec<i8>,
     pub min_layer: Vec<i8>,
+    pub fillet_layer: Vec<i8>,
     pub ring_start: Vec<u32>,
     pub x: Vec<f32>,
     pub y: Vec<f32>,
@@ -54,9 +55,8 @@ fn junction_arms(network: &Network, node: u32) -> Option<Vec<Arm>> {
 }
 
 fn push_shape(network: &Network, node: u32, arms: &[Arm], shapes: &mut JunctionShapes) {
-    let layers = arms
-        .iter()
-        .map(|arm| network.roads.layer[arm.road as usize]);
+    let layer_of = |arm: &Arm| network.roads.layer[arm.road as usize];
+    let layers = arms.iter().map(layer_of);
     shapes.node.push(node);
     shapes.layer.push(layers.clone().max().unwrap_or_default());
     shapes.min_layer.push(layers.min().unwrap_or_default());
@@ -64,6 +64,7 @@ fn push_shape(network: &Network, node: u32, arms: &[Arm], shapes: &mut JunctionS
     let centre = network.nodes.pos[node as usize];
     for (i, a) in arms.iter().enumerate() {
         let b = &arms[(i + 1) % arms.len()];
+        shapes.fillet_layer.push(layer_of(a).min(layer_of(b)));
         push_fillet(shapes, fillet(centre, a, b));
     }
 }

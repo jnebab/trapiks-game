@@ -6,6 +6,7 @@ use super::pose::place_end;
 use super::{Place, place_key};
 
 const STALE: u64 = u64::MAX;
+const MAX_NODES: usize = 2 * (LEADER_LOOKAHEAD_PLACES + 1);
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct AheadPlace {
@@ -27,6 +28,8 @@ pub struct Ahead {
     landing: Option<u8>,
     len: usize,
     places: [AheadPlace; LEADER_LOOKAHEAD_PLACES],
+    node_len: usize,
+    nodes: [u32; MAX_NODES],
 }
 
 impl Ahead {
@@ -46,6 +49,8 @@ impl Ahead {
             start: 0.0,
             end: 0.0,
         }; LEADER_LOOKAHEAD_PLACES],
+        node_len: 0,
+        nodes: [0; MAX_NODES],
     };
 
     pub fn compute(network: &Network, route: &[LinkId], place: Place, cursor: usize) -> Ahead {
@@ -57,6 +62,7 @@ impl Ahead {
             next: route.get(cursor + 1).copied(),
             ..Ahead::STALE
         };
+        ahead.record_nodes(network, place);
         let (mut at, mut at_cursor) = (place, cursor);
         while ahead.len < LEADER_LOOKAHEAD_PLACES {
             let Some((next, next_cursor)) = next_place(network, route, at, at_cursor) else {
@@ -74,6 +80,7 @@ impl Ahead {
                 end,
             };
             ahead.len += 1;
+            ahead.record_nodes(network, next);
             (at, at_cursor) = (next, next_cursor);
         }
         ahead.movement = relevant_movement(network, place, ahead.next);
@@ -98,8 +105,43 @@ impl Ahead {
         self.movement.filter(|_| self.crossing)
     }
 
+    fn record_nodes(&mut self, network: &Network, place: Place) {
+        let nodes = match place {
+            Place::Link { link, .. } => [network.link_from(link), network.link_to(link)],
+            Place::Movement { node, .. } => [node, node],
+        };
+        for node in nodes {
+            self.record_node(node);
+        }
+    }
+
+    fn record_node(&mut self, node: u32) {
+        if self.node_len > 0 && self.nodes[self.node_len - 1] == node {
+            return;
+        }
+        if let Some(slot) = self.nodes.get_mut(self.node_len) {
+            *slot = node;
+            self.node_len += 1;
+        }
+    }
+
     pub fn is_fresh(&self, network: &Network, place: Place, cursor: usize) -> bool {
-        self.version == network.version() && self.place == place && self.cursor == cursor
+        self.place == place && self.cursor == cursor && self.is_current(network)
+    }
+
+    fn is_current(&self, network: &Network) -> bool {
+        if self.version == network.version() {
+            return true;
+        }
+        self.version != STALE
+            && self.version >= network.global_version()
+            && self.nodes[..self.node_len]
+                .iter()
+                .all(|&node| network.node_version(node) <= self.version)
+    }
+
+    pub fn restamp(&mut self, network: &Network) {
+        self.version = network.version();
     }
 
     pub fn end(&self) -> Option<f64> {

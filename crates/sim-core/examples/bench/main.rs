@@ -1,19 +1,19 @@
+mod events;
+
 use std::io::Read;
 use std::time::Instant;
 
 use flate2::read::GzDecoder;
 use trapiks_sim_core::config::{SimConfig, SimMode};
-use trapiks_sim_core::edit::EditCommand;
-use trapiks_sim_core::map::RoadClass;
 use trapiks_sim_core::map::from_bytes;
-use trapiks_sim_core::network::road_of;
 use trapiks_sim_core::rng::Pcg32;
 use trapiks_sim_core::routing::RouteStats;
 use trapiks_sim_core::sim::{RerouteCounts, Sim};
-use trapiks_sim_core::vehicle::Place;
+
+use events::{Event, EventKind, Planned, plan};
 
 const ROUTE_SAMPLES: usize = 2_000;
-const DELETE_WINDOW: usize = 600;
+const EVENT_WINDOW: usize = 600;
 
 struct Args {
     path: String,
@@ -21,7 +21,7 @@ struct Args {
     vph: f64,
     warmup: u64,
     ticks: u64,
-    delete_at: Option<u64>,
+    event: Option<Event>,
 }
 
 #[derive(Default)]
@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     sim.reset_stats();
     let before = sim.route_stats();
-    let run = measure(&mut sim, args.ticks, args.delete_at);
+    let run = measure(&mut sim, args.ticks, args.event);
     let routing = sim.route_stats();
     let state_hash = sim.state_hash();
     let route_us = mean_route_us(&mut sim);
@@ -60,14 +60,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn parse_args() -> Result<Args, Box<dyn std::error::Error>> {
     let mut raw = std::env::args().skip(1);
-    let usage = "usage: bench <map.bin.gz> [--region x,y,r] [--vph N] [--warmup N] [--ticks N] [--delete-road-at TICK]";
+    let usage = "usage: bench <map.bin.gz> [--region x,y,r] [--vph N] [--warmup N] [--ticks N] [--delete-road-at TICK | --roundabout-at TICK | --add-road-at TICK]";
     let mut args = Args {
         path: raw.next().ok_or(usage)?,
         mode: SimMode::City,
         vph: 0.0,
         warmup: 0,
         ticks: 1_000,
-        delete_at: None,
+        event: None,
     };
     while let Some(flag) = raw.next() {
         let value = raw.next().ok_or(usage)?;
@@ -76,11 +76,20 @@ fn parse_args() -> Result<Args, Box<dyn std::error::Error>> {
             "--vph" => args.vph = value.parse()?,
             "--warmup" => args.warmup = value.parse()?,
             "--ticks" => args.ticks = value.parse()?,
-            "--delete-road-at" => args.delete_at = Some(value.parse()?),
+            "--delete-road-at" => args.event = Some(event(EventKind::DeleteRoad, &value)?),
+            "--roundabout-at" => args.event = Some(event(EventKind::Roundabout, &value)?),
+            "--add-road-at" => args.event = Some(event(EventKind::AddRoad, &value)?),
             _ => return Err(usage.into()),
         }
     }
     Ok(args)
+}
+
+fn event(kind: EventKind, value: &str) -> Result<Event, Box<dyn std::error::Error>> {
+    Ok(Event {
+        kind,
+        tick: value.parse()?,
+    })
 }
 
 fn parse_region(value: &str) -> Result<SimMode, Box<dyn std::error::Error>> {
@@ -95,95 +104,79 @@ fn parse_region(value: &str) -> Result<SimMode, Box<dyn std::error::Error>> {
     })
 }
 
-fn measure(sim: &mut Sim, ticks: u64, delete_at: Option<u64>) -> Run {
+fn measure(sim: &mut Sim, ticks: u64, event: Option<Event>) -> Run {
     let mut run = Run::default();
-    let mut deletion = None;
+    let mut applied = None;
     for _ in 0..ticks {
-        let deleting = delete_at == Some(sim.tick());
-        let before = deleting.then(|| delete_busiest_primary(sim));
+        let due = event.filter(|event| event.tick == sim.tick());
+        let before = due.and_then(|event| enqueue_event(sim, event.kind));
         let started = Instant::now();
         sim.step();
         run.step_ms.push(started.elapsed().as_secs_f64() * 1000.0);
         if let Some(before) = before {
-            deletion = Some((first_step_counts(sim, &before), run.step_ms.len() - 1));
+            applied = Some((first_step_counts(sim, before), run.step_ms.len() - 1));
         }
         let stats = sim.stats();
         run.active_sum += f64::from(stats.active);
         run.active_max = run.active_max.max(stats.active);
         run.speed_sum += stats.mean_speed;
     }
-    if let Some((counts, start)) = deletion {
-        report_deletion(&counts, &run.step_ms[start..]);
+    if let Some((counts, start)) = applied {
+        report_event(&counts, &run.step_ms[start..]);
     }
     run
 }
 
-struct Deletion {
-    road: u32,
-    vehicles: usize,
+struct Applied {
+    planned: Planned,
     tick: u64,
     stranded: u64,
     reroutes: RerouteCounts,
 }
 
-fn busiest_primary(sim: &Sim) -> Option<(u32, usize)> {
-    let network = sim.network();
-    let vehicles = sim.vehicles();
-    let mut counts = vec![0usize; network.roads.count()];
-    for slot in vehicles.live_slots() {
-        if let Place::Link { link, .. } = vehicles.place[slot as usize] {
-            counts[road_of(link) as usize] += 1;
-        }
-    }
-    let eligible = |road: usize| {
-        network.roads.class[road] == RoadClass::Primary && network.roads.is_live(road as u32)
+fn enqueue_event(sim: &mut Sim, kind: EventKind) -> Option<Applied> {
+    let Some((command, planned)) = plan(sim, kind) else {
+        println!("event {kind:?}: no eligible target");
+        return None;
     };
-    counts
-        .iter()
-        .enumerate()
-        .filter(|&(road, _)| eligible(road))
-        .max_by_key(|&(road, &count)| (count, std::cmp::Reverse(road)))
-        .map(|(road, &count)| (road as u32, count))
-}
-
-fn delete_busiest_primary(sim: &mut Sim) -> Deletion {
-    let (road, vehicles) = busiest_primary(sim).unwrap_or((0, 0));
-    sim.enqueue(EditCommand::DeleteRoad { road });
-    Deletion {
-        road,
-        vehicles,
+    sim.enqueue(command);
+    Some(Applied {
+        planned,
         tick: sim.tick(),
         stranded: sim.stranded(),
         reroutes: sim.reroute_counts(),
-    }
+    })
 }
 
-fn first_step_counts(sim: &Sim, before: &Deletion) -> Deletion {
+fn first_step_counts(sim: &mut Sim, before: Applied) -> Applied {
+    for result in sim.take_results() {
+        println!("event result: {:?}", result.outcome);
+    }
     let after = sim.reroute_counts();
-    Deletion {
+    Applied {
         stranded: sim.stranded() - before.stranded,
         reroutes: RerouteCounts {
             immediate: after.immediate - before.reroutes.immediate,
             flagged: after.flagged - before.reroutes.flagged,
             marked: after.marked - before.reroutes.marked,
         },
-        ..*before
+        ..before
     }
 }
 
-fn report_deletion(counts: &Deletion, steps: &[f64]) {
-    let window = &steps[..steps.len().min(DELETE_WINDOW)];
+fn report_event(counts: &Applied, steps: &[f64]) {
+    let window = &steps[..steps.len().min(EVENT_WINDOW)];
     let max = window.iter().copied().fold(0.0, f64::max);
     println!(
-        "delete: road {} ({} vehicles on it) at tick {}",
-        counts.road, counts.vehicles, counts.tick
+        "event: {} ({} vehicles) at tick {}",
+        counts.planned.label, counts.planned.vehicles, counts.tick
     );
     println!(
-        "delete step: stranded {} immediate reroutes {} flagged {} flagged rerouted {}",
+        "event step: stranded {} immediate reroutes {} flagged {} flagged rerouted {}",
         counts.stranded, counts.reroutes.immediate, counts.reroutes.marked, counts.reroutes.flagged
     );
     println!(
-        "delete step ms: first {:.2} max over {} ticks {max:.2}",
+        "event step ms: first {:.2} max over {} ticks {max:.2}",
         window.first().copied().unwrap_or(0.0),
         window.len()
     );

@@ -5,6 +5,7 @@ pub mod controls;
 pub mod filter;
 pub mod input;
 pub mod osm;
+pub mod polygons;
 pub mod restrictions;
 pub mod simplify;
 pub mod stats;

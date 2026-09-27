@@ -94,6 +94,7 @@ describe('buildTileIndex street detail', () => {
       node: Uint32Array.from([0]),
       layer: new Int8Array(1),
       minLayer: new Int8Array(1),
+      filletLayer: new Int8Array(0),
       ringStart: Uint32Array.from([0, 2]),
       x: Float32Array.from([1090, 1110]),
       y: Float32Array.from([40, 70]),

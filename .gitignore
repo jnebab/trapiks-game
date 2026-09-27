@@ -10,3 +10,5 @@ data/osm/
 .env
 .env.*
 *.log
+web/dist-base/
+web/public/maps/grid120.bin.gz

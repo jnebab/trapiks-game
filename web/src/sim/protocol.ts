@@ -105,6 +105,7 @@ export interface StatsMessage {
   session: number;
   stats: StatsSnapshot;
   roadSpeedRatio: Float32Array<ArrayBuffer>;
+  stepMs: Float64Array<ArrayBuffer>;
 }
 
 export interface SignalsMessage {

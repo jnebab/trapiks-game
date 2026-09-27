@@ -10,6 +10,7 @@ pub struct GridCity {
 }
 
 const ARTERIAL_EVERY: u32 = 5;
+const POND_HALF_SIZE: f32 = 15.0;
 const RIVER_HALF_WIDTH: f32 = 15.0;
 const PARK_INSET: f32 = 10.0;
 
@@ -153,8 +154,15 @@ impl<'a> Grid<'a> {
             ((cols - 2.0) * s + PARK_INSET, (rows - 2.0) * s + PARK_INSET),
             ((cols - 1.0) * s - PARK_INSET, (rows - 1.0) * s - PARK_INSET),
         );
+        let centre = ((cols - 1.5) * s, (rows - 1.5) * s);
+        let pond = rectangle(
+            (centre.0 - POND_HALF_SIZE, centre.1 - POND_HALF_SIZE),
+            (centre.0 + POND_HALF_SIZE, centre.1 + POND_HALF_SIZE),
+        );
         self.builder.area(AreaKind::Water, &river);
         self.builder.area(AreaKind::Park, &park);
+        self.builder.hole(&pond);
+        self.builder.area(AreaKind::Water, &pond);
     }
 }
 

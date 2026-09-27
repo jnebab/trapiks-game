@@ -4,10 +4,12 @@ use super::{Network, SpatialGrid, Timing};
 
 impl Network {
     pub(crate) fn set_road_deleted(&mut self, road: u32, deleted: bool) -> bool {
+        self.touch_road(road);
         std::mem::replace(&mut self.roads.deleted[road as usize], deleted)
     }
 
     pub(crate) fn set_road_lanes(&mut self, road: u32, forward: u8, backward: u8) -> (u8, u8) {
+        self.touch_road(road);
         let index = road as usize;
         let old_forward = std::mem::replace(&mut self.roads.lanes_forward[index], forward);
         let old_backward = std::mem::replace(&mut self.roads.lanes_backward[index], backward);
@@ -15,6 +17,7 @@ impl Network {
     }
 
     pub(crate) fn set_road_speed(&mut self, road: u32, kph: u8) -> u8 {
+        self.touch_road(road);
         let old = self.roads.speed_kph[road as usize];
         self.roads.set_speed_kph(road, kph);
         old
@@ -47,14 +50,23 @@ impl Network {
             self.spatial = SpatialGrid::build(&self.roads, &self.nodes);
             self.spatial_structure = self.structure;
         }
+        let built: Vec<u32> = invalidated
+            .iter()
+            .copied()
+            .filter(|&node| self.junction(node).is_some())
+            .collect();
         for &node in invalidated {
             self.invalidate_node(node);
         }
         if structural {
             self.compute_spans();
+            self.mark_global();
         }
         if signals_changed {
             self.rebuild_signals();
+        }
+        for node in built {
+            self.ensure_junction(node);
         }
         self.version += 1;
     }

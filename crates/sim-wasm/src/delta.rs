@@ -137,6 +137,11 @@ impl DeltaGeometry {
         self.0.junctions.min_layer.clone()
     }
 
+    #[wasm_bindgen(getter, js_name = junctionFilletLayer)]
+    pub fn junction_fillet_layer(&self) -> Vec<i8> {
+        self.0.junctions.fillet_layer.clone()
+    }
+
     #[wasm_bindgen(getter, js_name = junctionRingStart)]
     pub fn junction_ring_start(&self) -> Vec<u32> {
         self.0.junctions.ring_start.clone()

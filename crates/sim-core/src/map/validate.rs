@@ -1,4 +1,4 @@
-use super::{MapData, MapError};
+use super::{AreaTable, MapData, MapError};
 
 pub fn validate(map: &MapData) -> Result<(), MapError> {
     validate_nodes(map)?;
@@ -117,6 +117,21 @@ fn validate_areas(map: &MapData) -> Result<(), MapError> {
     }
     if areas.y.len() != areas.x.len() || starts[starts.len() - 1] as usize != areas.x.len() {
         return invalid("ring_start must end at the area point count".to_string());
+    }
+    validate_holes(areas)
+}
+
+fn validate_holes(areas: &AreaTable) -> Result<(), MapError> {
+    if areas.hole.len() != areas.kind.len() {
+        return invalid("hole must have one entry per area ring".to_string());
+    }
+    if areas.hole.first() == Some(&true) {
+        return invalid("a hole ring cannot come first".to_string());
+    }
+    let misplaced = (1..areas.hole.len())
+        .any(|ring| areas.hole[ring] && areas.kind[ring] != areas.kind[ring - 1]);
+    if misplaced {
+        return invalid("a hole ring must follow a ring of the same kind".to_string());
     }
     Ok(())
 }

@@ -1,4 +1,5 @@
 mod append;
+mod changes;
 mod content_hash;
 mod junction;
 mod link;
@@ -18,6 +19,7 @@ use crate::geom::Vec2;
 use crate::map::{MapData, TurnBan};
 
 pub use append::NewRoad;
+pub use changes::Changes;
 pub use junction::{
     Conflict, Junction, Movement, RING_RANK, TurnKind, build_junction, movement_class_rank,
     movement_is_minor,
@@ -43,6 +45,9 @@ pub struct Network {
     junctions: Vec<Option<Junction>>,
     spans: Vec<(f64, f64)>,
     version: u64,
+    global_version: u64,
+    node_versions: Vec<u64>,
+    road_versions: Vec<u64>,
     structure: u64,
     spatial_structure: u64,
     content: Cell<Option<(u64, u64)>>,
@@ -55,6 +60,9 @@ impl Network {
         let spatial = SpatialGrid::build(&roads, &nodes);
         let mut network = Network {
             junctions: vec![None; nodes.count()],
+            node_versions: vec![0; nodes.count()],
+            road_versions: vec![0; roads.count()],
+            global_version: 0,
             bans: map.turn_bans.iter().copied().collect(),
             timings: BTreeMap::new(),
             roads,
@@ -100,6 +108,7 @@ impl Network {
         self.rebuild_signals();
         self.junctions.iter_mut().for_each(|slot| *slot = None);
         self.compute_spans();
+        self.mark_global();
         self.version += 1;
     }
 
@@ -251,6 +260,7 @@ impl Network {
             to_road,
         });
         self.invalidate_node(node);
+        self.mark_global();
         self.version += 1;
     }
 
@@ -262,6 +272,7 @@ impl Network {
         if let Some(slot) = self.junctions.get_mut(node as usize) {
             *slot = None;
         }
+        self.touch_node(node);
         self.refresh_spans_at(node);
     }
 

@@ -4,7 +4,7 @@ import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  { ignores: ['dist', 'src/generated', 'src/wasm'] },
+  { ignores: ['dist', 'dist-base', 'src/generated', 'src/wasm'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,

@@ -36,6 +36,11 @@ impl JunctionShapeGeometry {
         self.0.min_layer.clone()
     }
 
+    #[wasm_bindgen(getter, js_name = filletLayer)]
+    pub fn fillet_layer(&self) -> Vec<i8> {
+        self.0.fillet_layer.clone()
+    }
+
     #[wasm_bindgen(getter, js_name = ringStart)]
     pub fn ring_start(&self) -> Vec<u32> {
         self.0.ring_start.clone()

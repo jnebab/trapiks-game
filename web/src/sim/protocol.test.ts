@@ -41,6 +41,7 @@ function readyMessage(): Record<string, unknown> {
 function emptyAreas(): Record<string, unknown> {
   return {
     kindCode: new Uint8Array(0),
+    hole: new Uint8Array(0),
     ringStart: new Uint32Array([0]),
     x: new Float32Array(0),
     y: new Float32Array(0),
@@ -54,6 +55,7 @@ function streetArrays(): Record<string, unknown> {
       node: new Uint32Array(0),
       layer: new Int8Array(0),
       minLayer: new Int8Array(0),
+      filletLayer: new Int8Array(0),
       ringStart: new Uint32Array([0]),
       x: new Float32Array(0),
       y: new Float32Array(0),
@@ -168,17 +170,14 @@ describe('snapshot and stats messages', () => {
     ).toBe(false);
   });
 
-  it('accepts stats and rejects stats without the ratio array', () => {
+  it('accepts stats and rejects stats without the ratio or step arrays', () => {
     const ratio = new Float32Array(3);
-    expect(
-      isWorkerMessage({ type: 'stats', session: 0, stats: stats(), roadSpeedRatio: ratio }),
-    ).toBe(true);
-    expect(
-      isWorkerMessage({ type: 'stats', session: 0, stats: stats(), roadSpeedRatio: [1] }),
-    ).toBe(false);
-    expect(
-      isWorkerMessage({ type: 'stats', session: 0, stats: { tick: 1 }, roadSpeedRatio: ratio }),
-    ).toBe(false);
+    const stepMs = new Float64Array(2);
+    const message = { type: 'stats', session: 0, stats: stats(), roadSpeedRatio: ratio, stepMs };
+    expect(isWorkerMessage(message)).toBe(true);
+    expect(isWorkerMessage({ ...message, roadSpeedRatio: [1] })).toBe(false);
+    expect(isWorkerMessage({ ...message, stats: { tick: 1 } })).toBe(false);
+    expect(isWorkerMessage({ ...message, stepMs: [1] })).toBe(false);
   });
 });
 

@@ -73,14 +73,50 @@ fn multipolygon_outer_rings() {
             &[("type", "multipolygon"), ("leisure", "park")],
         );
     let relations = &fixture.osm.relations;
-    let Some((kind, rings, dropped)) = relation_rings(&relations[&50]) else {
+    let Some(found) = relation_rings(&relations[&50]) else {
         panic!("no multipolygon");
     };
-    assert_eq!((kind, rings.len(), dropped), (AreaKind::Water, 1, 0));
-    assert_eq!(rings[0].len(), 5);
-    assert_eq!(finish(rings, &projection())[0].len(), 4);
-    let Some((_, rings, dropped)) = relation_rings(&relations[&51]) else {
+    let outers = found.rings.outers;
+    assert_eq!(
+        (found.kind, outers.len(), found.dropped),
+        (AreaKind::Water, 1, 1)
+    );
+    assert_eq!(outers[0].len(), 5);
+    assert_eq!(finish(outers, &projection())[0].len(), 4);
+    let Some(found) = relation_rings(&relations[&51]) else {
         panic!("no park multipolygon");
     };
-    assert_eq!((rings.len(), dropped), (0, 1));
+    assert_eq!((found.rings.outers.len(), found.dropped), (0, 1));
+}
+
+fn island(fixture: &mut Fixture, first_id: i64, offset: f64) -> [i64; 5] {
+    let ids = [first_id, first_id + 1, first_id + 2, first_id + 3];
+    let corners = [(0.3, 0.3), (0.3, 0.7), (0.7, 0.7), (0.7, 0.3)];
+    for (id, (dlat, dlon)) in ids.iter().zip(corners) {
+        fixture.node(*id, LAT + (dlat + offset) * D, LON + dlon * D);
+    }
+    [ids[0], ids[1], ids[2], ids[3], ids[0]]
+}
+
+#[test]
+fn lake_with_island_is_outer_then_hole() {
+    let mut fixture = Fixture::default();
+    let [a, b, c, d] = square(&mut fixture, 1);
+    let inside = island(&mut fixture, 20, 0.0);
+    let outside = island(&mut fixture, 30, 2.0);
+    fixture
+        .way(10, &[a, b, c, d, a], &[])
+        .way(11, &inside, &[])
+        .way(12, &outside, &[])
+        .multipolygon(
+            50,
+            &[("outer", 10), ("inner", 11), ("inner", 12)],
+            &[("type", "multipolygon"), ("natural", "water")],
+        )
+        .row(100, 2)
+        .way(40, &[100, 101], &[("highway", "residential")]);
+    let map = fixture.build();
+    assert_eq!(map.areas.kind, vec![AreaKind::Water, AreaKind::Water]);
+    assert_eq!(map.areas.hole, vec![false, true]);
+    assert_eq!(map.area_ring(1).0.len(), 4);
 }

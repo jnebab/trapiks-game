@@ -24,6 +24,7 @@ export interface DeltaColumns {
   junctionNode: Uint32Array;
   junctionLayer: Int8Array;
   junctionMinLayer: Int8Array;
+  junctionFilletLayer: Int8Array;
   junctionRingStart: Uint32Array;
   junctionX: Float32Array;
   junctionY: Float32Array;
@@ -70,6 +71,7 @@ export const deltaShape: Record<keyof DeltaColumns, ArrayCtor> = {
   junctionNode: Uint32Array,
   junctionLayer: Int8Array,
   junctionMinLayer: Int8Array,
+  junctionFilletLayer: Int8Array,
   junctionRingStart: Uint32Array,
   junctionX: Float32Array,
   junctionY: Float32Array,

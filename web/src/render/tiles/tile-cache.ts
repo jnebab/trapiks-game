@@ -1,3 +1,4 @@
+import type { Graphics } from 'pixi.js';
 import type { TileGraphics, TilePiece } from './tile-builder';
 
 export const TILE_CACHE_CAPACITY = 256;
@@ -6,12 +7,16 @@ function setVisible(tile: TileGraphics, visible: boolean): void {
   for (const piece of tile.pieces) {
     piece.graphics.visible = visible;
   }
+  if (tile.buildings !== undefined) {
+    tile.buildings.visible = visible;
+  }
 }
 
 function destroyTile(tile: TileGraphics): void {
   for (const piece of tile.pieces) {
     piece.graphics.destroy();
   }
+  tile.buildings?.destroy();
 }
 
 export class TileCache {
@@ -43,6 +48,16 @@ export class TileCache {
     }
     tile.pieces.push(...pieces);
     tile.markings = true;
+    setVisible(tile, this.shown.has(key));
+  }
+
+  addBuildings(key: string, buildings: Graphics): void {
+    const tile = this.tiles.get(key);
+    if (tile === undefined) {
+      buildings.destroy();
+      return;
+    }
+    tile.buildings = buildings;
     setVisible(tile, this.shown.has(key));
   }
 

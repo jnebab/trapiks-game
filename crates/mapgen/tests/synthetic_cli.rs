@@ -25,5 +25,6 @@ fn synthetic_cli() {
         panic!("decode failed");
     };
     assert_eq!(map.road_count(), 224);
-    assert_eq!(map.areas.kind.len(), 2);
+    assert_eq!(map.areas.kind.len(), 4);
+    assert_eq!(map.areas.hole, vec![false, false, false, true]);
 }

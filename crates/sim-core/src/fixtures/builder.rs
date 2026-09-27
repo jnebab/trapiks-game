@@ -50,7 +50,7 @@ impl<'a> RoadSpec<'a> {
     }
 }
 
-type Ring = (AreaKind, Vec<(f32, f32)>);
+type Ring = (AreaKind, bool, Vec<(f32, f32)>);
 
 pub struct MapBuilder {
     map: MapData,
@@ -128,16 +128,24 @@ impl MapBuilder {
     }
 
     pub fn area(&mut self, kind: AreaKind, points: &[(f32, f32)]) {
-        self.rings.push((kind, points.to_vec()));
+        self.rings.push((kind, false, points.to_vec()));
+    }
+
+    pub fn hole(&mut self, points: &[(f32, f32)]) {
+        let Some(&(kind, _, _)) = self.rings.last() else {
+            return;
+        };
+        self.rings.push((kind, true, points.to_vec()));
     }
 
     pub fn build(mut self) -> MapData {
         self.map.turn_bans.sort_unstable();
         self.map.turn_bans.dedup();
-        self.rings.sort_by_key(|(kind, _)| *kind == AreaKind::Park);
+        self.rings
+            .sort_by_key(|(kind, _, _)| *kind == AreaKind::Park);
         self.map.areas.ring_start.push(0);
-        for (kind, points) in &self.rings {
-            push_ring(&mut self.map, *kind, points);
+        for (kind, hole, points) in &self.rings {
+            push_ring(&mut self.map, (*kind, *hole), points);
         }
         self.map
     }
@@ -175,9 +183,10 @@ impl MapBuilder {
     }
 }
 
-fn push_ring(map: &mut MapData, kind: AreaKind, points: &[(f32, f32)]) {
+fn push_ring(map: &mut MapData, (kind, hole): (AreaKind, bool), points: &[(f32, f32)]) {
     let areas = &mut map.areas;
     areas.kind.push(kind);
+    areas.hole.push(hole);
     for (x, y) in points {
         areas.x.push(*x);
         areas.y.push(*y);

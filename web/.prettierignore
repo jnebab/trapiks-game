@@ -1,4 +1,5 @@
 dist
+dist-base
 src/generated
 src/wasm
 pnpm-lock.yaml

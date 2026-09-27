@@ -26,10 +26,17 @@ export function drawAreas(
   const g = new Graphics();
   for (let ring = 0; ring < areas.kindCode.length; ring += 1) {
     const kind = kindNames[areas.kindCode[ring] ?? 0];
-    if (kind === undefined) {
+    if (kind === undefined || areas.hole[ring] === 1) {
       continue;
     }
     g.poly(ringPoints(areas, ring), true).fill(areaColors[kind]);
+    cutHoles(g, areas, ring + 1);
   }
   container.addChild(g);
+}
+
+function cutHoles(g: Graphics, areas: AreaArrays, first: number): void {
+  for (let ring = first; areas.hole[ring] === 1; ring += 1) {
+    g.poly(ringPoints(areas, ring), true).cut();
+  }
 }

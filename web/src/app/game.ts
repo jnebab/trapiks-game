@@ -6,14 +6,14 @@ import { createSpeedControl } from '../hud/speed-control';
 import type { SimConfig } from '../generated/SimConfig';
 import { startSim, type SimClient } from '../sim/client';
 import { createAttribution } from './attribution';
-import { DEFAULT_VPH, demandFromQuery } from './demand-query';
+import { DEFAULT_VPH, demandFromQuery, regionFromQuery } from './demand-query';
 import { gameHandlers } from './game-handlers';
 import { browserSaves } from './saves';
 import type { GameState, Shell } from './shell';
 
 function initialConfig(): SimConfig {
   const vehicles = demandFromQuery(window.location.search) ?? DEFAULT_VPH;
-  return { seed: 1, mode: 'City', vehicles_per_hour: vehicles };
+  return { seed: 1, mode: regionFromQuery(window.location.search), vehicles_per_hour: vehicles };
 }
 
 function initialState(): GameState {

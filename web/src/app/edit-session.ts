@@ -7,7 +7,7 @@ import { SelectionLayer } from '../render/selection';
 import type { SignalPillLayer } from '../render/signal-pills';
 import { EditController, type EditContext } from '../edit/edit-controller';
 import { InspectSelection } from '../edit/inspect-selection';
-import { Picking } from '../edit/picking';
+import type { Picking } from '../edit/picking';
 import type { MapMeta } from '../generated/MapMeta';
 import { createInspectorPanel } from '../hud/inspector/panel';
 import { createTooltip } from '../hud/inspector/tooltip';
@@ -96,7 +96,7 @@ export function startEditing(
   lifetime: Lifetime,
 ): EditSession {
   const { view, client, pills, camera } = targets;
-  const picking = new Picking(view.roads, view.nodes, view.detail);
+  const picking = view.picking;
   const selection = new SelectionLayer(view.layers.selection, view.roads);
   lifetime.onTick(scene.app.ticker, () => {
     selection.setScale(camera.camera.scale);

@@ -111,6 +111,11 @@ impl AreaGeometry {
         self.0.kind.clone()
     }
 
+    #[wasm_bindgen(getter)]
+    pub fn hole(&self) -> Vec<u8> {
+        self.0.hole.clone()
+    }
+
     #[wasm_bindgen(getter, js_name = ringStart)]
     pub fn ring_start(&self) -> Vec<u32> {
         self.0.ring_start.clone()

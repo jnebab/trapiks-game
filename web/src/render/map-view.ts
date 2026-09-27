@@ -5,6 +5,7 @@ import { drawAreas } from './areas';
 import { fitBounds, type Camera } from './camera';
 import { cameraFromQuery } from './camera-query';
 import { DetailStore } from './detail-store';
+import { Picking } from '../edit/picking';
 import { createLayers, type Layers } from './layers';
 import { NodeStore } from './node-store';
 import { RoadStore } from './road-store';
@@ -19,6 +20,7 @@ export interface MapView {
   roads: RoadStore;
   nodes: NodeStore;
   detail: DetailStore;
+  picking: Picking;
 }
 
 export function fitCamera(scene: DebugApp, ready: ReadyMessage): Camera {
@@ -40,6 +42,9 @@ export function createMapView(scene: DebugApp, ready: ReadyMessage): MapView {
   const roads = RoadStore.fromArrays(ready.roads);
   const nodes = NodeStore.fromArrays(ready.nodes);
   const detail = DetailStore.fromArrays(ready.roadSetbacks, ready.junctions, ready.markers);
-  const tiles = new TileManager(roads, ready.meta, layers, { detail, nodes });
-  return { root, layers, tiles, roads, nodes, detail };
+  const picking = new Picking(roads, nodes, detail);
+  const pickRoad = (x: number, y: number, tolerance: number): number | undefined =>
+    picking.pickRoad(x, y, tolerance);
+  const tiles = new TileManager(roads, ready.meta, layers, { detail, nodes, pickRoad });
+  return { root, layers, tiles, roads, nodes, detail, picking };
 }

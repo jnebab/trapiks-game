@@ -49,6 +49,15 @@ impl LinkCosts {
         self.inverse_heuristic_speed = 1.0 / self.heuristic_speed;
     }
 
+    pub fn refresh_links(&mut self, network: &Network, links: &[LinkId]) {
+        for &link in links {
+            if (link as usize) < self.free_speed.len() {
+                self.refresh_link(network, link);
+            }
+        }
+        self.inverse_heuristic_speed = 1.0 / self.heuristic_speed;
+    }
+
     fn shrink(&mut self, links: usize) {
         self.free_speed.truncate(links);
         self.ema_speed.truncate(links);

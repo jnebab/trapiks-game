@@ -1,7 +1,7 @@
 use super::{MapData, MapError, validate};
 use crate::fnv::fnv1a64;
 
-pub const MAP_FORMAT_VERSION: u32 = 3;
+pub const MAP_FORMAT_VERSION: u32 = 4;
 
 pub const MAP_MAGIC: [u8; 4] = *b"TRPK";
 
