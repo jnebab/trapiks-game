@@ -32,6 +32,12 @@ impl Projection {
         (x, y)
     }
 
+    pub fn unproject(&self, x: f64, y: f64) -> (f64, f64) {
+        let lat = self.lat0 - (y / EARTH_RADIUS_M).to_degrees();
+        let lon = self.lon0 + (x / (EARTH_RADIUS_M * self.cos_lat0)).to_degrees();
+        (lat, lon)
+    }
+
     pub fn origin(&self) -> GeoOrigin {
         GeoOrigin {
             lat: self.lat0,

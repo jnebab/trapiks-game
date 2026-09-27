@@ -22,7 +22,7 @@ query() {
   local s w n e
   read -r s w n e <<<"$(tile_bbox "$1" "$2")"
   cat <<QUERY
-[out:json][timeout:900][maxsize:1073741824][bbox:${s},${w},${n},${e}];
+[out:json][timeout:300][maxsize:268435456][bbox:${s},${w},${n},${e}];
 area["ISO3166-2"="PH-00"]->.ncr;
 (
   way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|road|service)(_link)?$"](area.ncr);
