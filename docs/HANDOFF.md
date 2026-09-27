@@ -4,31 +4,30 @@ This is the state of Trapiks for the next session, and how to pick it up.
 
 ## Resume in one message
 
-Start a new session on branch `claude/brave-pasteur-hlfvly` in the environment whose network access is set to all domains. Paste:
+Start a new session on branch `claude/trapiks-m16-m17-vu6jwe`. Paste:
 
 ```
-Continue Trapiks on branch claude/brave-pasteur-hlfvly. Read docs/HANDOFF.md first,
-then CLAUDE.md, docs/plan.md and docs/milestones/M16.md. Do M16, then M17.
+Continue Trapiks on branch claude/trapiks-m16-m17-vu6jwe. Read docs/HANDOFF.md first,
+then CLAUDE.md, docs/plan.md and docs/perf.md. Propose the next milestone.
 ```
-
-**First check:** `curl -sS -o /dev/null -w "%{http_code}" https://overpass-api.de/api/status` must print 200. A 403 means the network setting has not reached the session.
 
 ## Where things stand
 
 | Area | State |
 |---|---|
-| M0–M15c | Done, reviewed, committed and pushed (last code commit `1625319`) |
-| M16, the real Metro Manila map | Spec ready in `docs/milestones/M16.md`, not started. It was blocked by the network policy (overpass-api.de answered 403) |
-| M17, city performance on the real map | Planned in `docs/plan.md` §6. No spec yet; write it after M16 with real-map numbers |
-| `scripts/check.sh` | Passes on `1625319`: fmt, clippy, all Rust tests, wasm build, native = wasm hash check, typecheck, lint, format, vitest, comments, 18 Playwright specs |
-| Default map | `synthetic` (`web/src/main.ts`, `DEFAULT_MAP`). M16 switches it to `metro-manila` |
+| M0–M17 | Done, reviewed, committed and pushed to `claude/trapiks-m16-m17-vu6jwe` |
+| Map | The real Metro Manila map is committed at `web/public/maps/metro-manila.bin.gz` (138,807 roads, 5.46 MB) and is the default map. `?map=synthetic` loads the test city |
+| Challenges | Seven real chokepoints with 600–700 m regions. Only C-5–Kalayaan and Taft–Buendia have a known 1-star fix; see the M16 Outcome for the scoring gap |
+| Performance | Native city step 10.4 ms and wasm 18 ms at 20k vehicles. Open items are listed in `docs/perf.md` |
+| Deploy | GitHub Pages workflow (`.github/workflows/pages.yml`); Cloudflare Pages and Vercel in `docs/deploy.md` |
+| `scripts/check.sh` | Passes, including 4 real-map Playwright specs (22 e2e in total) |
 
-The game is fully playable on the synthetic 30×30 city:
-- **Screens:** title, challenge list, and three synthetic challenges with baseline, Evaluate and stars.
-- **Sandbox:** demand slider, stats and the traffic layer on `T`.
-- **Saves:** kept in localStorage, with Continue.
-- **Edits:** delete road, lanes, direction, speed, junction control, signal timing, turn bans, flyovers, roundabouts and new connector roads, all with undo.
-- **Look:** Trafficity-style rendering with shadows, signal pills, markings, buildings, and jeepneys and buses.
+**Candidate next milestones:**
+1. **Challenge scoring:** score per completed trip, or per vehicle spawned in the window, then re-tune so each challenge has a 1-star fix.
+2. **Patch-based rebuilds for appending edits:** roundabouts and new roads take 270–320 ms on the real map.
+3. **Faster routing:** mean A* is about 1 ms against 0.5 ms. Options are bidirectional search, contraction or hub labels.
+
+**Refetching OSM.** `scripts/fetch-osm.sh` retries each of its 8 tiles up to 60 times and resumes from finished tiles, because overpass-api.de rejects most requests from the cloud egress. The environment must allow `overpass-api.de`.
 
 ## How the work is run
 
@@ -49,42 +48,16 @@ The game is fully playable on the synthetic 30×30 city:
   - The user asked to be consulted on important decisions.
 - **The Trafficity reference screenshots are not in the repo** (plan §4: local only). The old scratchpad copies do not carry over to a new session. Ask the user to upload them again if a visual review needs them.
 
-## M16 notes
+## Decisions made during the build
 
-- `scripts/fetch-osm.sh` queries `https://overpass-api.de/api/interpreter` in four quadrants into `data/osm/q{1..4}.json`, which is gitignored.
-- `scripts/build-map.sh` writes `web/public/maps/metro-manila.bin.gz`. Commit it with the ODbL `LICENSE` beside it.
-- The map format is v4: v3 added the roundabout road flag, and v4 added area holes.
-- The seven Metro Manila challenges are in `web/public/challenges/metro-manila.json`.
-  - Their coordinates are unverified.
-  - Their budgets are 8,000–12,000 pesos.
-  - M16 checks each centre against the real junction and tunes `vehicles_per_hour`.
-- Money is shown in Philippine pesos everywhere (`web/src/hud/money.ts`).
-
-## Known gaps and decisions
-
-**Performance** (full numbers in `docs/perf.md`):
-
-| Measure | Now | Target | Status |
-|---|---|---|---|
-| City step, native (synthetic 120×120, ~23.8k vehicles) | 19.7 ms median | 12 ms | missed |
-| City step, wasm | 37 ms | 25 ms | missed |
-| Mean A* | 1.0 ms | 0.5 ms | missed |
-| Region step | 1.2 ms | 2 ms | met |
-| Deleting the busiest road | 45 ms max | 50 ms | met |
-
-- Proposed M17 fixes, from the splits in `docs/perf.md`:
-  - share each vehicle's leader and gap across the acceleration, decision and lane-change passes
-  - a lane-change evaluation window
-  - better A* bounds or route caching
-  - patch-based rebuilds for edits that append roads
-- The user chose to measure and optimize on the real map, as M17.
-
-**Decisions made during the build:**
-- **Weighted A\*:** `ROUTE_HEURISTIC_WEIGHT = 2.0`. Routes are about 7 % longer than optimal on average in congestion.
+- **Weighted A\*:** `ROUTE_HEURISTIC_WEIGHT = 2.0`, with a closed set since M17. Routes are about 10 % longer than optimal in congestion.
+- **Demand reachability (M16):** origins must reach the largest SCC, and destinations must be reachable from it. After an edit, the update runs in the next step.
+- **Centre check (M16):** a challenge centre passes when the degree ≥ 3 junctions within 150 m together carry the named roads.
 - **Ring entries** need room for two vehicles on the ring lane, which keeps small roundabouts from gridlocking.
-- **Challenge budgets** were roughly doubled so a flyover (about ₱3,500) plus a few smaller fixes fit.
+- **Challenge budgets** are ₱8,000–12,000, so a flyover (about ₱3,500) plus a few smaller fixes fit. Money is shown in pesos (`web/src/hud/money.ts`).
+- **Map format v4:** v3 added the roundabout road flag, and v4 added area holes.
 
-**Synthetic baselines after M14:**
+**Synthetic baselines:**
 
 | Challenge | Mean delay |
 |---|---|
@@ -92,7 +65,7 @@ The game is fully playable on the synthetic 30×30 city:
 | Riverside | 221.4 s |
 | Skyway Exit | 379.8 s (saturated, by design) |
 
-**Headless Chromium** renders in software (1–15 FPS). Real frame rates need a GPU and have not been measured.
+**Headless Chromium** renders in software. Real frame rates need a GPU and have not been measured.
 
 ## Map of the code
 
@@ -106,3 +79,6 @@ The game is fully playable on the synthetic 30×30 city:
 | `web/src/render/` | tiles, layers, markings, shadows, buildings, vehicles, traffic layer |
 | `web/src/edit/`, `web/src/hud/` | picking, tools, inspector, toolbar, chips |
 | `examples/bench` | `cargo run --release -p trapiks-sim-core --example bench -- <map> [--region x,y,r] [--vph N] [--warmup N] [--ticks N] [--delete-road-at T] [--roundabout-at T] [--add-road-at T]` |
+| `examples/challenge_check` | `cargo run --release -p trapiks-sim-core --example challenge_check -- <map> [challenges.json] [--only ID] [--vph N] [--radius M] [--sites-only] [--no-probes] [--fix OUT]`: centre check, baseline, and probe fixes, alone and in pairs |
+| `examples/route_diag` | `cargo run --release -p trapiks-sim-core --example route_diag -- <map> --vph N --warmup N`: A* variants against Dijkstra |
+| `tests/real_map.rs` | `TRAPIKS_REAL_MAP=1 cargo test --release -p trapiks-sim-core --test real_map -- --ignored --nocapture` |
