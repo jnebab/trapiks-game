@@ -3,12 +3,13 @@ pub struct Args {
     pub challenges: String,
     pub only: Option<String>,
     pub vph: Option<f64>,
+    pub radius: Option<f64>,
     pub fix: Option<String>,
     pub sites_only: bool,
     pub probes: bool,
 }
 
-const USAGE: &str = "usage: challenge_check <map.bin.gz> [challenges.json] [--only <id>] [--vph <n>] [--fix <out.json>] [--sites-only] [--no-probes]";
+const USAGE: &str = "usage: challenge_check <map.bin.gz> [challenges.json] [--only <id>] [--vph <n>] [--radius <m>] [--fix <out.json>] [--sites-only] [--no-probes]";
 const DEFAULT_CHALLENGES: &str = "web/public/challenges/metro-manila.json";
 
 pub fn parse(raw: impl Iterator<Item = String>) -> Result<Args, String> {
@@ -18,6 +19,7 @@ pub fn parse(raw: impl Iterator<Item = String>) -> Result<Args, String> {
         challenges: DEFAULT_CHALLENGES.to_string(),
         only: None,
         vph: None,
+        radius: None,
         fix: None,
         sites_only: false,
         probes: true,
@@ -26,9 +28,10 @@ pub fn parse(raw: impl Iterator<Item = String>) -> Result<Args, String> {
     while let Some(arg) = raw.next() {
         match arg.as_str() {
             "--only" => args.only = Some(value(&mut raw)?),
-            "--vph" => args.vph = Some(value(&mut raw)?.parse().map_err(|_| USAGE.to_string())?),
+            "--vph" => args.vph = Some(number(&mut raw)?),
             "--sites-only" => args.sites_only = true,
             "--no-probes" => args.probes = false,
+            "--radius" => args.radius = Some(number(&mut raw)?),
             "--fix" => args.fix = Some(value(&mut raw)?),
             _ => positional.push(arg),
         }
@@ -39,6 +42,10 @@ pub fn parse(raw: impl Iterator<Item = String>) -> Result<Args, String> {
 
 fn value(raw: &mut impl Iterator<Item = String>) -> Result<String, String> {
     raw.next().ok_or_else(|| USAGE.to_string())
+}
+
+fn number(raw: &mut impl Iterator<Item = String>) -> Result<f64, String> {
+    value(raw)?.parse().map_err(|_| USAGE.to_string())
 }
 
 fn apply_positional(args: &mut Args, positional: Vec<String>) -> Result<(), String> {

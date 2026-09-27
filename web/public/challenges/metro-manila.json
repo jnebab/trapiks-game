@@ -9,9 +9,9 @@
         "lon": 121.058356
       }
     },
-    "radius_m": 1500,
+    "radius_m": 600,
     "seed": 101,
-    "vehicles_per_hour": 7000,
+    "vehicles_per_hour": 3500,
     "budget": 12000,
     "target_improvement": 0.25,
     "star_steps": [0.1, 0.2],
@@ -27,9 +27,9 @@
         "lon": 121.017407
       }
     },
-    "radius_m": 1500,
+    "radius_m": 600,
     "seed": 102,
-    "vehicles_per_hour": 9000,
+    "vehicles_per_hour": 3500,
     "budget": 12000,
     "target_improvement": 0.25,
     "star_steps": [0.1, 0.2],
@@ -45,9 +45,9 @@
         "lon": 121.0006
       }
     },
-    "radius_m": 1500,
+    "radius_m": 600,
     "seed": 103,
-    "vehicles_per_hour": 7000,
+    "vehicles_per_hour": 3500,
     "budget": 12000,
     "target_improvement": 0.25,
     "star_steps": [0.1, 0.2],
@@ -63,9 +63,9 @@
         "lon": 121.0381
       }
     },
-    "radius_m": 1200,
+    "radius_m": 600,
     "seed": 104,
-    "vehicles_per_hour": 7000,
+    "vehicles_per_hour": 2500,
     "budget": 10000,
     "target_improvement": 0.25,
     "star_steps": [0.1, 0.2],
@@ -81,9 +81,9 @@
         "lon": 121.063053
       }
     },
-    "radius_m": 1200,
+    "radius_m": 700,
     "seed": 105,
-    "vehicles_per_hour": 7000,
+    "vehicles_per_hour": 5000,
     "budget": 10000,
     "target_improvement": 0.25,
     "star_steps": [0.1, 0.2],
@@ -99,9 +99,9 @@
         "lon": 120.993
       }
     },
-    "radius_m": 1000,
+    "radius_m": 600,
     "seed": 106,
-    "vehicles_per_hour": 9000,
+    "vehicles_per_hour": 3500,
     "budget": 8000,
     "target_improvement": 0.25,
     "star_steps": [0.1, 0.2],
@@ -117,9 +117,9 @@
         "lon": 120.9973
       }
     },
-    "radius_m": 1000,
+    "radius_m": 600,
     "seed": 107,
-    "vehicles_per_hour": 7000,
+    "vehicles_per_hour": 2000,
     "budget": 8000,
     "target_improvement": 0.25,
     "star_steps": [0.1, 0.2],

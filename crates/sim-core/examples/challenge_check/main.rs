@@ -2,6 +2,7 @@ mod args;
 mod baseline;
 mod expected;
 mod probe;
+mod search;
 mod site;
 mod variants;
 
@@ -9,7 +10,7 @@ use std::error::Error;
 use std::io::Read;
 
 use flate2::read::GzDecoder;
-use trapiks_sim_core::challenge::{Center, Challenge, Score};
+use trapiks_sim_core::challenge::{Center, Challenge};
 use trapiks_sim_core::geom::Vec2;
 use trapiks_sim_core::map::{MapData, from_bytes};
 use trapiks_sim_core::network::Network;
@@ -18,6 +19,7 @@ use args::Args;
 use baseline::{print_result, run_baseline};
 use expected::{SEARCH_RADIUS_M, expected_names, names_match};
 use probe::Context;
+use search::run_probes;
 use site::{CLUSTER_RADIUS_M, Locator, Site};
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -48,6 +50,9 @@ fn override_demand(args: &Args, challenge: &mut Challenge) {
     if let Some(vph) = args.vph {
         challenge.vehicles_per_hour = vph;
     }
+    if let Some(radius) = args.radius {
+        challenge.radius_m = radius;
+    }
 }
 
 struct Located {
@@ -61,8 +66,12 @@ fn check_challenge(
     args: &Args,
 ) -> Result<(), Box<dyn Error>> {
     println!(
-        "challenge {} ({}) vph={} budget={}",
-        challenge.id, challenge.name, challenge.vehicles_per_hour, challenge.budget
+        "challenge {} ({}) radius={} vph={} budget={}",
+        challenge.id,
+        challenge.name,
+        challenge.radius_m,
+        challenge.vehicles_per_hour,
+        challenge.budget
     );
     let located = locate(locator, challenge)?;
     if args.fix.is_some()
@@ -151,23 +160,7 @@ fn run_checks(
         challenge,
         node,
     };
-    let mut best: Option<(String, Score)> = None;
-    for probe in context.probes(&baseline.samples) {
-        let Some(scored) = context.evaluate(&probe, &baseline.result) else {
-            continue;
-        };
-        if best.as_ref().is_none_or(|(_, b)| better(&scored, b)) {
-            best = Some((probe.label, scored));
-        }
-    }
-    if let Some((label, scored)) = best {
-        println!(
-            "  best probe: {label}: improvement {:.1} % stars {} cost {}",
-            scored.improvement * 100.0,
-            scored.stars,
-            scored.cost
-        );
-    }
+    run_probes(&context, &baseline.samples, &baseline.result);
     Ok(())
 }
 
@@ -178,8 +171,4 @@ fn write_fixed(args: &Args, challenges: &[Challenge]) -> Result<(), Box<dyn Erro
     std::fs::write(path, serde_json::to_string_pretty(challenges)? + "\n")?;
     println!("wrote {path}");
     Ok(())
-}
-
-fn better(candidate: &Score, best: &Score) -> bool {
-    (candidate.stars, candidate.improvement) > (best.stars, best.improvement)
 }
