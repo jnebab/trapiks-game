@@ -1,6 +1,6 @@
 use crate::consts::{EMA_REFRESH_TICKS, ROUTE_HEURISTIC_WEIGHT};
 use crate::network::{Changes, LinkId};
-use crate::routing::{RouteContext, RouteGraph, RouteStats};
+use crate::routing::{Landmarks, LinkCosts, RouteContext, RouteGraph, RouteStats};
 use crate::vehicle::{Place, SpawnError};
 
 use super::Sim;
@@ -38,6 +38,18 @@ impl Sim {
 
     pub fn landmark_count(&self) -> usize {
         self.landmarks.count()
+    }
+
+    pub fn landmarks(&self) -> &Landmarks {
+        &self.landmarks
+    }
+
+    pub fn route_graph(&self) -> &RouteGraph {
+        &self.graph
+    }
+
+    pub fn link_costs(&self) -> &LinkCosts {
+        &self.costs
     }
 
     pub fn stranded(&self) -> u64 {

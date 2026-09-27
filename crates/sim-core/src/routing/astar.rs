@@ -31,12 +31,14 @@ struct Slot {
     g: f64,
     parent: u32,
     stamp: u32,
+    closed: bool,
 }
 
 const EMPTY_SLOT: Slot = Slot {
     g: f64::INFINITY,
     parent: NO_PARENT,
     stamp: 0,
+    closed: false,
 };
 
 #[derive(Default)]
@@ -96,7 +98,7 @@ impl Router {
         let target = ctx.target(to);
         self.open(from, 0.0, NO_PARENT, ctx.estimate(from, &target));
         while let Some(top) = self.heap.pop() {
-            if top.g > self.slots[top.link as usize].g {
+            if !self.close(top) {
                 continue;
             }
             self.stats.expanded += 1;
@@ -128,9 +130,18 @@ impl Router {
         }
     }
 
+    fn close(&mut self, top: HeapItem) -> bool {
+        let slot = &mut self.slots[top.link as usize];
+        if slot.closed || top.g > slot.g {
+            return false;
+        }
+        slot.closed = true;
+        true
+    }
+
     fn improves(&self, link: LinkId, g: f64) -> bool {
         let slot = &self.slots[link as usize];
-        slot.stamp != self.epoch || g < slot.g
+        slot.stamp != self.epoch || (!slot.closed && g < slot.g)
     }
 
     fn open(&mut self, link: LinkId, g: f64, parent: u32, h: f64) {
@@ -138,6 +149,7 @@ impl Router {
             g,
             parent,
             stamp: self.epoch,
+            closed: false,
         };
         self.heap.push(HeapItem {
             f: quantise(g + h),

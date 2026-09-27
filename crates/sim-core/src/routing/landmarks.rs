@@ -56,6 +56,10 @@ impl Landmarks {
         self.links.len()
     }
 
+    pub fn links(&self) -> &[LinkId] {
+        &self.links
+    }
+
     pub fn target(&self, network: &Network, link: LinkId) -> Target {
         match self.rows.get(link as usize) {
             Some(row) => Target::with_landmarks(network, link, row),
