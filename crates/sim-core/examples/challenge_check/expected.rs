@@ -1,3 +1,4 @@
+pub const SEARCH_RADIUS_M: f64 = 600.0;
 const EDSA: &[&str] = &["edsa", "epifanio de los santos"];
 
 pub fn expected_names(id: &str) -> &'static [&'static [&'static str]] {
@@ -11,7 +12,7 @@ pub fn expected_names(id: &str) -> &'static [&'static [&'static str]] {
             &["kalayaan"],
         ],
         "espana-lacson" => &[&["españa", "espana"], &["lacson"]],
-        "taft-buendia" => &[&["taft"], &["buendia", "gil puyat"]],
+        "taft-buendia" => &[&["taft"], &["buendia", "puyat"]],
         _ => &[],
     }
 }

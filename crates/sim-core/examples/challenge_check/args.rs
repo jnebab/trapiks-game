@@ -4,9 +4,11 @@ pub struct Args {
     pub only: Option<String>,
     pub vph: Option<f64>,
     pub fix: Option<String>,
+    pub sites_only: bool,
+    pub probes: bool,
 }
 
-const USAGE: &str = "usage: challenge_check <map.bin.gz> [challenges.json] [--only <id>] [--vph <n>] [--fix <out.json>]";
+const USAGE: &str = "usage: challenge_check <map.bin.gz> [challenges.json] [--only <id>] [--vph <n>] [--fix <out.json>] [--sites-only] [--no-probes]";
 const DEFAULT_CHALLENGES: &str = "web/public/challenges/metro-manila.json";
 
 pub fn parse(raw: impl Iterator<Item = String>) -> Result<Args, String> {
@@ -17,12 +19,16 @@ pub fn parse(raw: impl Iterator<Item = String>) -> Result<Args, String> {
         only: None,
         vph: None,
         fix: None,
+        sites_only: false,
+        probes: true,
     };
     let mut raw = raw.peekable();
     while let Some(arg) = raw.next() {
         match arg.as_str() {
             "--only" => args.only = Some(value(&mut raw)?),
             "--vph" => args.vph = Some(value(&mut raw)?.parse().map_err(|_| USAGE.to_string())?),
+            "--sites-only" => args.sites_only = true,
+            "--no-probes" => args.probes = false,
             "--fix" => args.fix = Some(value(&mut raw)?),
             _ => positional.push(arg),
         }

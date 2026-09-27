@@ -9,11 +9,13 @@ const SHOTS = process.env.REAL_MAP_SHOTS;
 const OUT_DIR = 'test-results';
 const debug = '#debug';
 const CORNER = { x: 20, y: 600 } as const;
-const ORTIGAS = { lat: 14.5869, lon: 121.0567 } as const;
-const SKYWAY_RAMP = { lat: 14.535, lon: 121.02 } as const;
+const ORTIGAS = { lat: 14.591701, lon: 121.058356 } as const;
+const SKYWAY_RAMP = { lat: 14.527608, lon: 121.02392 } as const;
 const STREET_ZOOM = 6;
-const RAMP_ZOOM = 3;
+const RAMP_ZOOM = 2.5;
 const TRAFFIC_VPH = 20_000;
+const MIN_TRAFFIC = 40;
+const WARM_TICKS = 1_500;
 
 test.skip(!HAS_MAP, 'web/public/maps/metro-manila.bin.gz is not built yet');
 
@@ -51,10 +53,13 @@ async function waitForTiles(page: Page): Promise<void> {
     .toBe(true);
 }
 
-async function waitForVehicles(page: Page): Promise<void> {
+async function warmTraffic(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Max', exact: true }).click();
   await expect
-    .poll(async () => numberAttr(page, 'data-vehicles'), { timeout: 60_000 })
-    .toBeGreaterThan(0);
+    .poll(async () => numberAttr(page, 'data-tick'), { timeout: 100_000, intervals: [2_000] })
+    .toBeGreaterThanOrEqual(WARM_TICKS);
+  await page.getByRole('button', { name: '1×', exact: true }).click();
+  expect(await numberAttr(page, 'data-vehicles')).toBeGreaterThan(MIN_TRAFFIC);
 }
 
 async function shot(page: Page, name: string, outputPath: (name: string) => string) {
@@ -92,7 +97,7 @@ test('title, EDSA–Ortigas baseline and street zoom', async ({ page }, testInfo
   await expect(page.locator('.attribution').first()).toContainText('OpenStreetMap');
   await measureBaseline(page);
   await waitForTiles(page);
-  await waitForVehicles(page);
+  await warmTraffic(page);
   await shot(page, 'real-edsa-ortigas-street.png', out);
 });
 
@@ -108,6 +113,6 @@ test('skyway ramp near Magallanes', async ({ page }, testInfo) => {
   const query = cameraQuery(located(SKYWAY_RAMP), RAMP_ZOOM);
   await page.goto(`/?map=metro-manila&vph=${String(TRAFFIC_VPH)}&${query}#/sandbox`);
   await waitForTiles(page);
-  await waitForVehicles(page);
+  await warmTraffic(page);
   await shot(page, 'real-skyway-ramp.png', (name) => testInfo.outputPath(name));
 });

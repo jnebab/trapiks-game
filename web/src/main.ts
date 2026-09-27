@@ -3,7 +3,7 @@ import '@fontsource/lexend/500.css';
 import '@fontsource/lexend/700.css';
 import { runGame } from './app/game';
 
-const DEFAULT_MAP = 'synthetic';
+const DEFAULT_MAP = 'metro-manila';
 const MAP_NAME = /^[a-z0-9-]+$/;
 
 function mapName(): string {

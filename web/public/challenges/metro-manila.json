@@ -5,8 +5,8 @@
     "blurb": "The EDSA–Ortigas interchange jams every rush hour.",
     "center": {
       "LatLon": {
-        "lat": 14.5869,
-        "lon": 121.0567
+        "lat": 14.591701,
+        "lon": 121.058356
       }
     },
     "radius_m": 1500,
@@ -23,8 +23,8 @@
     "blurb": "EDSA, SLEX and the Skyway knot together at Magallanes.",
     "center": {
       "LatLon": {
-        "lat": 14.5389,
-        "lon": 121.0192
+        "lat": 14.539433,
+        "lon": 121.017407
       }
     },
     "radius_m": 1500,
@@ -65,7 +65,7 @@
     },
     "radius_m": 1200,
     "seed": 104,
-    "vehicles_per_hour": 12000,
+    "vehicles_per_hour": 5000,
     "budget": 10000,
     "target_improvement": 0.25,
     "star_steps": [0.1, 0.2],
@@ -77,13 +77,13 @@
     "blurb": "C-5 meets Kalayaan at a crowded flyover.",
     "center": {
       "LatLon": {
-        "lat": 14.5617,
-        "lon": 121.062
+        "lat": 14.557285,
+        "lon": 121.063053
       }
     },
     "radius_m": 1200,
     "seed": 105,
-    "vehicles_per_hour": 12000,
+    "vehicles_per_hour": 8000,
     "budget": 10000,
     "target_improvement": 0.25,
     "star_steps": [0.1, 0.2],
