@@ -20,6 +20,16 @@ export interface TopBarOptions {
   extras: HTMLElement[];
 }
 
+function helpChip(ctx: GameContext): HTMLButtonElement {
+  const help = button('?', 'chip help-chip', () => {
+    ctx.navigate({ name: 'guide' });
+  });
+  help.id = 'help';
+  help.title = 'How to play';
+  help.setAttribute('aria-label', 'How to play');
+  return help;
+}
+
 export function createTopBar(ctx: GameContext, options: TopBarOptions): TopBar {
   const element = el('div', 'top-bar');
   const back = button('← Back', 'chip', () => {
@@ -28,7 +38,7 @@ export function createTopBar(ctx: GameContext, options: TopBarOptions): TopBar {
   back.id = 'back';
   const slot = el('div', 'chip-group');
   const title = el('div', 'chip screen-title', options.title);
-  element.append(back, title, slot, ...options.extras, ctx.speed);
+  element.append(back, title, slot, ...options.extras, helpChip(ctx), ctx.speed);
   return { element, slot };
 }
 

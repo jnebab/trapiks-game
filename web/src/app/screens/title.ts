@@ -11,6 +11,14 @@ function routeOf(mode: SaveMode): Route {
   return mode === 'sandbox' ? { name: 'sandbox' } : { name: 'challenge', id: challengeIdOf(mode) };
 }
 
+function guideButton(ctx: GameContext): HTMLButtonElement {
+  const guide = button('How to play', 'chip title-button', () => {
+    ctx.navigate({ name: 'guide' });
+  });
+  guide.id = 'how-to-play';
+  return guide;
+}
+
 function menu(ctx: GameContext): HTMLElement {
   const buttons = el('div', 'title-buttons');
   buttons.append(
@@ -20,6 +28,7 @@ function menu(ctx: GameContext): HTMLElement {
     button('Sandbox', 'chip title-button', () => {
       ctx.navigate({ name: 'sandbox' });
     }),
+    guideButton(ctx),
   );
   const latest = ctx.saves.latest(ctx.mapHash);
   if (latest !== undefined) {

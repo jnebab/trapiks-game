@@ -3,6 +3,7 @@ import { el } from '../../hud/dom';
 import type { EvaluationMessage } from '../../sim/protocol';
 import { challengeMode } from '../challenge-list';
 import type { GameContext, Screen } from '../screen';
+import { createFirstHint } from './first-hint';
 import { createObjective, progressText, type Objective } from './objective';
 import { button, createTopBar, screenRoot } from './parts';
 import { createResultModal } from './result';
@@ -60,6 +61,10 @@ function buildParts(ctx: GameContext, challenge: Challenge, reset: () => void): 
   progress.id = 'evaluating';
   progress.hidden = true;
   element.append(bar.element, bottom, progress);
+  const hint = createFirstHint();
+  if (hint !== undefined) {
+    element.appendChild(hint);
+  }
   return { element, slot: bar.slot, objective, evaluate, progress };
 }
 

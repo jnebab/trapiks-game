@@ -2,7 +2,8 @@ export type Route =
   | { name: 'title' }
   | { name: 'challenges' }
   | { name: 'challenge'; id: string }
-  | { name: 'sandbox' };
+  | { name: 'sandbox' }
+  | { name: 'guide' };
 
 const CHALLENGE_PREFIX = '#/challenge/';
 const CHALLENGE_ID = /^[a-z0-9-]+$/;
@@ -22,6 +23,9 @@ export function parseRoute(hash: string): Route {
   if (hash === '#/sandbox') {
     return { name: 'sandbox' };
   }
+  if (hash === '#/guide') {
+    return { name: 'guide' };
+  }
   return challengeRoute(hash) ?? { name: 'title' };
 }
 
@@ -33,6 +37,8 @@ export function routeHash(route: Route): string {
       return '#/challenges';
     case 'sandbox':
       return '#/sandbox';
+    case 'guide':
+      return '#/guide';
     case 'challenge':
       return `${CHALLENGE_PREFIX}${encodeURIComponent(route.id)}`;
   }

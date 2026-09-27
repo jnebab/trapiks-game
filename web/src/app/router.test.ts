@@ -8,6 +8,7 @@ describe('parseRoute', () => {
     expect(parseRoute('#/challenges')).toEqual({ name: 'challenges' });
     expect(parseRoute('#/challenge/downtown')).toEqual({ name: 'challenge', id: 'downtown' });
     expect(parseRoute('#/sandbox')).toEqual({ name: 'sandbox' });
+    expect(parseRoute('#/guide')).toEqual({ name: 'guide' });
   });
 
   it('sends unknown routes to the title', () => {
@@ -22,6 +23,7 @@ describe('parseRoute', () => {
       { name: 'challenges' },
       { name: 'challenge', id: 'skyway-exit' },
       { name: 'sandbox' },
+      { name: 'guide' },
     ] as const;
     for (const route of routes) {
       expect(parseRoute(routeHash(route))).toEqual(route);
