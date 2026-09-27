@@ -49,6 +49,7 @@ function watchView(deps: SceneDeps, view: MapView, traffic: TrafficLayer, life: 
     overlay.setMarkings(view.tiles.markingsBuilt, view.tiles.buildingsBuilt);
     overlay.setShadowPieces(view.tiles.shadowPieces);
     overlay.setTraffic(traffic.visible);
+    overlay.setLevelView(view.layers.levelView());
   });
 }
 
@@ -96,7 +97,11 @@ function editFor(deps: SceneDeps, view: MapView, pills: SignalPillLayer, ready: 
       return undefined;
     }
     const targets = { view, camera: deps.camera, client: deps.client, pills, meta: ready.meta };
-    return startEditing(deps.scene, deps.editHost, targets, life);
+    const edit = startEditing(deps.scene, deps.editHost, targets, life);
+    life.onTick(deps.scene.app.ticker, () => {
+      deps.overlay.setConnections(edit.connectionSummary());
+    });
+    return edit;
   };
 }
 

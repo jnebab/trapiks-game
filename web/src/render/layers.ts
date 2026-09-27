@@ -1,10 +1,9 @@
 import { Container } from 'pixi.js';
 import { layerIndex, MAX_LAYER, MIN_LAYER } from './layer-range';
+import { buildingsAlpha, levelStyle, type LevelView } from './level-view';
 import { createShadowContainer, type ShadowContainer } from './shadow-container';
 
 export type RoadPass = 'shadow' | 'outline' | 'fill' | 'markings';
-
-const TUNNEL_ALPHA = 0.4;
 
 export interface Layers {
   areas: Container;
@@ -16,9 +15,12 @@ export interface Layers {
   road: (layer: number, pass: RoadPass) => Container;
   showMarkings: (visible: boolean) => void;
   updateShadows: (visible: boolean, scale: number) => void;
+  setLevelView: (view: LevelView) => void;
+  levelView: () => LevelView;
 }
 
 interface RoadPair {
+  layer: number;
   shadow: ShadowContainer | undefined;
   outline: Container;
   fill: Container;
@@ -43,21 +45,32 @@ function addShadow(world: Container, layer: number): ShadowContainer | undefined
 
 function addRoadPair(world: Container, layer: number): RoadPair {
   const shadow = addShadow(world, layer);
-  const pair = {
+  return {
+    layer,
     shadow,
     outline: addChild(world),
     fill: addChild(world),
     markings: addChild(world),
     vehicles: addChild(world),
   };
-  if (layer < 0) {
-    pair.outline.alpha = TUNNEL_ALPHA;
-    pair.fill.alpha = TUNNEL_ALPHA;
-    pair.markings.alpha = TUNNEL_ALPHA;
-    pair.vehicles.alpha = TUNNEL_ALPHA;
+}
+
+interface ViewState {
+  view: LevelView;
+  markings: boolean;
+  shadows: boolean;
+}
+
+function applyView(pair: RoadPair, state: ViewState): void {
+  const style = levelStyle(state.view, pair.layer);
+  for (const container of [pair.outline, pair.fill, pair.markings, pair.vehicles]) {
+    container.alpha = style.alpha;
+    container.visible = style.visible;
   }
-  pair.markings.visible = false;
-  return pair;
+  pair.markings.visible = style.visible && state.markings;
+  if (pair.shadow !== undefined) {
+    pair.shadow.container.visible = style.shadow && state.shadows;
+  }
 }
 
 function passContainer(pair: RoadPair, pass: RoadPass): Container {
@@ -81,6 +94,37 @@ function addRoadLayers(world: Container, buildings: Container): RoadPair[] {
   return pairs;
 }
 
+type LevelControls = Pick<Layers, 'showMarkings' | 'updateShadows' | 'setLevelView' | 'levelView'>;
+
+function levelControls(pairs: readonly RoadPair[], buildings: Container): LevelControls {
+  const state: ViewState = { view: 'all', markings: false, shadows: false };
+  const applyAll = (): void => {
+    buildings.alpha = buildingsAlpha(state.view);
+    for (const pair of pairs) {
+      applyView(pair, state);
+    }
+  };
+  applyAll();
+  return {
+    showMarkings: (visible) => {
+      state.markings = visible;
+      applyAll();
+    },
+    updateShadows: (visible, scale) => {
+      state.shadows = visible;
+      for (const pair of pairs) {
+        pair.shadow?.update(visible, scale);
+      }
+      applyAll();
+    },
+    setLevelView: (view) => {
+      state.view = view;
+      applyAll();
+    },
+    levelView: () => state.view,
+  };
+}
+
 export function createLayers(world: Container): Layers {
   const areas = addChild(world);
   const buildings = new Container();
@@ -95,27 +139,14 @@ export function createLayers(world: Container): Layers {
     }
     return pair;
   };
-  const road = (layer: number, pass: RoadPass): Container => passContainer(pairAt(layer), pass);
-  const vehicles = (layer: number): Container => pairAt(layer).vehicles;
-  const showMarkings = (visible: boolean): void => {
-    for (const pair of pairs) {
-      pair.markings.visible = visible;
-    }
-  };
-  const updateShadows = (visible: boolean, scale: number): void => {
-    for (const pair of pairs) {
-      pair.shadow?.update(visible, scale);
-    }
-  };
   return {
     areas,
     buildings,
     traffic,
     selection,
-    vehicles,
     overlay,
-    road,
-    showMarkings,
-    updateShadows,
+    vehicles: (layer) => pairAt(layer).vehicles,
+    road: (layer, pass) => passContainer(pairAt(layer), pass),
+    ...levelControls(pairs, buildings),
   };
 }

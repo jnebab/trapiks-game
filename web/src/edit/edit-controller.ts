@@ -7,6 +7,8 @@ import { errorMessage } from '../hud/messages';
 import { showToast } from '../hud/toast';
 import { screenToWorld } from '../render/camera';
 import type { CameraState } from '../render/camera-input';
+import type { ConnectionHighlight } from '../render/connection-highlight';
+import { pickRank, type LevelView } from '../render/level-view';
 import type { RoadStore } from '../render/road-store';
 import type { SelectionLayer } from '../render/selection';
 import type { TileManager } from '../render/tiles/tile-manager';
@@ -26,6 +28,8 @@ export interface EditContext {
   tiles: TileManager;
   picking: Picking;
   selection: SelectionLayer;
+  connections: ConnectionHighlight;
+  levelView: () => LevelView;
   roads: RoadStore;
   inspect: InspectSelection;
   topBar: HTMLElement;
@@ -49,7 +53,7 @@ export class EditController {
       ctx.canvas,
       {
         onHover: (sx, sy) => {
-          ctx.selection.setHover(this.pick(sx, sy));
+          this.hover(this.pick(sx, sy));
         },
         onClick: (sx, sy) => {
           if (!this.locked && this.selectEnabled) {
@@ -57,7 +61,7 @@ export class EditController {
           }
         },
         onPress: () => {
-          ctx.selection.setHover(undefined);
+          this.hover(undefined);
         },
       },
       ctx.signal,
@@ -68,14 +72,14 @@ export class EditController {
   setSelectEnabled(enabled: boolean): void {
     this.selectEnabled = enabled;
     if (!enabled) {
-      this.ctx.selection.setHover(undefined);
+      this.hover(undefined);
       this.ctx.inspect.select(undefined);
     }
   }
 
   onResults(results: readonly CommandResult[], budget: BudgetState): void {
     const { selection, roads, inspect } = this.ctx;
-    selection.setHover(this.pick(this.pointer.x, this.pointer.y));
+    this.hover(this.pick(this.pointer.x, this.pointer.y));
     if (selection.selected !== undefined && roads.isDeleted(selection.selected)) {
       inspect.select(undefined);
     }
@@ -86,6 +90,15 @@ export class EditController {
         showToast(this.ctx.root, errorMessage(result.outcome.Err));
       }
     }
+  }
+
+  refreshHover(): void {
+    this.hover(this.pick(this.pointer.x, this.pointer.y));
+  }
+
+  private hover(road: number | undefined): void {
+    this.ctx.selection.setHover(road);
+    this.ctx.connections.setHover(road);
   }
 
   private canPick(sx: number): boolean {
@@ -99,7 +112,8 @@ export class EditController {
     const camera = this.ctx.state.camera;
     const [x, y] = screenToWorld(camera, sx, sy);
     const tolerance = Math.min(PICK_TOLERANCE_PX / camera.scale, MAX_TOLERANCE_M);
-    return this.ctx.picking.pickRoad(x, y, tolerance);
+    const view = this.ctx.levelView();
+    return this.ctx.picking.pickRoad(x, y, tolerance, (layer) => pickRank(view, layer));
   }
 
   private pickTarget(sx: number, sy: number): InspectTarget | undefined {

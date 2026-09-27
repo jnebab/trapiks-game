@@ -1,5 +1,6 @@
 import type { CommandResult } from '../generated/CommandResult';
 import type { InspectorPanel } from '../hud/inspector/panel';
+import type { ConnectionHighlight } from '../render/connection-highlight';
 import type { DetailStore } from '../render/detail-store';
 import type { NodeHighlight } from '../render/node-highlight';
 import type { SelectionLayer } from '../render/selection';
@@ -11,6 +12,7 @@ export interface InspectDeps {
   panel: InspectorPanel;
   roads: SelectionLayer;
   node: NodeHighlight;
+  connections: ConnectionHighlight;
   detail: DetailStore;
 }
 
@@ -35,6 +37,7 @@ export class InspectSelection {
     this.target = target;
     this.deps.roads.setSelected(target !== undefined && 'road' in target ? target.road : undefined);
     this.deps.node.set(target !== undefined && 'node' in target ? target.node : undefined);
+    this.deps.connections.setSelected(target);
     this.token += 1;
     if (target === undefined) {
       this.deps.panel.hide();

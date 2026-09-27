@@ -16,6 +16,8 @@ export interface DebugOverlay {
   countSignalUpdate: () => void;
   setTraffic: (visible: boolean) => void;
   setVehicleLayers: (summary: string) => void;
+  setLevelView: (view: string) => void;
+  setConnections: (summary: string) => void;
   recordSteps: (tick: number, stepMs: Float64Array) => void;
 }
 
@@ -58,6 +60,8 @@ type DepthSetters = Pick<
   | 'countSignalUpdate'
   | 'setTraffic'
   | 'setVehicleLayers'
+  | 'setLevelView'
+  | 'setConnections'
 >;
 
 function depthSetters(element: HTMLElement): DepthSetters {
@@ -78,6 +82,12 @@ function depthSetters(element: HTMLElement): DepthSetters {
     },
     setVehicleLayers: (summary) => {
       element.dataset.vehicleLayers = summary;
+    },
+    setLevelView: (view) => {
+      element.dataset.levelView = view;
+    },
+    setConnections: (summary) => {
+      element.dataset.connections = summary;
     },
     countSignalUpdate: () => {
       signalUpdates += 1;
@@ -111,6 +121,11 @@ function stepRecorder(element: HTMLElement): DebugOverlay['recordSteps'] {
   };
 }
 
+function debugVisible(search: string): boolean {
+  const params = new URLSearchParams(search);
+  return params.get('debug') === '1' || perfEnabled(search);
+}
+
 function markLoad(element: HTMLElement, key: 'readyMs' | 'firstTilesMs'): void {
   element.dataset[key] ??= performance.now().toFixed(0);
 }
@@ -118,6 +133,7 @@ function markLoad(element: HTMLElement, key: 'readyMs' | 'firstTilesMs'): void {
 export function createDebugOverlay(ticker: Ticker, mapName: string): DebugOverlay {
   const element = el('div', 'chip');
   element.id = 'debug';
+  element.classList.toggle('debug-hidden', !debugVisible(window.location.search));
   const state: OverlayState = { roads: 0, vehicles: 0, tick: 0, built: 0, visible: 0 };
   const render = (): void => {
     const fps = Math.round(ticker.FPS);

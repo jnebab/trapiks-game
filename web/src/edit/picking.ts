@@ -10,9 +10,13 @@ const CELL_SPAN = 1 << 16;
 
 interface Candidate {
   road: number;
-  layer: number;
+  rank: number;
   gap: number;
 }
+
+export type LayerRank = (layer: number) => number | undefined;
+
+const byLayer: LayerRank = (layer) => layer;
 
 function cellOf(value: number): number {
   return Math.floor(value / PICK_CELL);
@@ -36,8 +40,8 @@ function better(a: Candidate, b: Candidate | undefined): boolean {
   if (b === undefined) {
     return true;
   }
-  if (a.layer !== b.layer) {
-    return a.layer > b.layer;
+  if (a.rank !== b.rank) {
+    return a.rank > b.rank;
   }
   if (a.gap !== b.gap) {
     return a.gap < b.gap;
@@ -72,11 +76,11 @@ export class Picking {
     }
   }
 
-  pickRoad(x: number, y: number, tolerance: number): number | undefined {
+  pickRoad(x: number, y: number, tolerance: number, rank = byLayer): number | undefined {
     let best: Candidate | undefined;
     for (const [road, segment] of this.nearby(x, y, tolerance)) {
-      const candidate = this.candidate(road, segment, x, y);
-      if (candidate.gap <= tolerance && better(candidate, best)) {
+      const candidate = this.candidate(road, segment, { x, y }, rank);
+      if (candidate !== undefined && candidate.gap <= tolerance && better(candidate, best)) {
         best = candidate;
       }
     }
@@ -97,13 +101,22 @@ export class Picking {
     return best;
   }
 
-  private candidate(road: number, segment: number, x: number, y: number): Candidate {
+  private candidate(
+    road: number,
+    segment: number,
+    at: { x: number; y: number },
+    rank: LayerRank,
+  ): Candidate | undefined {
+    const layerRank = rank(this.roads.layer(road));
+    if (layerRank === undefined) {
+      return undefined;
+    }
     const [start] = this.roads.pointRange(road);
     const i = start + segment;
     const a = [this.roads.xs[i] ?? 0, this.roads.ys[i] ?? 0] as const;
     const b = [this.roads.xs[i + 1] ?? 0, this.roads.ys[i + 1] ?? 0] as const;
-    const gap = segmentDistance(x, y, a, b) - laneWidth(this.roads, road) / 2;
-    return { road, layer: this.roads.layer(road), gap };
+    const gap = segmentDistance(at.x, at.y, a, b) - laneWidth(this.roads, road) / 2;
+    return { road, rank: layerRank, gap };
   }
 
   private *nearby(x: number, y: number, radius: number): Generator<[number, number]> {

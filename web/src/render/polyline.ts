@@ -32,7 +32,7 @@ function segmentEnd(lengths: readonly number[], s: number): number {
   return found < 0 ? lengths.length - 1 : found;
 }
 
-function pointAt(points: readonly Point[], lengths: readonly number[], s: number): Point {
+export function pointAt(points: readonly Point[], lengths: readonly number[], s: number): Point {
   const i = segmentEnd(lengths, s);
   const a = points[i - 1];
   const b = points[i];

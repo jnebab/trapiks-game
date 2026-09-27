@@ -38,8 +38,8 @@ export class RoadStore {
   private toNodes = new Uint32Array(0);
   private starts = new Uint32Array(0);
   private lens = new Uint32Array(0);
-  private nodeLayers: Map<number, [number, number]> | undefined;
   private ringNodes: Set<number> | undefined;
+  private incident: Map<number, number[]> | undefined;
 
   static fromArrays(roads: RoadArrays): RoadStore {
     const store = new RoadStore();
@@ -116,10 +116,14 @@ export class RoadStore {
     return this.ringNodes.has(node);
   }
 
+  roadsAt(node: number): readonly number[] {
+    this.incident ??= this.collectIncident();
+    return this.incident.get(node) ?? [];
+  }
+
   isMixedNode(node: number): boolean {
-    this.nodeLayers ??= this.collectNodeLayers();
-    const [low, high] = this.nodeLayers.get(node) ?? [0, 0];
-    return low !== high;
+    const layers = this.roadsAt(node).map((road) => this.layer(road));
+    return layers.some((layer) => layer !== layers[0]);
   }
 
   truncate(count: number): void {
@@ -164,22 +168,22 @@ export class RoadStore {
 
   private forgetNodeTraits(): void {
     this.ringNodes = undefined;
-    this.nodeLayers = undefined;
+    this.incident = undefined;
   }
 
-  private collectNodeLayers(): Map<number, [number, number]> {
-    const layers = new Map<number, [number, number]>();
+  private collectIncident(): Map<number, number[]> {
+    const incident = new Map<number, number[]>();
     for (let road = 0; road < this.count; road += 1) {
       if (this.isDeleted(road)) {
         continue;
       }
-      const layer = this.layer(road);
-      for (const node of [this.from(road), this.to(road)]) {
-        const [low, high] = layers.get(node) ?? [layer, layer];
-        layers.set(node, [Math.min(low, layer), Math.max(high, layer)]);
+      for (const node of new Set([this.from(road), this.to(road)])) {
+        const list = incident.get(node) ?? [];
+        list.push(road);
+        incident.set(node, list);
       }
     }
-    return layers;
+    return incident;
   }
 
   private collectRingNodes(): Set<number> {
