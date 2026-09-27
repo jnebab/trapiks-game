@@ -22,10 +22,7 @@ pub fn print(load: &LoadStats, build: &BuildStats, map: &MapData, sizes: &WriteS
         let count = map.nodes.control.iter().filter(|&&c| c == kind).count();
         println!("controlled nodes ({kind:?}): {count}");
     }
-    for kind in [AreaKind::Water, AreaKind::Park] {
-        let count = map.areas.kind.iter().filter(|&&k| k == kind).count();
-        println!("area rings ({kind:?}): {count}");
-    }
+    print_shapes(map);
     println!("dropped multipolygon chains: {}", build.dropped_chains);
     println!(
         "dropped coastline pieces: {}",
@@ -33,4 +30,15 @@ pub fn print(load: &LoadStats, build: &BuildStats, map: &MapData, sizes: &WriteS
     );
     println!("raw bytes: {}", sizes.raw_bytes);
     println!("gzipped bytes: {}", sizes.gzipped_bytes);
+}
+
+fn print_shapes(map: &MapData) {
+    let roundabouts = map.roads.roundabout.iter().filter(|&&r| r).count();
+    println!("roundabout roads: {roundabouts}");
+    for kind in [AreaKind::Water, AreaKind::Park] {
+        let count = map.areas.kind.iter().filter(|&&k| k == kind).count();
+        println!("area rings ({kind:?}): {count}");
+    }
+    let holes = map.areas.hole.iter().filter(|&&h| h).count();
+    println!("area holes: {holes}");
 }

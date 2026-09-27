@@ -1,7 +1,7 @@
 use crate::config::{SimConfig, SimMode};
 use crate::consts::{CITY_TRIP_BAND, DT, REGION_TRIP_BAND, SPAWN_ROUTE_BUDGET};
 use crate::demand::{DemandTables, LinkQueues, RoutedTrip, Trip, TripClock, TripQueue, draw_trip};
-use crate::network::Network;
+use crate::network::{LinkId, Network};
 use crate::rng::Pcg32;
 use crate::routing::{LinkCosts, RouteGraph};
 use crate::vehicle::SpawnError;
@@ -14,6 +14,12 @@ pub(super) struct Demand {
     pub trips: TripQueue,
     pub queues: LinkQueues,
     pub band: (f64, f64),
+    pub stale: Option<StaleTables>,
+}
+
+pub(super) struct StaleTables {
+    pub links: Vec<LinkId>,
+    pub since_tick: u64,
 }
 
 impl Demand {
@@ -34,6 +40,7 @@ impl Demand {
             trips: TripQueue::default(),
             queues: LinkQueues::default(),
             band,
+            stale: None,
         }
     }
 }
@@ -61,9 +68,44 @@ impl Sim {
 
     pub(super) fn rebuild_demand_tables(&mut self) {
         self.demand.tables = DemandTables::build(&self.network, &self.graph, &self.costs);
+        self.demand.stale = None;
+    }
+
+    pub(super) fn mark_tables_stale(&mut self, links: &[LinkId]) {
+        let tick = self.tick;
+        let stale = self.demand.stale.get_or_insert_with(|| StaleTables {
+            links: Vec::new(),
+            since_tick: tick,
+        });
+        stale.links.extend_from_slice(links);
+        stale.since_tick = tick;
+    }
+
+    fn refresh_stale_tables(&mut self) {
+        let tick = self.tick;
+        if self
+            .demand
+            .stale
+            .as_ref()
+            .is_none_or(|s| s.since_tick >= tick)
+        {
+            return;
+        }
+        let Some(mut stale) = self.demand.stale.take() else {
+            return;
+        };
+        stale.links.sort_unstable();
+        stale.links.dedup();
+        stale
+            .links
+            .retain(|&link| (link as usize) < self.network.link_count());
+        self.demand
+            .tables
+            .update(&self.network, &self.graph, &self.costs, &stale.links);
     }
 
     pub(super) fn create_trips(&mut self) {
+        self.refresh_stale_tables();
         let time_s = self.tick as f64 * DT;
         while self.demand.clock.is_due(time_s) {
             self.create_trip();
@@ -101,7 +143,7 @@ impl Sim {
             self.stats.unserved += 1;
             return;
         }
-        let route = std::mem::take(&mut self.route_buf);
+        let route = self.route_buf.clone();
         self.demand.queues.push(RoutedTrip { trip, route });
     }
 

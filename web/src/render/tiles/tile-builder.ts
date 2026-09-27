@@ -32,7 +32,7 @@ interface StrokeGroup {
 const PASSES: readonly StrokePass[] = ['outline', 'fill'];
 
 function capOf(roads: RoadStore, road: number, street: StreetData | undefined): Cap {
-  return street !== undefined && isTrimmed(roads, road) ? 'butt' : 'round';
+  return street === undefined || isTrimmed(roads, road) ? 'butt' : 'round';
 }
 
 function groupRoads(
@@ -62,12 +62,13 @@ function drawRoads(
   groups: StrokeGroup[],
   detail: DetailStore | undefined,
 ): void {
+  const join = detail === undefined ? 'miter' : 'round';
   for (const { layer, pass, stroke, cap, roads: ids } of groups) {
     const g = pieces.get(layer, pass);
     for (const road of ids) {
       traceRoad(g, roads, road, detail);
     }
-    g.stroke({ width: stroke.width, color: stroke.color, join: 'round', cap });
+    g.stroke({ width: stroke.width, color: stroke.color, join, cap });
   }
 }
 

@@ -5,6 +5,8 @@ use std::time::Instant;
 
 use flate2::read::GzDecoder;
 use trapiks_sim_core::config::{SimConfig, SimMode};
+use trapiks_sim_core::consts::{CITY_TRIP_BAND, REGION_TRIP_BAND};
+use trapiks_sim_core::demand::draw_trip;
 use trapiks_sim_core::map::from_bytes;
 use trapiks_sim_core::rng::Pcg32;
 use trapiks_sim_core::routing::RouteStats;
@@ -52,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let run = measure(&mut sim, args.ticks, args.event);
     let routing = sim.route_stats();
     let state_hash = sim.state_hash();
-    let route_us = mean_route_us(&mut sim);
+    let route_us = mean_route_us(&mut sim, trip_band(args.mode));
     report(&sim, &run, delta(before, routing), route_us, args.ticks);
     println!("state_hash: {state_hash:#018x}");
     Ok(())
@@ -189,22 +191,27 @@ fn delta(before: RouteStats, after: RouteStats) -> RouteStats {
     }
 }
 
-fn mean_route_us(sim: &mut Sim) -> f64 {
+fn mean_route_us(sim: &mut Sim, band: (f64, f64)) -> f64 {
     let mut rng = Pcg32::new(7, 1);
     let mut total = 0.0;
+    let mut routed = 0;
     for _ in 0..ROUTE_SAMPLES {
-        let tables = sim.demand_tables();
-        let (Some(from), Some(to)) = (
-            tables.origins.sample(&mut rng),
-            tables.destinations.sample(&mut rng),
-        ) else {
-            return 0.0;
+        let Some(trip) = draw_trip(sim.demand_tables(), sim.network(), band, 0, &mut rng) else {
+            continue;
         };
         let started = Instant::now();
-        let _ = sim.route(from, to);
+        let _ = sim.route(trip.from, trip.to);
         total += started.elapsed().as_secs_f64() * 1e6;
+        routed += 1;
     }
-    total / ROUTE_SAMPLES as f64
+    total / f64::from(routed.max(1))
+}
+
+fn trip_band(mode: SimMode) -> (f64, f64) {
+    match mode {
+        SimMode::City => CITY_TRIP_BAND,
+        SimMode::Region { .. } => REGION_TRIP_BAND,
+    }
 }
 
 fn percentile(sorted: &[f64], fraction: f64) -> f64 {

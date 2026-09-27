@@ -1,5 +1,5 @@
 use crate::consts::{LEFT_TURN_PENALTY, UTURN_PENALTY};
-use crate::network::{LinkId, Network, TurnKind};
+use crate::network::{LinkId, Network, TurnKind, reverse};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Succ {
@@ -46,44 +46,36 @@ impl RouteGraph {
     }
 
     pub fn patch(&mut self, network: &Network, nodes: &[u32]) {
-        let changed = node_mask(network, nodes);
+        let n = self.link_count();
         let mut edges: Vec<Edge> = nodes
             .iter()
             .flat_map(|&node| node_edges(network, node))
             .collect();
         edges.sort_unstable_by_key(|&(from, to, _)| (from, to));
-        let (succ_start, succ) = splice(&self.succ_start, &self.succ, |link| {
-            changed[network.link_to(link) as usize].then(|| {
-                edges_matching(
-                    &edges,
-                    |e| e.0 == link,
-                    |e| Succ {
-                        to: e.1,
-                        penalty: e.2,
-                    },
-                )
-            })
-        });
+        let arriving = touching(network, nodes, n, |link| network.link_to(link));
+        let fresh_succ = replacements(
+            &arriving,
+            &edges,
+            |e| e.0,
+            |e| Succ {
+                to: e.1,
+                penalty: e.2,
+            },
+        );
         edges.sort_unstable_by_key(|&(from, to, _)| (to, from));
-        let (pred_start, pred) = splice(&self.pred_start, &self.pred, |link| {
-            changed[network.link_from(link) as usize].then(|| {
-                edges_matching(
-                    &edges,
-                    |e| e.1 == link,
-                    |e| Pred {
-                        from: e.0,
-                        penalty: e.2,
-                    },
-                )
-            })
-        });
-        *self = RouteGraph {
-            succ_start,
-            succ,
-            pred_start,
-            pred,
-            built_version: network.version(),
-        };
+        let departing = touching(network, nodes, n, |link| network.link_from(link));
+        let fresh_pred = replacements(
+            &departing,
+            &edges,
+            |e| e.1,
+            |e| Pred {
+                from: e.0,
+                penalty: e.2,
+            },
+        );
+        splice(&mut self.succ_start, &mut self.succ, &fresh_succ);
+        splice(&mut self.pred_start, &mut self.pred, &fresh_pred);
+        self.built_version = network.version();
     }
 
     pub fn built_version(&self) -> u64 {
@@ -124,40 +116,61 @@ fn collect_edges(network: &Network) -> Vec<Edge> {
         .collect()
 }
 
-fn node_mask(network: &Network, nodes: &[u32]) -> Vec<bool> {
-    let mut mask = vec![false; network.nodes.count()];
+fn touching(
+    network: &Network,
+    nodes: &[u32],
+    n: usize,
+    end_of: impl Fn(LinkId) -> u32,
+) -> Vec<LinkId> {
+    let mut links: Vec<LinkId> = Vec::new();
     for &node in nodes {
-        if let Some(flag) = mask.get_mut(node as usize) {
-            *flag = true;
+        let Some(roads) = network.nodes.roads.get(node as usize) else {
+            continue;
+        };
+        for &road in roads {
+            let link = network.departing_link(road, node);
+            links.extend(
+                [link, reverse(link)]
+                    .into_iter()
+                    .filter(|&l| end_of(l) == node),
+            );
         }
     }
-    mask
+    links.retain(|&link| (link as usize) < n);
+    links.sort_unstable();
+    links.dedup();
+    links
 }
 
-fn edges_matching<T>(
+fn replacements<T>(
+    links: &[LinkId],
     edges: &[Edge],
-    keep: impl Fn(&Edge) -> bool,
+    key: impl Fn(&Edge) -> LinkId,
     entry: impl Fn(&Edge) -> T,
-) -> Vec<T> {
-    edges.iter().filter(|e| keep(e)).map(entry).collect()
+) -> Vec<(LinkId, Vec<T>)> {
+    links
+        .iter()
+        .map(|&link| {
+            let first = edges.partition_point(|e| key(e) < link);
+            let last = edges.partition_point(|e| key(e) <= link);
+            (link, edges[first..last].iter().map(&entry).collect())
+        })
+        .collect()
 }
 
-fn splice<T: Copy>(
-    start: &[u32],
-    items: &[T],
-    replacement: impl Fn(LinkId) -> Option<Vec<T>>,
-) -> (Vec<u32>, Vec<T>) {
-    let mut out_start = Vec::with_capacity(start.len());
-    let mut out = Vec::with_capacity(items.len());
-    out_start.push(0);
-    for link in 0..start.len().saturating_sub(1) as LinkId {
-        match replacement(link) {
-            Some(fresh) => out.extend_from_slice(&fresh),
-            None => out.extend_from_slice(segment(start, items, link)),
+fn splice<T: Copy + PartialEq>(start: &mut [u32], items: &mut Vec<T>, fresh: &[(LinkId, Vec<T>)]) {
+    for (link, entries) in fresh.iter().rev() {
+        let link = *link as usize;
+        let (a, b) = (start[link] as usize, start[link + 1] as usize);
+        if items[a..b] == entries[..] {
+            continue;
         }
-        out_start.push(out.len() as u32);
+        items.splice(a..b, entries.iter().copied());
+        let shift = entries.len() as i64 - (b - a) as i64;
+        for s in &mut start[link + 1..] {
+            *s = (i64::from(*s) + shift) as u32;
+        }
     }
-    (out_start, out)
 }
 
 fn csr<T: Copy + Default>(

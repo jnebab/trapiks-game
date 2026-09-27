@@ -57,10 +57,10 @@ fn edsa_ortigas_projects_from_map_origin() {
     let (x, y) = edsa.center_xy(&map);
     let radius = 6_371_008.8_f64;
     let expected_x =
-        radius * (121.0567_f64 - 120.9842).to_radians() * 14.5995_f64.to_radians().cos();
-    let expected_y = -radius * (14.5869_f64 - 14.5995).to_radians();
+        radius * (121.058356_f64 - 120.9842).to_radians() * 14.5995_f64.to_radians().cos();
+    let expected_y = -radius * (14.591701_f64 - 14.5995).to_radians();
     assert!((x - expected_x).abs() < 1.0, "{x} vs {expected_x}");
     assert!((y - expected_y).abs() < 1.0, "{y} vs {expected_y}");
     let projection = Projection::from_origin(map.origin.clone());
-    assert_eq!(projection.project(14.5869, 121.0567), (x, y));
+    assert_eq!(projection.project(14.591701, 121.058356), (x, y));
 }

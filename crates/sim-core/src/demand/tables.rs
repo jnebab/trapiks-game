@@ -3,6 +3,8 @@ use crate::network::{LinkId, Network, road_of};
 use crate::rng::Pcg32;
 use crate::routing::{LinkCosts, RouteGraph};
 
+use super::reach::Reach;
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct WeightedLinks {
     pub links: Vec<LinkId>,
@@ -14,6 +16,7 @@ pub struct WeightedLinks {
 pub struct DemandTables {
     pub origins: WeightedLinks,
     pub destinations: WeightedLinks,
+    reach: Reach,
 }
 
 impl WeightedLinks {
@@ -67,9 +70,12 @@ impl WeightedLinks {
 
 impl DemandTables {
     pub fn build(network: &Network, graph: &RouteGraph, costs: &LinkCosts) -> DemandTables {
-        let mut tables = DemandTables::default();
+        let mut tables = DemandTables {
+            reach: Reach::build(network, graph),
+            ..DemandTables::default()
+        };
         for link in 0..network.link_count() as LinkId {
-            let (origin, destination) = link_weights(network, graph, costs, link);
+            let (origin, destination) = tables.weights(network, graph, costs, link);
             tables.origins.push(link, origin);
             tables.destinations.push(link, destination);
         }
@@ -83,13 +89,34 @@ impl DemandTables {
         costs: &LinkCosts,
         links: &[LinkId],
     ) {
-        for &link in links {
-            let (origin, destination) = link_weights(network, graph, costs, link);
+        let reach = self.reach.update(network, graph);
+        let mut touched = reach.changed_links(&self.reach);
+        self.reach = reach;
+        touched.extend_from_slice(links);
+        touched.sort_unstable();
+        touched.dedup();
+        for link in touched {
+            let (origin, destination) = self.weights(network, graph, costs, link);
             self.origins.set(link, origin);
             self.destinations.set(link, destination);
         }
         self.origins.accumulate();
         self.destinations.accumulate();
+    }
+
+    fn weights(
+        &self,
+        network: &Network,
+        graph: &RouteGraph,
+        costs: &LinkCosts,
+        link: LinkId,
+    ) -> (f64, f64) {
+        let (origin, destination) = link_weights(network, graph, costs, link);
+        let keep = |ok: bool, weight: f64| if ok { weight } else { 0.0 };
+        (
+            keep(self.reach.origin_ok(link), origin),
+            keep(self.reach.destination_ok(link), destination),
+        )
     }
 }
 
