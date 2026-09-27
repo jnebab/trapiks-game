@@ -1,14 +1,17 @@
-import { Container, Particle, ParticleContainer, type Texture } from 'pixi.js';
+import { Particle, ParticleContainer, type Container, type Texture } from 'pixi.js';
 import type { VehicleFrame } from '../sim/interpolation';
+import { layerIndex, MIN_LAYER } from './layer-range';
 import type { VehicleAtlas } from './vehicle-atlas';
 import { VEHICLE_KINDS, vehicleKindOf, vehicleTintOf } from './vehicle-style';
 
 const PX_TO_M = 0.1;
 const CAR_KIND = 0;
 
+export type LayerContainer = (layer: number) => Container;
+
 export interface VehicleLayer {
-  container: Container;
   draw: (frame: VehicleFrame) => void;
+  layerCounts: () => string;
 }
 
 interface Pool {
@@ -62,24 +65,57 @@ function hideUnused(pool: Pool): void {
   }
 }
 
-export function createVehicleLayer(atlas: VehicleAtlas): VehicleLayer {
-  const container = new Container();
-  const pools: Pool[] = atlas
+function createKindPools(atlas: VehicleAtlas, parent: Container): Pool[] {
+  const pools = atlas
     .slice(0, VEHICLE_KINDS)
     .map((texture, kind) => createPool(texture, kind === CAR_KIND));
-  pools.forEach((pool) => container.addChild(pool.container));
+  pools.forEach((pool) => parent.addChild(pool.container));
+  return pools;
+}
+
+function usedCount(pools: Pool[]): number {
+  return pools.reduce((sum, pool) => sum + pool.used, 0);
+}
+
+function summarize(byLayer: Map<number, Pool[]>): string {
+  return [...byLayer.keys()]
+    .sort((a, b) => a - b)
+    .map((index) => `${String(index + MIN_LAYER)}:${String(usedCount(byLayer.get(index) ?? []))}`)
+    .join(',');
+}
+
+export function createVehicleLayer(
+  atlas: VehicleAtlas,
+  containerFor: LayerContainer,
+): VehicleLayer {
+  const byLayer = new Map<number, Pool[]>();
+  const poolsFor = (layer: number): Pool[] => {
+    const index = layerIndex(layer);
+    const existing = byLayer.get(index);
+    if (existing !== undefined) {
+      return existing;
+    }
+    const created = createKindPools(atlas, containerFor(layer));
+    byLayer.set(index, created);
+    return created;
+  };
+  const forEachPool = (visit: (pool: Pool) => void): void => {
+    byLayer.forEach((pools) => {
+      pools.forEach(visit);
+    });
+  };
   const draw = (frame: VehicleFrame): void => {
-    pools.forEach((pool) => {
+    forEachPool((pool) => {
       pool.used = 0;
     });
     for (let i = 0; i < frame.count; i += 1) {
       const style = frame.style[i] ?? 0;
-      const pool = pools[vehicleKindOf(style)];
+      const pool = poolsFor(frame.layer[i] ?? 0)[vehicleKindOf(style)];
       if (pool !== undefined) {
         place(pool, frame, i, style);
       }
     }
-    pools.forEach(hideUnused);
+    forEachPool(hideUnused);
   };
-  return { container, draw };
+  return { draw, layerCounts: () => summarize(byLayer) };
 }

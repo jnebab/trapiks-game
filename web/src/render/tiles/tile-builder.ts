@@ -1,6 +1,6 @@
 import type { Graphics } from 'pixi.js';
 import type { JunctionRing } from '../detail-store';
-import { clampLayer } from '../layers';
+import { clampLayer } from '../layer-range';
 import type { RoadStore } from '../road-store';
 import { drawJunctions } from './junction-draw';
 import { PieceSet, type TilePiece } from './piece-set';

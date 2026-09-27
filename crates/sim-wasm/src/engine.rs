@@ -47,6 +47,7 @@ fn preallocated_snapshot() -> Snapshot {
         y: Vec::with_capacity(MAX_VEHICLES),
         heading: Vec::with_capacity(MAX_VEHICLES),
         style: Vec::with_capacity(MAX_VEHICLES),
+        layer: Vec::with_capacity(MAX_VEHICLES),
     }
 }
 

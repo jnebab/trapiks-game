@@ -10,6 +10,7 @@ function allocate(capacity: number): SnapshotBuffers {
     y: new Float32Array(capacity),
     heading: new Float32Array(capacity),
     style: new Uint8Array(capacity),
+    layer: new Int8Array(capacity),
   };
 }
 

@@ -11,6 +11,7 @@ export interface SnapshotBuffers {
   y: Float32Array<ArrayBuffer>;
   heading: Float32Array<ArrayBuffer>;
   style: Uint8Array<ArrayBuffer>;
+  layer: Int8Array<ArrayBuffer>;
 }
 
 export type ArrayCtor =
@@ -22,6 +23,7 @@ const bufferShape: Record<keyof SnapshotBuffers, ArrayCtor> = {
   y: Float32Array,
   heading: Float32Array,
   style: Uint8Array,
+  layer: Int8Array,
 };
 
 const statsNumbers: readonly (keyof StatsSnapshot)[] = [
@@ -53,7 +55,9 @@ export function isSnapshotBuffers(value: unknown): value is SnapshotBuffers {
 }
 
 export function snapshotTransfer(buffers: SnapshotBuffers): ArrayBuffer[] {
-  return [buffers.ids, buffers.x, buffers.y, buffers.heading, buffers.style].map((a) => a.buffer);
+  return [buffers.ids, buffers.x, buffers.y, buffers.heading, buffers.style, buffers.layer].map(
+    (a) => a.buffer,
+  );
 }
 
 export function isStatsSnapshot(value: unknown): value is StatsSnapshot {

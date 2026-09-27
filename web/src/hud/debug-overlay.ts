@@ -15,6 +15,7 @@ export interface DebugOverlay {
   setSignalPills: (count: number) => void;
   countSignalUpdate: () => void;
   setTraffic: (visible: boolean) => void;
+  setVehicleLayers: (summary: string) => void;
   recordSteps: (tick: number, stepMs: Float64Array) => void;
 }
 
@@ -51,7 +52,12 @@ function everyRefresh(ticker: Ticker, render: () => void): void {
 
 type DepthSetters = Pick<
   DebugOverlay,
-  'setMarkings' | 'setShadowPieces' | 'setSignalPills' | 'countSignalUpdate' | 'setTraffic'
+  | 'setMarkings'
+  | 'setShadowPieces'
+  | 'setSignalPills'
+  | 'countSignalUpdate'
+  | 'setTraffic'
+  | 'setVehicleLayers'
 >;
 
 function depthSetters(element: HTMLElement): DepthSetters {
@@ -69,6 +75,9 @@ function depthSetters(element: HTMLElement): DepthSetters {
     },
     setTraffic: (visible) => {
       element.dataset.traffic = visible ? '1' : '0';
+    },
+    setVehicleLayers: (summary) => {
+      element.dataset.vehicleLayers = summary;
     },
     countSignalUpdate: () => {
       signalUpdates += 1;

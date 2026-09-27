@@ -54,12 +54,12 @@ function watchView(deps: SceneDeps, view: MapView, traffic: TrafficLayer, life: 
 
 function showVehicles(deps: SceneDeps, view: MapView, life: Lifetime): SnapshotHistory {
   const history = new SnapshotHistory();
-  const layer = createVehicleLayer(deps.vehicleAtlas);
-  view.layers.vehicles.addChild(layer.container);
+  const layer = createVehicleLayer(deps.vehicleAtlas, view.layers.vehicles);
   const frame = createFrame();
   life.onTick(deps.scene.app.ticker, () => {
     history.sample(performance.now(), frame);
     layer.draw(frame);
+    deps.overlay.setVehicleLayers(layer.layerCounts());
   });
   return history;
 }

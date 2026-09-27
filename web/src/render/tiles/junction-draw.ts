@@ -1,6 +1,6 @@
 import type { Graphics } from 'pixi.js';
 import { FILLET_POINTS, type JunctionRing } from '../detail-store';
-import { clampLayer } from '../layers';
+import { clampLayer } from '../layer-range';
 import { palette } from '../palette';
 import { FILLET_EDGE } from '../style';
 import type { PieceSet } from './piece-set';

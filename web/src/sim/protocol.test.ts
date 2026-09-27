@@ -119,6 +119,7 @@ function buffers(): Record<string, unknown> {
     y: new Float32Array(4),
     heading: new Float32Array(4),
     style: new Uint8Array(4),
+    layer: new Int8Array(4),
   };
 }
 

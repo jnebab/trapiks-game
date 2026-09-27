@@ -1,4 +1,5 @@
 use crate::geom::Vec2;
+use crate::network::{LinkId, road_of};
 use crate::vehicle::lane_change::LC_ANIMATION_TICKS;
 use crate::vehicle::{Place, link_pose_blended, pose};
 
@@ -11,6 +12,7 @@ pub struct Snapshot {
     pub y: Vec<f32>,
     pub heading: Vec<f32>,
     pub style: Vec<u8>,
+    pub layer: Vec<i8>,
 }
 
 impl Snapshot {
@@ -20,6 +22,7 @@ impl Snapshot {
         self.y.clear();
         self.heading.clear();
         self.style.clear();
+        self.layer.clear();
     }
 }
 
@@ -35,7 +38,36 @@ impl Sim {
             out.heading.push(heading as f32);
             out.style
                 .push(self.vehicles.kind[index].code() * 16 + self.vehicles.color[index]);
+            out.layer.push(self.place_layer(self.vehicles.place[index]));
         }
+    }
+
+    fn place_layer(&self, place: Place) -> i8 {
+        match place {
+            Place::Link { link, .. } => self.link_layer(link),
+            Place::Movement { node, movement, .. } => self.movement_layer(node, movement),
+        }
+    }
+
+    fn movement_layer(&self, node: u32, movement: u16) -> i8 {
+        let Some(found) = self
+            .network
+            .junction(node)
+            .and_then(|junction| junction.movements.get(movement as usize))
+        else {
+            return 0;
+        };
+        self.link_layer(found.from_link)
+            .max(self.link_layer(found.to_link))
+    }
+
+    fn link_layer(&self, link: LinkId) -> i8 {
+        self.network
+            .roads
+            .layer
+            .get(road_of(link) as usize)
+            .copied()
+            .unwrap_or(0)
     }
 
     fn vehicle_pose(&self, slot: u32) -> (Vec2, f64) {

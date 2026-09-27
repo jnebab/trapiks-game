@@ -21,6 +21,7 @@ function snapshot(tick: number, cars: Car[]): SnapshotMessage {
       y: new Float32Array(cars.map((c) => c.x * 2)),
       heading: new Float32Array(cars.map((c) => c.heading ?? 0)),
       style: new Uint8Array(cars.map((c) => c.id % 9)),
+      layer: new Int8Array(cars.length),
     },
   };
 }

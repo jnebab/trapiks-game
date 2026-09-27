@@ -8,6 +8,7 @@ pub struct SnapshotPointers {
     y: u32,
     heading: u32,
     style: u32,
+    layer: u32,
     capacity: u32,
 }
 
@@ -19,6 +20,7 @@ impl SnapshotPointers {
             y: snapshot.y.as_ptr() as u32,
             heading: snapshot.heading.as_ptr() as u32,
             style: snapshot.style.as_ptr() as u32,
+            layer: snapshot.layer.as_ptr() as u32,
             capacity: snapshot.ids.capacity() as u32,
         }
     }
@@ -49,6 +51,11 @@ impl SnapshotPointers {
     #[wasm_bindgen(getter)]
     pub fn style(&self) -> u32 {
         self.style
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn layer(&self) -> u32 {
+        self.layer
     }
 
     #[wasm_bindgen(getter)]

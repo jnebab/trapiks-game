@@ -1,4 +1,6 @@
-use trapiks_sim_core::fixtures::corridor;
+use trapiks_sim_core::config::{SimConfig, SimMode};
+use trapiks_sim_core::consts::MAX_VEHICLES;
+use trapiks_sim_core::fixtures::{GridCity, corridor, grid_city};
 use trapiks_sim_core::sim::{Sim, Snapshot};
 
 #[test]
@@ -22,39 +24,47 @@ fn snapshot_follows_live_slot_order() {
     }
 }
 
-#[test]
-fn snapshot_buffers_never_reallocate() {
-    use trapiks_sim_core::config::{SimConfig, SimMode};
-    use trapiks_sim_core::consts::MAX_VEHICLES;
-    use trapiks_sim_core::fixtures::{GridCity, grid_city};
+fn grid_sim(cols: u32, seed: u64) -> Sim {
     let map = grid_city(&GridCity {
-        cols: 20,
-        rows: 20,
+        cols,
+        rows: cols,
         spacing: 150.0,
     });
     let config = SimConfig {
-        seed: 5,
+        seed,
         mode: SimMode::City,
         vehicles_per_hour: 8_000.0,
         budget: None,
     };
-    let mut sim = Sim::from_config(&map, &config);
-    let mut snapshot = Snapshot {
+    Sim::from_config(&map, &config)
+}
+
+fn preallocated() -> Snapshot {
+    Snapshot {
         ids: Vec::with_capacity(MAX_VEHICLES),
         x: Vec::with_capacity(MAX_VEHICLES),
         y: Vec::with_capacity(MAX_VEHICLES),
         heading: Vec::with_capacity(MAX_VEHICLES),
         style: Vec::with_capacity(MAX_VEHICLES),
-    };
-    let layout = |s: &Snapshot| {
-        [
-            (s.ids.as_ptr() as usize, s.ids.capacity()),
-            (s.x.as_ptr() as usize, s.x.capacity()),
-            (s.y.as_ptr() as usize, s.y.capacity()),
-            (s.heading.as_ptr() as usize, s.heading.capacity()),
-            (s.style.as_ptr() as usize, s.style.capacity()),
-        ]
-    };
+        layer: Vec::with_capacity(MAX_VEHICLES),
+    }
+}
+
+fn layout(s: &Snapshot) -> [(usize, usize); 6] {
+    [
+        (s.ids.as_ptr() as usize, s.ids.capacity()),
+        (s.x.as_ptr() as usize, s.x.capacity()),
+        (s.y.as_ptr() as usize, s.y.capacity()),
+        (s.heading.as_ptr() as usize, s.heading.capacity()),
+        (s.style.as_ptr() as usize, s.style.capacity()),
+        (s.layer.as_ptr() as usize, s.layer.capacity()),
+    ]
+}
+
+#[test]
+fn snapshot_buffers_never_reallocate() {
+    let mut sim = grid_sim(20, 5);
+    let mut snapshot = preallocated();
     let before = layout(&snapshot);
     let mut filled = 0;
     for _ in 0..1_000 {
@@ -64,4 +74,19 @@ fn snapshot_buffers_never_reallocate() {
     }
     assert!(filled > 0);
     assert_eq!(layout(&snapshot), before);
+}
+
+#[test]
+fn snapshot_reports_the_layer_under_each_vehicle() {
+    let mut sim = grid_sim(12, 3);
+    let mut snapshot = Snapshot::default();
+    let mut elevated = 0;
+    for _ in 0..1_500 {
+        sim.step();
+        sim.fill_snapshot(&mut snapshot);
+        assert_eq!(snapshot.layer.len(), snapshot.ids.len());
+        assert!(snapshot.layer.iter().all(|&layer| layer == 0 || layer == 1));
+        elevated += snapshot.layer.iter().filter(|&&layer| layer == 1).count();
+    }
+    assert!(elevated > 0);
 }

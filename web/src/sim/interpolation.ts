@@ -11,6 +11,7 @@ export interface VehicleFrame {
   y: Float32Array;
   heading: Float32Array;
   style: Uint8Array;
+  layer: Int8Array;
 }
 
 interface Received {
@@ -25,6 +26,7 @@ export function createFrame(): VehicleFrame {
     y: new Float32Array(0),
     heading: new Float32Array(0),
     style: new Uint8Array(0),
+    layer: new Int8Array(0),
   };
 }
 
@@ -38,6 +40,7 @@ function ensureCapacity(frame: VehicleFrame, count: number): void {
   frame.y = new Float32Array(capacity);
   frame.heading = new Float32Array(capacity);
   frame.style = new Uint8Array(capacity);
+  frame.layer = new Int8Array(capacity);
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -53,6 +56,7 @@ function copyCurrent(out: VehicleFrame, current: SnapshotBuffers, count: number)
   out.y.set(current.y.subarray(0, count));
   out.heading.set(current.heading.subarray(0, count));
   out.style.set(current.style.subarray(0, count));
+  out.layer.set(current.layer.subarray(0, count));
 }
 
 function blendVehicle(

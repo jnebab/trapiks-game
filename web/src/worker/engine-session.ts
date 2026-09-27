@@ -35,6 +35,7 @@ function snapshotLayout(engine: Engine): ConstructorParameters<typeof MemoryView
     y: p.y,
     heading: p.heading,
     style: p.style,
+    layer: p.layer,
     capacity: p.capacity,
   };
   p.free();
@@ -186,6 +187,7 @@ export class EngineSession {
     target.y.set(source.y.subarray(0, count));
     target.heading.set(source.heading.subarray(0, count));
     target.style.set(source.style.subarray(0, count));
+    target.layer.set(source.layer.subarray(0, count));
     const tick = this.engine.tick();
     const message: SnapshotMessage = {
       type: 'snapshot',

@@ -42,6 +42,32 @@ test('skyway over a crossing casts shadows', async ({ page }, testInfo) => {
   expect(errors).toEqual([]);
 });
 
+function layerCount(summary: string | null, layer: number): number {
+  const entry = (summary ?? '').split(',').find((part) => part.startsWith(`${String(layer)}:`));
+  return Number(entry?.split(':')[1] ?? 0);
+}
+
+test('ground vehicles draw in the layer below the skyway', async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
+  const errors = collectErrors(page);
+  await page.goto('/?map=synthetic&vph=6000&cx=2250&cy=2250&z=6#/sandbox');
+  await waitForTiles(page);
+  await page.keyboard.press('5');
+  await expect
+    .poll(
+      async () => {
+        const summary = await page.locator(debug).getAttribute('data-vehicle-layers');
+        return layerCount(summary, 0) > 0 && layerCount(summary, 1) > 0;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: testInfo.outputPath('depth-under-skyway.png') });
+  expect(errors).toEqual([]);
+});
+
 test('signal junction shows live pills', async ({ page }, testInfo) => {
   const errors = collectErrors(page);
   await page.goto('/?map=synthetic&vph=0&cx=750&cy=750&z=12#/sandbox');

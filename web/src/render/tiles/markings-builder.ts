@@ -1,4 +1,4 @@
-import { clampLayer } from '../layers';
+import { clampLayer } from '../layer-range';
 import type { RoadStore } from '../road-store';
 import { drawMarker } from './marker-draw';
 import { PieceSet, type TilePiece } from './piece-set';

@@ -6,6 +6,7 @@ export interface SnapshotLayout {
   y: number;
   heading: number;
   style: number;
+  layer: number;
   capacity: number;
 }
 
@@ -17,6 +18,7 @@ function buildViews(buffer: ArrayBuffer, layout: SnapshotLayout): SnapshotBuffer
     y: new Float32Array(buffer, layout.y, length),
     heading: new Float32Array(buffer, layout.heading, length),
     style: new Uint8Array(buffer, layout.style, length),
+    layer: new Int8Array(buffer, layout.layer, length),
   };
 }
 
