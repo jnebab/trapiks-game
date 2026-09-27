@@ -89,7 +89,7 @@ impl DemandTables {
         costs: &LinkCosts,
         links: &[LinkId],
     ) {
-        let reach = Reach::build(network, graph);
+        let reach = self.reach.update(network, graph);
         let mut touched = reach.changed_links(&self.reach);
         self.reach = reach;
         touched.extend_from_slice(links);

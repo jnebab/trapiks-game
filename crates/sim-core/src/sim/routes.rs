@@ -79,9 +79,7 @@ impl Sim {
         self.graph.patch(&self.network, &changes.nodes);
         self.costs.refresh_links(&self.network, &changes.links);
         if self.network.region().is_none() {
-            self.demand
-                .tables
-                .update(&self.network, &self.graph, &self.costs, &changes.links);
+            self.mark_tables_stale(&changes.links);
         }
     }
 
