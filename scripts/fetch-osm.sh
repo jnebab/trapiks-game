@@ -4,25 +4,23 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 readonly SOUTH=14.35
 readonly WEST=120.90
-readonly NORTH=14.79
-readonly EAST=121.14
-readonly MID_LAT=14.57
-readonly MID_LON=121.02
+readonly ROWS=4
+readonly COLS=2
+readonly LAT_STEP=0.11
+readonly LON_STEP=0.12
 readonly ENDPOINT=https://overpass-api.de/api/interpreter
+readonly USER_AGENT="trapiks-mapgen/0.1 (https://github.com/jnebab/trapiks-game)"
+readonly MAX_ATTEMPTS=60
+readonly RETRY_DELAY=10
 
-quadrant_bbox() {
-  case "$1" in
-    1) echo "$MID_LAT $WEST $NORTH $MID_LON" ;;
-    2) echo "$MID_LAT $MID_LON $NORTH $EAST" ;;
-    3) echo "$SOUTH $WEST $MID_LAT $MID_LON" ;;
-    4) echo "$SOUTH $MID_LON $MID_LAT $EAST" ;;
-    *) echo "unknown quadrant: $1" >&2; exit 2 ;;
-  esac
+tile_bbox() {
+  awk -v r="$1" -v c="$2" -v s="$SOUTH" -v w="$WEST" -v dl="$LAT_STEP" -v dw="$LON_STEP" \
+    'BEGIN { printf "%.2f %.2f %.2f %.2f\n", s + r * dl, w + c * dw, s + (r + 1) * dl, w + (c + 1) * dw }'
 }
 
 query() {
   local s w n e
-  read -r s w n e <<<"$(quadrant_bbox "$1")"
+  read -r s w n e <<<"$(tile_bbox "$1" "$2")"
   cat <<QUERY
 [out:json][timeout:900][maxsize:1073741824][bbox:${s},${w},${n},${e}];
 area["ISO3166-2"="PH-00"]->.ncr;
@@ -44,13 +42,32 @@ out body geom;
 QUERY
 }
 
+fetch_tile() {
+  local out="$3" attempt code
+  for ((attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)); do
+    code=$(query "$1" "$2" | curl -sS -A "$USER_AGENT" -o "$out.part" -w "%{http_code}" --data-binary @- "$ENDPOINT" || true)
+    if [[ "$code" == "200" ]]; then
+      mv "$out.part" "$out"
+      echo "$out: $(wc -c <"$out") bytes after $attempt attempts"
+      return 0
+    fi
+    sleep "$RETRY_DELAY"
+  done
+  rm -f "$out.part"
+  echo "$out: failed after $MAX_ATTEMPTS attempts" >&2
+  return 1
+}
+
 if [[ "${1:-}" == "--print-query" ]]; then
-  query "${2:?usage: fetch-osm.sh --print-query <1-4>}"
+  query "${2:?usage: fetch-osm.sh --print-query <row> <col>}" "${3:?usage: fetch-osm.sh --print-query <row> <col>}"
   exit 0
 fi
 
 mkdir -p data/osm
-for quadrant in 1 2 3 4; do
-  out="data/osm/q${quadrant}.json"
-  query "$quadrant" | curl --fail --retry 5 --retry-all-errors --retry-delay 30 -o "$out" --data-binary @- "$ENDPOINT"
+for ((row = 0; row < ROWS; row++)); do
+  for ((col = 0; col < COLS; col++)); do
+    out="data/osm/tile-${row}-${col}.json"
+    [[ -s "$out" ]] && continue
+    fetch_tile "$row" "$col" "$out"
+  done
 done
