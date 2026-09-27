@@ -12,9 +12,11 @@ export type StrokePass = Exclude<RoadPass, 'markings'>;
 export type RoadStyle = (roads: RoadStore, road: number, pass: StrokePass) => Stroke;
 
 const CITY_OUTLINE_FACTOR = 1.2;
+const CITY_OUTLINE_PX = 1.5;
 const MOTORWAY_RANK = 13;
 const TRUNK_RANK = 11;
 const CITY_WIDTHS = { motorway: 24, trunk: 18, other: 14 } as const;
+const CITY_MIN_PX = { motorway: 3, trunk: 2.5, other: 1.6 } as const;
 
 export function laneWidth(roads: RoadStore, road: number): number {
   return Math.max(roads.lanes(road), 1) * roadStyle.laneWidth;
@@ -35,18 +37,26 @@ export const detailStyle: RoadStyle = (roads, road, pass) => {
   return { width, color: palette.roadFill };
 };
 
-function cityWidth(rank: number): number {
+type CityTier = keyof typeof CITY_WIDTHS;
+
+function cityTier(rank: number): CityTier {
   if (rank >= MOTORWAY_RANK) {
-    return CITY_WIDTHS.motorway;
+    return 'motorway';
   }
-  return rank >= TRUNK_RANK ? CITY_WIDTHS.trunk : CITY_WIDTHS.other;
+  return rank >= TRUNK_RANK ? 'trunk' : 'other';
 }
 
-export function cityStyle(classRanks: readonly number[]): RoadStyle {
+function cityWidth(rank: number, minScale: number): number {
+  const tier = cityTier(rank);
+  return Math.max(CITY_WIDTHS[tier], CITY_MIN_PX[tier] / minScale);
+}
+
+export function cityStyle(classRanks: readonly number[], minScale: number): RoadStyle {
   return (roads, road, pass) => {
-    const width = cityWidth(classRanks[roads.classCode(road)] ?? 0);
+    const width = cityWidth(classRanks[roads.classCode(road)] ?? 0, minScale);
     if (pass === 'outline') {
-      return { width: width * CITY_OUTLINE_FACTOR, color: palette.roadOutline };
+      const outline = Math.max(width * CITY_OUTLINE_FACTOR, width + CITY_OUTLINE_PX / minScale);
+      return { width: outline, color: palette.roadOutline };
     }
     return { width, color: palette.roadFill };
   };

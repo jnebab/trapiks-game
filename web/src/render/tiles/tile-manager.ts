@@ -1,5 +1,5 @@
 import type { MapMeta } from '../../generated/MapMeta';
-import { screenToWorld, type Camera } from '../camera';
+import { MIN_SCALE, screenToWorld, type Camera } from '../camera';
 import type { Layers } from '../layers';
 import type { Rect } from '../rect';
 import type { RoadStore } from '../road-store';
@@ -25,6 +25,7 @@ import { visibleTiles } from './visible';
 export { cityInclude } from './band-state';
 
 export const CITY_MAX_SCALE = 0.35;
+const CITY_LEVEL_SCALES: readonly number[] = [MIN_SCALE, 0.06, 0.15];
 
 export interface TileSources extends StreetData {
   pickRoad: (x: number, y: number, tolerance: number) => number | undefined;
@@ -53,8 +54,9 @@ export class TileManager {
   buildingsBuilt = 0;
   shadowPieces = 0;
   activeBand: BandName = 'city';
+  private activeScale = MIN_SCALE;
   private visibleKeys: readonly string[] = [];
-  private readonly city: BandState;
+  private readonly cityLevels: BandState[];
   private readonly detail: BandState;
   private readonly buildings: BuildingTiles;
 
@@ -65,14 +67,16 @@ export class TileManager {
     street: TileSources,
   ) {
     const city = { name: 'city', size: CITY_TILE, include: cityInclude(roads, meta) } as const;
-    this.city = createBand(roads, city, cityStyle(meta.class_ranks));
+    this.cityLevels = CITY_LEVEL_SCALES.map((minScale) =>
+      createBand(roads, city, cityStyle(meta.class_ranks, minScale)),
+    );
     this.detail = createDetailBand(roads, street);
     const sources = { ...street, roads, classNames: meta.class_names };
     this.buildings = new BuildingTiles(sources, layers.buildings);
   }
 
   activeTiles(): ActiveTiles {
-    const band = this.activeBand === 'city' ? this.city : this.detail;
+    const band = this.activeBand === 'city' ? this.cityAt(this.activeScale) : this.detail;
     return {
       band: band.name,
       keys: this.visibleKeys,
@@ -82,13 +86,13 @@ export class TileManager {
   }
 
   truncate(counts: { roads: number; nodes: number }, markers: readonly number[]): void {
-    for (const band of [this.city, this.detail]) {
+    for (const band of this.bands()) {
       markDirty(band, truncateIndex(band.index, counts, markers));
     }
   }
 
   invalidate(change: NetworkChange): void {
-    for (const band of [this.city, this.detail]) {
+    for (const band of this.bands()) {
       markDirty(band, moveRoads(band.index, this.roads, change.roads));
       if (band.street !== undefined) {
         markDirty(band, moveStreet(band.index, band.street, change));
@@ -97,17 +101,26 @@ export class TileManager {
     markDirty(this.detail, this.buildings.near(this.detail.index, change.roads));
   }
 
+  private bands(): BandState[] {
+    return [...this.cityLevels, this.detail];
+  }
+
+  private cityAt(scale: number): BandState {
+    const level = CITY_LEVEL_SCALES.findLastIndex((minScale) => scale >= minScale);
+    return this.cityLevels[Math.max(level, 0)] ?? this.detail;
+  }
+
   update(camera: Camera, viewW: number, viewH: number): void {
     const cityActive = camera.scale < CITY_MAX_SCALE;
-    const active = cityActive ? this.city : this.detail;
-    const inactive = cityActive ? this.detail : this.city;
+    const active = cityActive ? this.cityAt(camera.scale) : this.detail;
+    this.activeScale = camera.scale;
     this.activeBand = active.name;
     const keys = visibleTiles(active.index.entries, viewRect(camera, viewW, viewH), VIEW_MARGIN);
     const built = this.buildPending(active, keys);
     active.cache.show(keys);
     const remaining = active.cache.pending(keys).length;
     if (remaining === 0) {
-      inactive.cache.show([]);
+      this.hideAllBut(active);
     }
     this.visibleKeys = keys;
     this.visibleCount = keys.length;
@@ -123,6 +136,14 @@ export class TileManager {
     ).length;
     this.layers.updateShadows(!cityActive, camera.scale);
     this.shadowPieces = countShadowPieces(active, keys);
+  }
+
+  private hideAllBut(active: BandState): void {
+    for (const band of this.bands()) {
+      if (band !== active) {
+        band.cache.show([]);
+      }
+    }
   }
 
   private updateMarkings(band: BandState, keys: readonly string[], street: boolean): void {

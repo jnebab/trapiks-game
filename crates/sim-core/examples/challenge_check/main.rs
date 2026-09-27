@@ -3,12 +3,13 @@ mod baseline;
 mod expected;
 mod probe;
 mod site;
+mod variants;
 
 use std::error::Error;
 use std::io::Read;
 
 use flate2::read::GzDecoder;
-use trapiks_sim_core::challenge::{Center, Challenge};
+use trapiks_sim_core::challenge::{Center, Challenge, Score};
 use trapiks_sim_core::geom::Vec2;
 use trapiks_sim_core::map::{MapData, from_bytes};
 use trapiks_sim_core::network::Network;
@@ -150,8 +151,22 @@ fn run_checks(
         challenge,
         node,
     };
-    for probe in context.probes(&baseline.movement_samples) {
-        context.evaluate(&probe, &baseline.result);
+    let mut best: Option<(String, Score)> = None;
+    for probe in context.probes(&baseline.samples) {
+        let Some(scored) = context.evaluate(&probe, &baseline.result) else {
+            continue;
+        };
+        if best.as_ref().is_none_or(|(_, b)| better(&scored, b)) {
+            best = Some((probe.label, scored));
+        }
+    }
+    if let Some((label, scored)) = best {
+        println!(
+            "  best probe: {label}: improvement {:.1} % stars {} cost {}",
+            scored.improvement * 100.0,
+            scored.stars,
+            scored.cost
+        );
     }
     Ok(())
 }
@@ -163,4 +178,8 @@ fn write_fixed(args: &Args, challenges: &[Challenge]) -> Result<(), Box<dyn Erro
     std::fs::write(path, serde_json::to_string_pretty(challenges)? + "\n")?;
     println!("wrote {path}");
     Ok(())
+}
+
+fn better(candidate: &Score, best: &Score) -> bool {
+    (candidate.stars, candidate.improvement) > (best.stars, best.improvement)
 }

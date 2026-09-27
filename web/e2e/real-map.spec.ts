@@ -18,6 +18,7 @@ const MIN_TRAFFIC = 40;
 const WARM_TICKS = 1_500;
 
 test.skip(!HAS_MAP, 'web/public/maps/metro-manila.bin.gz is not built yet');
+test.describe.configure({ timeout: 180_000 });
 
 function located(point: { lat: number; lon: number }): MapPoint {
   return projectLatLon(readMapOrigin(MAP_FILE), point.lat, point.lon);

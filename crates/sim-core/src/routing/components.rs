@@ -3,15 +3,78 @@ use crate::network::LinkId;
 use super::graph::RouteGraph;
 
 pub fn largest_component(graph: &RouteGraph, active: impl Fn(LinkId) -> bool) -> usize {
+    largest_component_members(graph, active)
+        .iter()
+        .filter(|&&member| member)
+        .count()
+}
+
+pub fn largest_component_members(graph: &RouteGraph, active: impl Fn(LinkId) -> bool) -> Vec<bool> {
     let order = finish_order(graph, &active);
     let mut assigned = vec![false; graph.link_count()];
-    let mut largest = 0;
+    let mut largest: Vec<LinkId> = Vec::new();
     for &link in order.iter().rev() {
-        if !assigned[link as usize] {
-            largest = largest.max(collect_backward(graph, &active, link, &mut assigned));
+        if assigned[link as usize] {
+            continue;
+        }
+        let component = collect_backward(graph, &active, link, &mut assigned);
+        if component.len() > largest.len() {
+            largest = component;
         }
     }
-    largest
+    let mut members = vec![false; graph.link_count()];
+    for link in largest {
+        members[link as usize] = true;
+    }
+    members
+}
+
+pub fn reaching(
+    graph: &RouteGraph,
+    targets: &[bool],
+    active: impl Fn(LinkId) -> bool,
+) -> Vec<bool> {
+    let mut seen = targets.to_vec();
+    let mut stack = seeds(targets);
+    while let Some(link) = stack.pop() {
+        for pred in graph.predecessors(link) {
+            visit(pred.from, &active, &mut seen, &mut stack);
+        }
+    }
+    seen
+}
+
+pub fn reachable_from(
+    graph: &RouteGraph,
+    sources: &[bool],
+    active: impl Fn(LinkId) -> bool,
+) -> Vec<bool> {
+    let mut seen = sources.to_vec();
+    let mut stack = seeds(sources);
+    while let Some(link) = stack.pop() {
+        for succ in graph.successors(link) {
+            visit(succ.to, &active, &mut seen, &mut stack);
+        }
+    }
+    seen
+}
+
+fn seeds(mask: &[bool]) -> Vec<LinkId> {
+    (0..mask.len() as LinkId)
+        .filter(|&link| mask[link as usize])
+        .collect()
+}
+
+fn visit(
+    link: LinkId,
+    active: &impl Fn(LinkId) -> bool,
+    seen: &mut [bool],
+    stack: &mut Vec<LinkId>,
+) {
+    if !seen[link as usize] && active(link) {
+        seen[link as usize] = true;
+        stack.push(link);
+    }
 }
 
 fn finish_order(graph: &RouteGraph, active: &impl Fn(LinkId) -> bool) -> Vec<LinkId> {
@@ -65,12 +128,12 @@ fn collect_backward(
     active: &impl Fn(LinkId) -> bool,
     start: LinkId,
     assigned: &mut [bool],
-) -> usize {
+) -> Vec<LinkId> {
     assigned[start as usize] = true;
     let mut stack = vec![start];
-    let mut size = 0;
+    let mut component = Vec::new();
     while let Some(link) = stack.pop() {
-        size += 1;
+        component.push(link);
         for pred in graph.predecessors(link) {
             let from = pred.from;
             if active(from) && !assigned[from as usize] {
@@ -79,5 +142,5 @@ fn collect_backward(
             }
         }
     }
-    size
+    component
 }

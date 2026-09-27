@@ -4,6 +4,7 @@ use std::time::Instant;
 use trapiks_sim_core::challenge::{Challenge, ChallengeRun, RunResult, RunState};
 use trapiks_sim_core::edit::EditError;
 use trapiks_sim_core::map::MapData;
+use trapiks_sim_core::network::LinkId;
 use trapiks_sim_core::sim::Sim;
 use trapiks_sim_core::vehicle::Place;
 
@@ -12,7 +13,13 @@ const SAMPLE_TICKS: u32 = 10;
 pub struct Baseline {
     pub result: RunResult,
     pub wall_s: f64,
-    pub movement_samples: BTreeMap<u16, u64>,
+    pub samples: Samples,
+}
+
+#[derive(Default)]
+pub struct Samples {
+    pub movements: BTreeMap<u16, u64>,
+    pub approaches: BTreeMap<LinkId, u64>,
 }
 
 pub fn run_baseline(
@@ -22,28 +29,30 @@ pub fn run_baseline(
 ) -> Result<Baseline, EditError> {
     let started = Instant::now();
     let mut run = ChallengeRun::new(map, challenge, &[])?;
-    let mut movement_samples = BTreeMap::new();
+    let mut samples = Samples::default();
     loop {
         if let RunState::Finished(result) = run.advance(SAMPLE_TICKS) {
             return Ok(Baseline {
                 result,
                 wall_s: started.elapsed().as_secs_f64(),
-                movement_samples,
+                samples,
             });
         }
-        sample(run.sim(), node, &mut movement_samples);
+        sample(run.sim(), node, &mut samples);
     }
 }
 
-fn sample(sim: &Sim, node: u32, samples: &mut BTreeMap<u16, u64>) {
+fn sample(sim: &Sim, node: u32, samples: &mut Samples) {
     let vehicles = sim.vehicles();
     for slot in vehicles.live_slots() {
-        if let Place::Movement {
-            node: at, movement, ..
-        } = vehicles.place[slot as usize]
-            && at == node
-        {
-            *samples.entry(movement).or_default() += 1;
+        match vehicles.place[slot as usize] {
+            Place::Movement {
+                node: at, movement, ..
+            } if at == node => *samples.movements.entry(movement).or_default() += 1,
+            Place::Link { link, .. } if sim.network().link_to(link) == node => {
+                *samples.approaches.entry(link).or_default() += 1;
+            }
+            _ => {}
         }
     }
 }
